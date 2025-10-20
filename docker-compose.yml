@@ -39,10 +39,18 @@ services:
       - /etc/localtime:/etc/localtime:ro
 
     command: [
-      "uv", 
-      "run", 
-      "--extra", "api", 
-      "webscout-server"
+      "gunicorn",
+      "--bind", "0.0.0.0:8000",
+      "--workers", "4",
+      "--worker-class", "uvicorn.workers.UvicornWorker",
+      "--log-level", "warning",
+      "--access-logfile", "/app/logs/access.log",
+      "--error-logfile", "/app/logs/error.log",
+      "--preload",
+      "--timeout", "120",
+      "--graceful-timeout", "30",
+      "--keep-alive", "5",
+      "webscout.server.server:create_app"
     ]
 
     healthcheck:
