@@ -137,9 +137,6 @@ services:
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
       - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
 
-    networks:
-      - traefik-network
-
 volumes:
   webscout-logs:
     driver: local
