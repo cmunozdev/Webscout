@@ -34,7 +34,7 @@ API_VERSION = "v1"
 
 # Setup Litlogger
 logger = Logger(
-    name="webscout.api",
+    name=".api",
     level=LogLevel.INFO,
     handlers=[ConsoleHandler(stream=sys.stdout)],
     fmt=LogFormat.DEFAULT
@@ -126,7 +126,7 @@ def create_app():
         </style>
         """
         
-        html = html.replace("</body>", f"{footer_html}</body>")
+        html = html.replace("</body>", f"</body>")
         return HTMLResponse(content=html)
 
     # Add CORS middleware
