@@ -1,5 +1,5 @@
 """
-Webscout OpenAI-Compatible API Server
+CDMOpenAI-Compatible API Server
 
 A FastAPI-based server that provides OpenAI-compatible endpoints for various LLM providers.
 Supports streaming and non-streaming chat completions with comprehensive error handling,
@@ -54,7 +54,7 @@ def get_config() -> ServerConfig:
 def create_app():
     """Create and configure the FastAPI application."""
     import os
-    app_title = os.getenv("WEBSCOUT_API_TITLE", "Webscout API")
+    app_title = os.getenv("WEBSCOUT_API_TITLE", "CDM API")
     app_description = os.getenv("WEBSCOUT_API_DESCRIPTION", "OpenAI API compatible interface for various LLM providers")
     app_version = os.getenv("WEBSCOUT_API_VERSION", "0.2.0")
     app_docs_url = os.getenv("WEBSCOUT_API_DOCS_URL", "/docs")
@@ -70,7 +70,7 @@ def create_app():
         openapi_url=app_openapi_url,
     )
 
-    # Simple Custom Swagger UI with WebScout footer
+    # Simple Custom Swagger UI with CDMfooter
     @app.get(app_docs_url, include_in_schema=False)
     async def custom_swagger_ui_html():
         html = get_swagger_ui_html(
@@ -78,7 +78,7 @@ def create_app():
             title=app.title + " - API Documentation",
         ).body.decode("utf-8")
         
-        # Simple, clean footer with WebScout branding
+        # Simple, clean footer with CDMbranding
         footer_html = """
         <div style='
             position: fixed;
@@ -95,13 +95,13 @@ def create_app():
             z-index: 1000;
             box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
         '>
-            Powered by <a href='https://github.com/OEvortex/Webscout' target='_blank' style='
+            Powered by <a href='https://cesarmunoz.dev/t' target='_blank' style='
                 color: #6366f1;
                 text-decoration: none;
                 font-weight: 600;
                 transition: color 0.2s ease;
             ' onmouseover='this.style.color="#4f46e5"' onmouseout='this.style.color="#6366f1"'>
-                WebScout
+                Cesar Muñoz
             </a>
         </div>
         <style>
@@ -199,7 +199,7 @@ def run_api(
     show_available_providers: bool = True,
 ) -> None:
     """Run the API server with configuration."""
-    print("Starting Webscout OpenAI API server...")
+    print("Starting CDMOpenAI API server...")
     if port is None:
         port = DEFAULT_PORT
         
@@ -217,7 +217,7 @@ def run_api(
         if not AppConfig.tti_provider_map:
             initialize_tti_provider_map()
 
-        print("\n=== Webscout OpenAI API Server ===")
+        print("\n=== CDMOpenAI API Server ===")
         print(f"Server URL: http://{host if host != '0.0.0.0' else 'localhost'}:{port}")
         if AppConfig.base_url:
             print(f"Base Path: {AppConfig.base_url}")
@@ -304,7 +304,7 @@ def main():
     default_base_url = os.getenv('WEBSCOUT_BASE_URL', os.getenv('BASE_URL'))
     default_debug = os.getenv('WEBSCOUT_DEBUG', os.getenv('DEBUG', 'false')).lower() == 'true'
 
-    parser = argparse.ArgumentParser(description='Start Webscout OpenAI-compatible API server')
+    parser = argparse.ArgumentParser(description='Start CDMOpenAI-compatible API server')
     parser.add_argument('--port', type=int, default=default_port, help=f'Port to run the server on (default: {default_port})')
     parser.add_argument('--host', type=str, default=default_host, help=f'Host to bind the server to (default: {default_host})')
     parser.add_argument('--workers', type=int, default=default_workers, help=f'Number of worker processes (default: {default_workers})')
