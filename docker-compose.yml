@@ -1,258 +1,151 @@
-# =============================================================================
-# Docker Compose Configuration for Webscout API Server
-# Provides multiple deployment scenarios and configurations
-# =============================================================================
-
 version: '3.8'
 
 services:
-  # -----------------------------------------------------------------------------
-  # Main Webscout API Server
-  # -----------------------------------------------------------------------------
+  # =============================================================================
+  # Webscout API - Production Configuration with Traefik
+  # =============================================================================
   webscout-api:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         - WEBSCOUT_VERSION=latest
-        - BUILD_DATE=${BUILD_DATE:-}
-        - VCS_REF=${VCS_REF:-}
-        - VERSION=${VERSION:-latest}
-    image: webscout-api:latest
-    container_name: webscout-api
-    restart: unless-stopped
-
-    # Environment configuration
-    environment:
-      # Server settings
-      - WEBSCOUT_HOST=0.0.0.0
-      - WEBSCOUT_PORT=8000
-      - WEBSCOUT_WORKERS=1
-      - WEBSCOUT_LOG_LEVEL=info
-      # FastAPI metadata (new)
-      - WEBSCOUT_API_TITLE=Webscout OpenAI API
-      - WEBSCOUT_API_DESCRIPTION=OpenAI API compatible interface for various LLM providers
-      - WEBSCOUT_API_VERSION=0.2.0
-      - WEBSCOUT_API_DOCS_URL=/docs
-      - WEBSCOUT_API_REDOC_URL=/redoc
-      - WEBSCOUT_API_OPENAPI_URL=/openapi.json
-      - WEBSCOUT_DATA_DIR=/app/data
-
-      # Optional API configuration
-      # - WEBSCOUT_DEFAULT_PROVIDER=ChatGPT
-      # - WEBSCOUT_BASE_URL=/api/v1
-
-      # Debug mode (set to true for development)
-      - WEBSCOUT_DEBUG=false
-
-      # Health check settings
-      - HEALTHCHECK_TIMEOUT=10
-
-    # Port mapping
-    ports:
-      - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"
-
-    # Volume mounts for persistence
-    volumes:
-      - webscout-logs:/app/logs
-      - webscout-data:/app/data
-
-    # Override default command for enhanced auth system
-    command: ["python", "-m", "webscout.server.server"]
-
-    # Health check configuration
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${WEBSCOUT_PORT:-8000}/monitor/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 10s
-
-    # Resource limits
-    deploy:
-      resources:
-        limits:
-          memory: 1G
-          cpus: '1.0'
-        reservations:
-          memory: 512M
-          cpus: '0.5'
-
-    # Security settings
-    security_opt:
-      - no-new-privileges:true
-    read_only: false  # Set to true for maximum security, but may need adjustments
-
-    # Logging configuration
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-  # -----------------------------------------------------------------------------
-  # Production setup with Gunicorn (alternative configuration)
-  # -----------------------------------------------------------------------------
-  webscout-api-production:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      args:
-        - WEBSCOUT_VERSION=latest
-    image: webscout-api:latest
+        - BUILD_DATE=${BUILD_DATE}
+        - VCS_REF=${VCS_REF}
+        - VERSION=${VERSION}
+    image: webscout-api:${VERSION:-latest}
     container_name: webscout-api-prod
-    restart: unless-stopped
-    profiles:
-      - production
+    restart: always
 
     environment:
       - WEBSCOUT_HOST=0.0.0.0
       - WEBSCOUT_PORT=8000
-      - WEBSCOUT_WORKERS=4  # More workers for production
-      - WEBSCOUT_LOG_LEVEL=warning
+      - WEBSCOUT_WORKERS=${WEBSCOUT_WORKERS:-4}
+      - WEBSCOUT_LOG_LEVEL=${WEBSCOUT_LOG_LEVEL:-warning}
       - WEBSCOUT_DEBUG=false
+      - WEBSCOUT_API_TITLE=${WEBSCOUT_API_TITLE}
+      - WEBSCOUT_API_DESCRIPTION=${WEBSCOUT_API_DESCRIPTION}
+      - WEBSCOUT_API_VERSION=${WEBSCOUT_API_VERSION}
       - WEBSCOUT_DATA_DIR=/app/data
+      - HEALTHCHECK_TIMEOUT=${HEALTHCHECK_TIMEOUT:-10}
 
-    ports:
-      - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"
+    # No exponemos puertos directamente, Traefik se encarga
+    expose:
+      - "8000"
 
     volumes:
       - webscout-logs:/app/logs
       - webscout-data:/app/data
+      - /etc/localtime:/etc/localtime:ro
 
     command: [
       "gunicorn",
-      "--bind", "0.0.0.0:${WEBSCOUT_PORT:-8000}",
+      "--bind", "0.0.0.0:8000",
       "--workers", "4",
       "--worker-class", "uvicorn.workers.UvicornWorker",
       "--log-level", "warning",
       "--access-logfile", "/app/logs/access.log",
       "--error-logfile", "/app/logs/error.log",
       "--preload",
+      "--timeout", "120",
+      "--graceful-timeout", "30",
+      "--keep-alive", "5",
       "webscout.server.server:create_app"
     ]
+
+    healthcheck:
+      test: ["CMD-SHELL", "python -c \"import urllib.request; urllib.request.urlopen('http://localhost:8000/monitor/health')\" || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
     deploy:
       resources:
         limits:
-          memory: 2G
-          cpus: '2.0'
+          memory: ${MEMORY_LIMIT:-2G}
+          cpus: '${CPU_LIMIT:-2.0}'
         reservations:
-          memory: 1G
-          cpus: '1.0'
+          memory: ${MEMORY_RESERVATION:-1G}
+          cpus: '${CPU_RESERVATION:-1.0}'
 
-  # -----------------------------------------------------------------------------
-  # Development setup with hot reload
-  # -----------------------------------------------------------------------------
-  webscout-api-dev:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: builder  # Use builder stage for development
-      args:
-        - WEBSCOUT_VERSION=latest
-    image: webscout-api:dev
-    container_name: webscout-api-dev
-    restart: unless-stopped
-    profiles:
-      - development
+    security_opt:
+      - no-new-privileges:true
+    
+    cap_drop:
+      - ALL
+    cap_add:
+      - NET_BIND_SERVICE
 
-    environment:
-      - WEBSCOUT_HOST=0.0.0.0
-      - WEBSCOUT_PORT=8000
-      - WEBSCOUT_WORKERS=1
-      - WEBSCOUT_LOG_LEVEL=debug
-      - WEBSCOUT_DEBUG=true
-      - WEBSCOUT_DATA_DIR=/app/data
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "5"
+        compress: "true"
 
-    ports:
-      - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"
+    # =============================================================================
+    # Traefik Labels Configuration
+    # =============================================================================
+    labels:
+      # Enable Traefik for this service
+      - "traefik.enable=true"
+      
+      # Router configuration
+      - "traefik.http.routers.webscout-api.rule=Host(`${DOMAIN_NAME:-api.localhost}`)"
+      - "traefik.http.routers.webscout-api.entrypoints=websecure"
+      - "traefik.http.routers.webscout-api.tls=true"
+      - "traefik.http.routers.webscout-api.tls.certresolver=${CERT_RESOLVER:-letsencrypt}"
+      
+      # Service configuration
+      - "traefik.http.services.webscout-api.loadbalancer.server.port=8000"
+      - "traefik.http.services.webscout-api.loadbalancer.server.scheme=http"
+      
+      # Health check
+      - "traefik.http.services.webscout-api.loadbalancer.healthcheck.path=/monitor/health"
+      - "traefik.http.services.webscout-api.loadbalancer.healthcheck.interval=30s"
+      - "traefik.http.services.webscout-api.loadbalancer.healthcheck.timeout=10s"
+      
+      # Middleware chain
+      - "traefik.http.routers.webscout-api.middlewares=webscout-chain"
+      
+      # Security headers middleware
+      - "traefik.http.middlewares.webscout-headers.headers.framedeny=true"
+      - "traefik.http.middlewares.webscout-headers.headers.sslredirect=true"
+      - "traefik.http.middlewares.webscout-headers.headers.stsincludesubdomains=true"
+      - "traefik.http.middlewares.webscout-headers.headers.stspreload=true"
+      - "traefik.http.middlewares.webscout-headers.headers.stsseconds=31536000"
+      - "traefik.http.middlewares.webscout-headers.headers.contentTypeNosniff=true"
+      - "traefik.http.middlewares.webscout-headers.headers.browserXssFilter=true"
+      - "traefik.http.middlewares.webscout-headers.headers.referrerPolicy=no-referrer-when-downgrade"
+      
+      # Rate limiting middleware (opcional)
+      - "traefik.http.middlewares.webscout-ratelimit.ratelimit.average=100"
+      - "traefik.http.middlewares.webscout-ratelimit.ratelimit.burst=50"
+      - "traefik.http.middlewares.webscout-ratelimit.ratelimit.period=1s"
+      
+      # Compression middleware
+      - "traefik.http.middlewares.webscout-compress.compress=true"
+      
+      # Middleware chain definition
+      - "traefik.http.middlewares.webscout-chain.chain.middlewares=webscout-ratelimit,webscout-headers,webscout-compress"
+      
+      # HTTP to HTTPS redirect (router separado)
+      - "traefik.http.routers.webscout-api-http.rule=Host(`${DOMAIN_NAME:-api.localhost}`)"
+      - "traefik.http.routers.webscout-api-http.entrypoints=web"
+      - "traefik.http.routers.webscout-api-http.middlewares=redirect-to-https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.scheme=https"
+      - "traefik.http.middlewares.redirect-to-https.redirectscheme.permanent=true"
 
-    volumes:
-      - .:/app  # Mount source code for development
-      - webscout-logs:/app/logs
-      - webscout-data:/app/data
+    networks:
+      - traefik-network
 
-    command: [
-      "uvicorn",
-      "--host", "0.0.0.0",
-      "--port", "${WEBSCOUT_PORT:-8000}",
-      "--reload",
-      "--log-level", "debug",
-      "webscout.server.server:create_app"
-    ]
-
-  # -----------------------------------------------------------------------------
-  # Nginx reverse proxy (optional)
-  # Note: You'll need to provide your own nginx.conf file
-  # -----------------------------------------------------------------------------
-  nginx:
-    image: nginx:alpine
-    container_name: webscout-nginx
-    restart: unless-stopped
-    profiles:
-      - nginx
-      - production
-
-    ports:
-      - "80:80"
-      - "443:443"
-
-    volumes:
-      # Mount your own nginx configuration file
-      # - ./nginx.conf:/etc/nginx/nginx.conf:ro
-      # - ./ssl:/etc/nginx/ssl:ro
-      - webscout-logs:/var/log/nginx
-
-    depends_on:
-      - webscout-api
-
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/monitor/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
-  # -----------------------------------------------------------------------------
-  # Monitoring with Prometheus (optional)
-  # Note: You'll need to provide your own prometheus.yml configuration file
-  # -----------------------------------------------------------------------------
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: webscout-prometheus
-    restart: unless-stopped
-    profiles:
-      - monitoring
-
-    ports:
-      - "9090:9090"
-
-    volumes:
-      # Mount your own prometheus configuration file
-      # - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus-data:/prometheus
-
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-
-# =============================================================================
-# Named volumes for data persistence
-# =============================================================================
 volumes:
   webscout-logs:
     driver: local
   webscout-data:
     driver: local
-  prometheus-data:
-    driver: local
 
-# =============================================================================
-# Networks (optional, for advanced setups)
-# =============================================================================
 networks:
-  default:
-    name: webscout-network
-    driver: bridge
+  traefik-network:
+    external: true
