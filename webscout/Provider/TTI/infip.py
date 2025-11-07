@@ -170,7 +170,7 @@ class InfipAI(TTICompatibleProvider):
         Args:
             **kwargs: Additional configuration options
         """
-        self.api_endpoint = "https://api.infip.pro/generate"
+        self.api_endpoint = "https://chat.infip.pro/api/generate-image"
         self.session = requests.Session()
         
         # Set up headers with user agent
