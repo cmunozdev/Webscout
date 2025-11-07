@@ -36,6 +36,8 @@ class ServerConfig:
         self.auth_required: bool = False
         self.rate_limit_enabled: bool = False
         self.request_logging_enabled: bool = os.getenv("WEBSCOUT_REQUEST_LOGGING", "true").lower() == "true"  # Enable request logging by default
+        # API key support (optional)
+        self.api_key: Optional[str] = os.getenv("WEBSCOUT_API_KEY")
 
     def update(self, **kwargs) -> None:
         """Update configuration with provided values."""
@@ -64,21 +66,18 @@ class AppConfig:
     auth_required: bool = False
     rate_limit_enabled: bool = False
     request_logging_enabled: bool = os.getenv("WEBSCOUT_REQUEST_LOGGING", "true").lower() == "true"  # Enable request logging by default
+    api_key: Optional[str] = None
 
     @classmethod
     def set_config(cls, **data):
         """Set configuration values."""
-        # Filter out auth-related keys
-        auth_keys = {'api_key'}
-        filtered_data = {k: v for k, v in data.items() if k not in auth_keys}
-
-        for key, value in filtered_data.items():
+        for key, value in data.items():
             setattr(cls, key, value)
         # Sync with new config system
         try:
             from .server import get_config
             config = get_config()
-            config.update(**filtered_data)
+            config.update(**data)
         except ImportError:
             # Handle case where server module is not available
             pass

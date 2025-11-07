@@ -70,6 +70,22 @@ def create_app():
         openapi_url=app_openapi_url,
     )
 
+    # Configure authentication and base settings from environment
+    no_auth = os.getenv("WEBSCOUT_NO_AUTH", "false").lower() == "true"
+    no_rate_limit = os.getenv("WEBSCOUT_NO_RATE_LIMIT", "false").lower() == "true"
+    api_key_env = os.getenv("WEBSCOUT_API_KEY") or os.getenv("API_KEY")
+    default_provider_env = os.getenv("WEBSCOUT_DEFAULT_PROVIDER")
+    base_url_env = os.getenv("WEBSCOUT_BASE_URL")
+
+    # Enable auth only if API key is provided and no-auth is not requested
+    AppConfig.set_config(
+        api_key=api_key_env,
+        default_provider=default_provider_env or AppConfig.default_provider,
+        base_url=base_url_env,
+        auth_required=bool(api_key_env) and not no_auth,
+        rate_limit_enabled=not no_rate_limit,
+    )
+
     # Simple Custom Swagger UI with CDMfooter
     @app.get(app_docs_url, include_in_schema=False)
     async def custom_swagger_ui_html():
@@ -197,6 +213,8 @@ def run_api(
     workers: int = 1,
     log_level: str = 'info',
     show_available_providers: bool = True,
+    auth_required: bool = False,
+    api_key: Optional[str] = None,
 ) -> None:
     """Run the API server with configuration."""
     print("Starting CDMOpenAI API server...")
@@ -204,10 +222,10 @@ def run_api(
         port = DEFAULT_PORT
         
     AppConfig.set_config(
-        api_key=None,
+        api_key=api_key,
         default_provider=default_provider or AppConfig.default_provider,
         base_url=base_url,
-        auth_required=False,
+        auth_required=auth_required,
         rate_limit_enabled=False
     )
 
@@ -229,7 +247,7 @@ def run_api(
         print(f"Docs URL: {api_endpoint_base}/docs")
 
         # Show authentication status
-        print(f"Authentication: 🔓 DISABLED")
+        print(f"Authentication: {'🔒 ENABLED' if AppConfig.auth_required else '🔓 DISABLED'}")
 
         # Show rate limiting status
         print(f"Rate Limiting: ⚡ DISABLED")
@@ -312,6 +330,8 @@ def main():
     parser.add_argument('--default-provider', type=str, default=default_provider, help='Default provider to use (optional)')
     parser.add_argument('--base-url', type=str, default=default_base_url, help='Base URL for the API (optional, e.g., /api/v1)')
     parser.add_argument('--debug', action='store_true', default=default_debug, help='Run in debug mode')
+    parser.add_argument('--auth-required', action='store_true', help='Require API key authentication')
+    parser.add_argument('--api-key', type=str, default=os.getenv('WEBSCOUT_API_KEY'), help='API key for authentication')
     args = parser.parse_args()
 
     # Print configuration summary
@@ -321,7 +341,7 @@ def main():
     print(f"  Workers: {args.workers}")
     print(f"  Log Level: {args.log_level}")
     print(f"  Debug Mode: {args.debug}")
-    print(f"  Authentication: 🔓 DISABLED")
+    print(f"  Authentication: {'ENABLED' if args.auth_required else 'DISABLED'}")
     print(f"  Rate Limiting: ⚡ DISABLED")
     print(f"  Default Provider: {args.default_provider or 'Not set'}")
     print(f"  Base URL: {args.base_url or 'Not set'}")
@@ -334,7 +354,9 @@ def main():
         log_level=args.log_level,
         default_provider=args.default_provider,
         base_url=args.base_url,
-        debug=args.debug
+        debug=args.debug,
+        auth_required=args.auth_required,
+        api_key=args.api_key
     )
 
 
