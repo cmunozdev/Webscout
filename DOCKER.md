@@ -32,6 +32,15 @@ docker run -p 8000:8000 -e MONGODB_URL=mongodb://localhost:27017 webscout-api
 # Basic setup (with authentication)
 docker-compose up webscout-api
 
+# With API key via environment
+WEBSCOUT_API_KEY=mi_super_token docker-compose up webscout-api
+
+# Or using a .env file (recommended)
+# .env
+# WEBSCOUT_API_KEY=mi_super_token
+# Then:
+docker-compose --env-file .env up webscout-api
+
 # No-auth mode for development/demos
 docker-compose -f docker-compose.yml -f docker-compose.no-auth.yml up webscout-api
 

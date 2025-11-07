@@ -57,6 +57,35 @@ class Api:
     def __init__(self, app: FastAPI) -> None:
         self.app = app
 
+    # --- Authentication helpers ---
+    def _extract_api_key(self, request: Request) -> Optional[str]:
+        """Extract API key from Authorization Bearer or X-API-Key header."""
+        auth = request.headers.get("authorization")
+        if auth:
+            parts = auth.split()
+            if len(parts) == 2 and parts[0].lower() == "bearer":
+                return parts[1].strip()
+        return request.headers.get("x-api-key")
+
+    def _require_auth(self, request: Request) -> None:
+        """Enforce authentication if enabled in AppConfig."""
+        if not AppConfig.auth_required:
+            return
+        expected = getattr(AppConfig, "api_key", None)
+        if not expected:
+            raise APIError(
+                "Authentication required but no API key configured",
+                HTTP_500_INTERNAL_SERVER_ERROR,
+                "server_error"
+            )
+        provided = self._extract_api_key(request)
+        if not provided or provided != expected:
+            raise APIError(
+                "Unauthorized: missing or invalid API key",
+                HTTP_401_UNAUTHORIZED,
+                "authentication_error"
+            )
+
     def register_validation_exception_handler(self):
         """Register comprehensive exception handlers."""
         from fastapi.exceptions import RequestValidationError
@@ -218,6 +247,8 @@ class Api:
             chat_request: ChatCompletionRequest = Body(...)
         ):
             """Handle chat completion requests with comprehensive error handling."""
+            # Require authentication if enabled
+            self._require_auth(request)
             start_time = time.time()
             request_id = f"chatcmpl-{uuid.uuid4()}"
 
@@ -297,9 +328,12 @@ class Api:
             description="Generate images from text prompts using the specified TTI model."
         )
         async def image_generations(
+            request: Request,
             image_request: ImageGenerationRequest = Body(...)
         ):
             """Handle image generation requests."""
+            # Require authentication if enabled
+            self._require_auth(request)
             start_time = time.time()
             request_id = f"img-{uuid.uuid4()}"
 
@@ -391,6 +425,7 @@ class Api:
             description="Unified web search endpoint supporting Yep, DuckDuckGo, and Bing with text, news, images, and suggestions search types."
         )
         async def websearch(
+            request: Request,
             q: str = Query(..., description="Search query"),
             engine: str = Query("duckduckgo", description="Search engine: yep, duckduckgo, bing"),
             max_results: int = Query(10, description="Maximum number of results"),
@@ -399,6 +434,8 @@ class Api:
             type: str = Query("text", description="Search type: text, news, images, suggestions"),
         ):
             """Unified web search endpoint."""
+            # Require authentication if enabled
+            self._require_auth(request)
             github_footer = "If you believe this is a bug, please pull an issue at https://github.com/pyscout/Webscout."
             try:
                 if engine == "yep":
