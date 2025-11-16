@@ -37,6 +37,13 @@ jobs:
           else
             VERSION=$(grep -oP '__version__ = "\K[^"]*' webscout/version.py)
           fi
+          # Normalize version: strip leading 'v' or 'V' if user provided it
+          VERSION="${VERSION#v}"
+          VERSION="${VERSION#V}"
+          # If the user passed a date-like version with hyphens (e.g. 2025-11-16), normalize to dots (2025.11.16)
+          if echo "$VERSION" | grep -E '^[0-9]{4}-[0-9]{1,2}-[0-9]{1,2}$' >/dev/null; then
+            VERSION=$(echo "$VERSION" | sed 's/-/./g')
+          fi
           echo "version=$VERSION" >> $GITHUB_OUTPUT
           echo "Version: $VERSION"
 
@@ -110,18 +117,28 @@ jobs:
 
             echo "Attempting to extract changelog for version: $VERSION (also trying $VERSION_PAD) from $CHANGELOG_FILE"
 
-            # Escape '.' in version strings for safe regex usage in awk
-            awk -v ver="$VERSION" -v verpad="$VERSION_PAD" -v verstrip="$VERSION_STRIP" '
-              BEGIN { found=0; v=ver; vp=verpad; vs=verstrip }
+            # Create dot/hyphen-tolerant regex patterns from version strings for robust matching
+            VER_PAT=$(printf "%s" "$VERSION" | sed 's/\./[.-]/g')
+            VER_PAD_PAT=$(printf "%s" "$VERSION_PAD" | sed 's/\./[.-]/g')
+            VER_STRIP_PAT=$(printf "%s" "$VERSION_STRIP" | sed 's/\./[.-]/g')
+
+            # Use awk with a regex that matches any of these patterns in bracketed or unbracketed forms,
+            # with optional "v" prefix and either dot or hyphen separators (e.g., 2025.11.16 or 2025-11-16).
+            awk -v verpat="$VER_PAT" -v verpadpat="$VER_PAD_PAT" -v verstrippat="$VER_STRIP_PAT" '
+              BEGIN {
+                found=0;
+                patt = "(" verpat "|" verpadpat "|" verstrippat ")";
+                # Bracketed: e.g. "## [v2025.11.16]" or "## [2025-11-16]"
+                bracketed = "^##[[:space:]]*\\[[[:space:]]*v?" patt "[[:space:]]*\\]";
+                # Unbracketed: e.g. "## v2025.11.16" or "## 2025-11-16"
+                unbracketed = "^##[[:space:]]*v?" patt "($|[[:space:]]|-)";
+                pattern = bracketed "|" unbracketed;
+              }
               {
                 if (!found) {
-                  if (index($0, "## [" v "]") == 1 || index($0, "## [" vp "]") == 1 || index($0, "## [" vs "]") == 1 \
-                      || index($0, "## v" v) == 1 || index($0, "## v" vp) == 1 || index($0, "## v" vs) == 1 \
-                      || index($0, "## " v) == 1 || index($0, "## " vp) == 1 || index($0, "## " vs) == 1) {
-                    found=1; print; next
-                  }
+                  if ($0 ~ pattern) { found = 1; print; next }
                 } else {
-                  if (index($0, "## ") == 1) exit; print
+                  if ($0 ~ "^##[[:space:]]") exit; print
                 }
               }' "$CHANGELOG_FILE" > RELEASE_NOTES.md
           fi

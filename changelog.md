@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [2025.11.12] - 2025-11-12
+## [2025.11.16] - 2025-11-16
 
 ###  Maintenance
 - **feat**: fixed formating issue in HeckAI replaced `strip_chars=" \n\r\t",`  with `strip_chars=""`
@@ -11,6 +11,7 @@ All notable changes to this project will be documented in this file.
 - **chore**: updated release-with-changelog.yml to handle multiple version formats in changelog parsing
 - **feat**: Updated changelog parsing to recognize multiple version formats (e.g., "vX.Y.Z", "X.Y.Z") for improved release automation.
 - **feat**: updated `sanitize_stream` to support both `extract_regexes` and `content_extractor` at same time
+- **chore**: updated `release-with-changelog.yml` to normalize version strings by stripping leading 'v' or 'V'
 - **chore**: updated `sanitize_stream` docstring to clarify usage of `extract_regexes` and `content_extractor`
 - **chore**: removed deprected models from venice provider
 - **chore**: updated venice provider model list in AVAILABLE_MODELS
