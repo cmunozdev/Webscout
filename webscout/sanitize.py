@@ -127,19 +127,20 @@ def _process_chunk(
                     # No capturing groups, return the full match
                     extracted_content = match.group(0)
                 break  # Use first matching extraction regex
-        
-        # If extract_regexes are provided but no match found, skip this chunk entirely
-        if extracted_content is None:
-            return None
-        
-        sanitized_chunk = extracted_content
 
-    # Apply regex-based skipping (after extraction)
+        if extracted_content is None:
+            if to_json:
+                pass  
+            else:
+                return None
+        else:
+            sanitized_chunk = extracted_content
+
     if skip_regexes:
         if any(regex.search(sanitized_chunk) for regex in skip_regexes):
             return None
 
-    # JSON parsing with optimized error handling
+
     if to_json:
         try:
             # Only strip before JSON parsing if both boundaries are incorrect
@@ -430,6 +431,8 @@ def _sanitize_stream_sync(
                     # Process chunk if we are in active region
                     if chunk and processing_active:
                         for subline in (chunk.split(line_delimiter) if line_delimiter is not None else chunk.splitlines()):
+                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                            
                             result = _process_chunk(
                                 subline,
                                 intro_value,
@@ -439,7 +442,7 @@ def _sanitize_stream_sync(
                                 yield_raw_on_error,
                                 error_handler,
                                 compiled_skip_regexes,
-                                compiled_extract_regexes,
+                                use_extract_in_process,
                             )
                             if result is None:
                                 continue
@@ -447,7 +450,20 @@ def _sanitize_stream_sync(
                                 try:
                                     final_content = content_extractor(result)
                                     if final_content is not None:
-                                        yield final_content
+                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                            extracted = None
+                                            for regex in compiled_extract_regexes:
+                                                match = regex.search(final_content)
+                                                if match:
+                                                    if match.groups():
+                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                    else:
+                                                        extracted = match.group(0)
+                                                    break
+                                            if extracted is not None:
+                                                yield extracted
+                                        else:
+                                            yield final_content
                                 except Exception:
                                     pass
                             else:
@@ -462,6 +478,8 @@ def _sanitize_stream_sync(
                     buffer = ""
                     if chunk:
                         for subline in (chunk.split(line_delimiter) if line_delimiter is not None else chunk.splitlines()):
+                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                            
                             result = _process_chunk(
                                 subline,
                                 intro_value,
@@ -471,7 +489,7 @@ def _sanitize_stream_sync(
                                 yield_raw_on_error,
                                 error_handler,
                                 compiled_skip_regexes,
-                                compiled_extract_regexes,
+                                use_extract_in_process,
                             )
                             if result is None:
                                 continue
@@ -479,7 +497,20 @@ def _sanitize_stream_sync(
                                 try:
                                     final_content = content_extractor(result)
                                     if final_content is not None:
-                                        yield final_content
+                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                            extracted = None
+                                            for regex in compiled_extract_regexes:
+                                                match = regex.search(final_content)
+                                                if match:
+                                                    if match.groups():
+                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                    else:
+                                                        extracted = match.group(0)
+                                                    break
+                                            if extracted is not None:
+                                                yield extracted
+                                        else:
+                                            yield final_content
                                 except Exception:
                                     pass
                             else:
@@ -676,6 +707,8 @@ async def _sanitize_stream_async(
                         if line_delimiter is not None
                         else chunk.splitlines()
                     ):
+                        use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                        
                         result = _process_chunk(
                             subline,
                             intro_value,
@@ -685,7 +718,7 @@ async def _sanitize_stream_async(
                             yield_raw_on_error,
                             error_handler,
                             compiled_skip_regexes,
-                            compiled_extract_regexes,
+                            use_extract_in_process,
                         )
                         if result is None:
                             continue
@@ -693,7 +726,20 @@ async def _sanitize_stream_async(
                             try:
                                 final_content = content_extractor(result)
                                 if final_content is not None:
-                                    yield final_content
+                                    if compiled_extract_regexes and isinstance(final_content, str):
+                                        extracted = None
+                                        for regex in compiled_extract_regexes:
+                                            match = regex.search(final_content)
+                                            if match:
+                                                if match.groups():
+                                                    extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                else:
+                                                    extracted = match.group(0)
+                                                break
+                                        if extracted is not None:
+                                            yield extracted
+                                    else:
+                                        yield final_content
                             except Exception:
                                 pass
                         else:
@@ -711,6 +757,8 @@ async def _sanitize_stream_async(
                         if line_delimiter is not None
                         else chunk.splitlines()
                     ):
+                        use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                        
                         result = _process_chunk(
                             subline,
                             intro_value,
@@ -720,7 +768,7 @@ async def _sanitize_stream_async(
                             yield_raw_on_error,
                             error_handler,
                             compiled_skip_regexes,
-                            compiled_extract_regexes,
+                            use_extract_in_process,
                         )
                         if result is None:
                             continue
@@ -728,7 +776,21 @@ async def _sanitize_stream_async(
                             try:
                                 final_content = content_extractor(result)
                                 if final_content is not None:
-                                    yield final_content
+                                    # Apply extract_regexes to extracted content if provided
+                                    if compiled_extract_regexes and isinstance(final_content, str):
+                                        extracted = None
+                                        for regex in compiled_extract_regexes:
+                                            match = regex.search(final_content)
+                                            if match:
+                                                if match.groups():
+                                                    extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                else:
+                                                    extracted = match.group(0)
+                                                break
+                                        if extracted is not None:
+                                            yield extracted
+                                    else:
+                                        yield final_content
                             except Exception:
                                 pass
                         else:
@@ -813,15 +875,13 @@ def sanitize_stream(
             
     Raises:
         ValueError: If any regex pattern is invalid.
-    """    # --- RAW MODE: yield each chunk exactly as returned by the API ---
+    """
     if raw:
         def _raw_passthrough_sync(source_iter):
             for chunk in source_iter:
                 if isinstance(chunk, (bytes, bytearray)):
-                    # Decode bytes preserving all whitespace and newlines
                     yield chunk.decode(encoding, encoding_errors)
                 elif chunk is not None:
-                    # Yield string chunks as-is, preserving all formatting
                     yield chunk
                 # Skip None chunks entirely
         async def _raw_passthrough_async(source_aiter):
@@ -830,10 +890,7 @@ def sanitize_stream(
                     # Decode bytes preserving all whitespace and newlines
                     yield chunk.decode(encoding, encoding_errors)
                 elif chunk is not None:
-                    # Yield string chunks as-is, preserving all formatting
                     yield chunk
-                # Skip None chunks entirely
-        # Sync iterable (but not str/bytes)
         if hasattr(data, "__iter__") and not isinstance(data, (str, bytes)):
             return _raw_passthrough_sync(data)
         # Async iterable

@@ -165,38 +165,35 @@ class K2Think(Provider):
                 )
                 response.raise_for_status()
 
-                # Extract content using the specified patterns - prioritize answer only
-                extract_regexes = [
-                    r'<answer>([\s\S]*?)<\/answer>',  # Extract answer content only
-                ]
-                
-                skip_regexes = [
-                    r'^\s*$',  # Skip empty lines
-                    r'data:\s*\[DONE\]',  # Skip done markers  
-                    r'data:\s*$',  # Skip empty data lines
-                    r'^\s*\{\s*\}\s*$',  # Skip empty JSON objects
-                    r'<details type="reasoning"[^>]*>.*?<\/details>',  # Skip reasoning sections entirely
-                ]
-
                 streaming_text = ""
                 
-                # Use sanitize_stream to process the response
-                stream_chunks = sanitize_stream(
-                    response.iter_content(chunk_size=None),
-                    intro_value="data:",
-                    to_json=False,  # Don't parse as JSON, use regex extraction
-                    skip_regexes=skip_regexes,
-                    extract_regexes=extract_regexes,
-                    encoding='utf-8',
-                    yield_raw_on_error=False
-                )
+                # Use sanitize_stream with extract_regexes
+                import re
+                answer_pattern = r'<answer>([\s\S]*?)<\/answer>'
                 
-                for content_chunk in stream_chunks:
-                    if content_chunk and isinstance(content_chunk, str):
-                        content_cleaned = content_chunk.strip()
-                        if content_cleaned:
-                            streaming_text += content_cleaned
-                            yield {"text": content_cleaned}
+                def content_extractor(data):
+                    """Extract 'content' field from JSON object"""
+                    if isinstance(data, dict):
+                        return data.get('content', '')
+                    return None
+                
+                for chunk in sanitize_stream(
+                    response.iter_lines(),
+                    intro_value="data:",
+                    to_json=True,
+                    skip_markers=["[DONE]"],
+                    content_extractor=content_extractor,
+                    extract_regexes=[answer_pattern],
+                    raw=raw
+                ):
+                    if chunk:
+                        if raw:
+                            streaming_text += chunk if isinstance(chunk, str) else str(chunk)
+                            yield chunk
+                        else:
+                            text = chunk if isinstance(chunk, str) else chunk.get('text', str(chunk))
+                            streaming_text += text
+                            yield {"text": text}
 
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
@@ -220,39 +217,30 @@ class K2Think(Provider):
                 )
                 response.raise_for_status()
 
-                # Extract content using the specified patterns
-                extract_regexes = [
-                    r'<answer>([\s\S]*?)<\/answer>',  # Extract answer content
-                    r'<details type="reasoning"[^>]*>.*?<summary>.*?<\/summary>([\s\S]*?)<\/details>',  # Extract reasoning content
-                ]
-                
-                skip_regexes = [
-                    r'^\s*$',  # Skip empty lines
-                    r'data:\s*\[DONE\]',  # Skip done markers  
-                    r'data:\s*$',  # Skip empty data lines
-                    r'^\s*\{\s*\}\s*$',  # Skip empty JSON objects
-                ]
-
                 streaming_text = ""
-
-                # Use sanitize_stream to process the response
-                stream_chunks = sanitize_stream(
-                    response.iter_content(chunk_size=None),
-                    intro_value="data:",
-                    to_json=False,  # Don't parse as JSON, use regex extraction
-                    skip_regexes=skip_regexes,
-                    extract_regexes=extract_regexes,
-                    encoding='utf-8',
-                    yield_raw_on_error=False
-                )
                 
-                for content_chunk in stream_chunks:
-                    if content_chunk and isinstance(content_chunk, str):
-                        content_cleaned = content_chunk.strip()
-                        if content_cleaned:
-                            # Decode JSON escape sequences
-                            content_decoded = content_cleaned.encode().decode('unicode_escape')
-                            streaming_text += content_decoded
+                # Use sanitize_stream with extract_regexes
+                import re
+                answer_pattern = r'<answer>([\s\S]*?)<\/answer>'
+                
+                def content_extractor(data):
+                    """Extract 'content' field from JSON object"""
+                    if isinstance(data, dict):
+                        return data.get('content', '')
+                    return None
+                
+                for chunk in sanitize_stream(
+                    response.iter_lines(),
+                    intro_value="data:",
+                    to_json=True,
+                    skip_markers=["[DONE]"],
+                    content_extractor=content_extractor,
+                    extract_regexes=[answer_pattern],
+                    raw=False
+                ):
+                    if chunk:
+                        text = chunk if isinstance(chunk, str) else chunk.get('text', str(chunk))
+                        streaming_text += text
 
                 self.last_response = {"text": streaming_text}
                 self.conversation.update_chat_history(prompt, streaming_text)
@@ -272,21 +260,22 @@ class K2Think(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
+        raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
             gen = self.ask(
-                prompt, stream=True, raw=False,
+                prompt, stream=True, raw=raw,
                 optimizer=optimizer, conversationally=conversationally
             )
             for response_dict in gen:
-                yield self.get_message(response_dict)
+                yield self.get_message(response_dict) if isinstance(response_dict, dict) else response_dict
 
         def for_non_stream_chat():
             response_data = self.ask(
-                prompt, stream=False, raw=False,
+                prompt, stream=False, raw=raw,
                 optimizer=optimizer, conversationally=conversationally
             )
-            return self.get_message(response_data)
+            return self.get_message(response_data) if isinstance(response_data, dict) else response_data
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
@@ -298,7 +287,7 @@ if __name__ == "__main__":
     # Simple test
     try:
         ai = K2Think(model="MBZUAI-IFM/K2-Think", timeout=30)
-        response = ai.chat("What is artificial intelligence?", stream=True)
+        response = ai.chat("What is artificial intelligence?", stream=True, raw=False)
         for chunk in response:
             print(chunk, end="", flush=True)
         print()

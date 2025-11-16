@@ -2,6 +2,7 @@ include LICENSE.md
 include README.md
 include LEGAL_NOTICE.md
 include changelog.md
+include CHANGELOG.md
 
 recursive-include webscout *
 

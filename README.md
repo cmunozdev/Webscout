@@ -1,5 +1,5 @@
 <div align="center">
-  <a href="https://github.com/pyscout/Webscout">
+  <a href="https://github.com/OEvortex/Webscout">
     <img src="https://img.shields.io/badge/WebScout-Ultimate%20Toolkit-blue?style=for-the-badge&logo=python&logoColor=white" alt="WebScout Logo">
   </a>
  
@@ -17,7 +17,7 @@
     <a href="https://pepy.tech/project/webscout"><img src="https://static.pepy.tech/badge/webscout/month?style=flat-square" alt="Monthly Downloads"></a>
     <a href="https://pepy.tech/project/webscout"><img src="https://static.pepy.tech/badge/webscout?style=flat-square" alt="Total Downloads"></a>
     <a href="#"><img src="https://img.shields.io/pypi/pyversions/webscout?style=flat-square&logo=python" alt="Python Version"></a>
-    <a href="https://deepwiki.com/pyscout/Webscout"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
+    <a href="https://deepwiki.com/OEvortex/Webscout"><img src="https://deepwiki.com/badge.svg" alt="Ask DeepWiki"></a>
   </p>
 </div>
 
@@ -53,7 +53,7 @@
 <div align="center">
   <!-- Social/Support Links -->
   <p>
-    <a href="https://t.me/PyscoutAI"><img alt="Telegram Group" src="https://img.shields.io/badge/Telegram%20Group-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white"></a>
+    <a href="https://t.me/OEvortexAI"><img alt="Telegram Group" src="https://img.shields.io/badge/Telegram%20Group-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white"></a>
     <a href="https://t.me/ANONYMOUS_56788"><img alt="Developer Telegram" src="https://img.shields.io/badge/Developer%20Contact-2CA5E0?style=for-the-badge&logo=telegram&logoColor=white"></a>
     <a href="https://youtube.com/@OEvortex"><img alt="YouTube" src="https://img.shields.io/badge/YouTube-FF0000?style=for-the-badge&logo=youtube&logoColor=white"></a>
     <a href="https://www.linkedin.com/in/oe-vortex-29a407265/"><img alt="LinkedIn" src="https://img.shields.io/badge/LinkedIn-0077B5?style=for-the-badge&logo=linkedin&logoColor=white"></a>
@@ -166,7 +166,7 @@ webscout-server
 
 ```bash
 # Clone the repository
-git clone https://github.com/pyscout/Webscout.git
+git clone https://github.com/OEvortex/Webscout.git
 cd Webscout
 
 # Install in development mode with UV
@@ -183,8 +183,8 @@ uv pip install -e ".[dev,api]"
 
 ```bash
 # Pull and run the Docker image
-docker pull pyscout/webscout:latest
-docker run -it pyscout/webscout:latest
+docker pull OEvortex/webscout:latest
+docker run -it OEvortex/webscout:latest
 ```
 
 ### 📱 Quick Start Commands

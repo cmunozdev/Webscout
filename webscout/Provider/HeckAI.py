@@ -198,7 +198,7 @@ class HeckAI(Provider):
                     end_marker="data: [ANSWER_DONE]",
                     skip_markers=["data: [RELATE_Q_START]", "data: [RELATE_Q_DONE]", "data: [REASON_START]", "data: [REASON_DONE]"],
                     yield_raw_on_error=True,
-                    strip_chars=" \n\r\t",
+                    strip_chars="",
                     raw=raw
                 )
 
@@ -379,6 +379,6 @@ if __name__ == "__main__":
     #         print(f"\r{model:<50} {'✗':<10} {str(e)}")
     from rich import print
     ai = HeckAI(model="openai/gpt-5-nano")
-    response = ai.chat("tell me about humans", stream=True, raw=True)
+    response = ai.chat("tell me about humans", stream=True, raw=False)
     for chunk in response:
         print(chunk, end='', flush=True)

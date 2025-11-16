@@ -21,10 +21,7 @@ class Venice(Provider):
     AVAILABLE_MODELS = [
         "mistral-31-24b",
         "dolphin-3.0-mistral-24b",
-        "dolphin-3.0-mistral-24b-1dot1",
-        "qwen2dot5-coder-32b",
-        "deepseek-coder-v2-lite",
-
+        "dolphin-3.0-mistral-24b-1dot1"
     ]
     
     def __init__(

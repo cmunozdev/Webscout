@@ -1,8 +1,7 @@
-from typing import Generator, Optional, Union, Any, Dict
+from typing import Generator, Union, Any, Dict
 from uuid import uuid4
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
-import re
 
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation

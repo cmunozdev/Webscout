@@ -16,20 +16,21 @@ class TextPollinationsAI(Provider):
 
     required_auth = False
     AVAILABLE_MODELS = [
-        "deepseek-reasoning",
+        "deepseek",
         "gemini",
+        "gemini-search",
         "mistral",
-        "nova-fast",
         "openai",
         "openai-audio",
         "openai-fast",
+        "openai-large",
         "openai-reasoning",
         "qwen-coder",
         "roblox-rp",
         "bidara",
+        "chickytutor",
         "evil",
         "midijourney",
-        "mirexa",
         "rtist",
         "unity",
     ]

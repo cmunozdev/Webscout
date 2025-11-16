@@ -1,6 +1,4 @@
-from typing import Optional, Union, Any, Dict
-import re
-from uuid import uuid4
+from typing import Any, Dict
 
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
@@ -13,7 +11,8 @@ from curl_cffi import CurlError
 
 class TypefullyAI(Provider):
     required_auth = False
-    AVAILABLE_MODELS = ["openai:gpt-4o-mini", "openai:gpt-4o", "anthropic:claude-3-5-haiku-20241022", "groq:llama-3.3-70b-versatile"]
+    AVAILABLE_MODELS = ["openai:gpt-4o-mini", "openai:gpt-4o", "anthropic:claude-haiku-4-5-20251001"
+, "groq:llama-3.3-70b-versatile"]
 
     def __init__(
         self,
