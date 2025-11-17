@@ -2,11 +2,14 @@
 
 from typing import Any, Callable, Dict, List, Optional, Union
 
+# Sentinel for unspecified defaults
+_NO_DEFAULT = object()
+
 def option(
     *param_decls: str,
     type: Any = str,
     required: bool = False,
-    default: Any = None,
+    default: Any = _NO_DEFAULT,
     help: str = None,
     is_flag: bool = False,
     multiple: bool = False,
@@ -63,7 +66,8 @@ def option(
             'param_decls': param_decls,
             'type': type,
             'required': required,
-            'default': default,
+            # Only include default explicitly if something other than the sentinel was provided
+            **({'default': default} if default is not _NO_DEFAULT else {}),
             'help': help,
             'is_flag': is_flag,
             'multiple': multiple,

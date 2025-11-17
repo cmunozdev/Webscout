@@ -29,17 +29,33 @@ def parse_args(args: List[str]) -> Dict[str, Any]:
         
         # Handle flags/options
         if arg.startswith('-'):
-            key = arg.lstrip('-').replace('-', '_')
-            
-            # Check if next arg is a value or another flag
-            if i + 1 >= len(args) or args[i + 1].startswith('-'):
-                parsed[key] = True  # Flag without value
+            # Support --key=value or -k=value syntax
+            if '=' in arg:
+                key, value = arg.lstrip('-').split('=', 1)
+                key = key.replace('-', '_')
             else:
-                parsed[key] = args[i + 1]
-                i += 1
+                key = arg.lstrip('-').replace('-', '_')
+
+                # Check if next arg is a value or another flag
+                if i + 1 >= len(args) or args[i + 1].startswith('-'):
+                    value = True  # Flag without value
+                else:
+                    value = args[i + 1]
+                    i += 1
+
+            # Support repeated flags/options by turning into lists
+            if key in parsed:
+                existing = parsed[key]
+                if isinstance(existing, list):
+                    existing.append(value)
+                else:
+                    parsed[key] = [existing, value]
+            else:
+                parsed[key] = value
         else:
             # Positional argument
-            parsed[f'arg{len([k for k in parsed.keys() if k.startswith("arg")])}'] = arg
+            pos_index = len([k for k in parsed.keys() if k.startswith('arg')])
+            parsed[f'arg{pos_index}'] = arg
         
         i += 1
     
@@ -83,8 +99,21 @@ def convert_type(
         BadParameter: If conversion fails
     """
     try:
+        # Handle boolean conversion robustly when the input may already be a bool
         if type_ == bool:
-            return value.lower() in ('true', 't', 'yes', 'y', '1')
+            if isinstance(value, bool):
+                return value
+            if isinstance(value, (int, float)):
+                return bool(value)
+            if isinstance(value, str):
+                return value.lower() in ('true', 't', 'yes', 'y', '1')
+            return bool(value)
+
+        # If a list is provided and the target type is a collection type, return as-is
+        if isinstance(value, list) and getattr(type_, '__origin__', None) in (list,):
+            return value
+
+        # Attempt to construct the type normally (e.g., int('42'), Enum('val'), etc.)
         return type_(value)
     except (ValueError, TypeError):
         raise BadParameter(

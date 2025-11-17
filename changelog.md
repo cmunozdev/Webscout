@@ -3,7 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.11.17] - 2025-11-17
+
+### 🔧 Maintenance
+ - **fix**: swiftcli - improved argument parsing: support `--key=value` and `-k=value` syntax; handle repeated flags/options (collected into lists)
+ - **fix**: swiftcli - `convert_type` now handles boolean inputs and list-typed values robustly
+ - **feat**: swiftcli - added support for option attributes: `count`, `multiple`, and `is_flag`; option callbacks supported; `choices` validation extended to multiple options
+ - **fix**: swiftcli - option decorator uses a sentinel for unspecified defaults to avoid overriding function defaults with `None`
+ - **feat**: swiftcli - CLI and `Group` now support the `@pass_context` decorator to inject `Context` and can run `async` coroutine commands
+ - **fix**: swiftcli - help output deduplicates commands and displays aliases clearly; group help deduplicated and improved formatting
+ - **test**: swiftcli - added comprehensive unit tests covering parsing, option handling (count/multiple/choices), `pass_context`, async behavior, group commands, and plugin manager lifecycle
+ - **chore**: swiftcli - updated README with changelog, improved examples, and removed temporary debug/test helper files
+ - **testing**: All swiftcli tests added in this change pass locally (14 tests total)
+
 ## [2025.11.16] - 2025-11-16
+- **feat**: added `moonshotai/Kimi-K2-Thinking` and `MiniMaxAI/MiniMax-M2` models to DeepInfra provider AVAILABLE_MODELS in both `webscout/Provider/Deepinfra.py` and `webscout/Provider/OPENAI/deepinfra.py`
+- **feat**: 
 
 ###  Maintenance
 - **feat**: fixed formating issue in HeckAI replaced `strip_chars=" \n\r\t",`  with `strip_chars=""`

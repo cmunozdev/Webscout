@@ -1,4 +1,6 @@
 # Webscout Search Documentation
+> Last updated: 2025-11-16
+> Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 ## Overview
 

@@ -91,6 +91,7 @@ class CLI:
         def decorator(f):
             cmd_name = name or f.__name__
             self.commands[cmd_name] = {
+                'name': cmd_name,
                 'func': f,
                 'help': help or f.__doc__,
                 'aliases': aliases or [],
@@ -187,8 +188,31 @@ class CLI:
                 return 1
             
             try:
+                import inspect
+                import asyncio
+
                 command = self.commands[command_name]
-                result = command['func'](**self._parse_args(command, command_args))
+                func = command['func']
+                params = self._parse_args(command, command_args)
+
+                # Inject context if function was decorated with pass_context
+                if getattr(func, '_pass_context', False):
+                    # Call with ctx as first positional arg
+                    call_args = (ctx,)
+                else:
+                    call_args = ()
+
+                # If coroutine function, run it using asyncio
+                if inspect.iscoroutinefunction(func):
+                    result = asyncio.run(func(*call_args, **params))
+                else:
+                    result = func(*call_args, **params)
+
+                # If function returned a coroutine (in case wrapper returned coroutine)
+                if not inspect.iscoroutine(result) and hasattr(result, '__await__'):
+                    # awaitable returned
+                    result = asyncio.run(result)
+
                 self.plugin_manager.after_command(command_name, command_args, result)
                 return 0
             except Exception as e:
@@ -237,16 +261,62 @@ class CLI:
                         break
 
                 if found:
-                    if 'type' in opt:
-                        value = convert_type(value, opt['type'], name)
-                    if 'choices' in opt and opt['choices']:
-                        validate_choice(
-                            value,
-                            opt['choices'],
-                            name,
-                            opt.get('case_sensitive', True)
-                        )
-                    params[name] = value
+                    # Handle 'count' option (e.g., -v, -vv)
+                    if opt.get('count', False):
+                        if isinstance(value, list):
+                            params[name] = len(value)
+                        elif isinstance(value, bool):
+                            params[name] = 1 if value else 0
+                        else:
+                            try:
+                                params[name] = int(value)
+                            except Exception:
+                                params[name] = 1
+                    # Handle 'multiple' option which collects multiple values
+                    elif opt.get('multiple', False):
+                        items = value if isinstance(value, list) else [value]
+                        if 'type' in opt:
+                            items = [convert_type(v, opt['type'], name) for v in items]
+                        if 'choices' in opt and opt['choices']:
+                            for v in items:
+                                validate_choice(v, opt['choices'], name, opt.get('case_sensitive', True))
+                        params[name] = items
+                    else:
+                        # Normal option/flag handling
+                        # If multiple values found but option is not 'multiple', take last
+                        if isinstance(value, list):
+                            value_to_convert = value[-1]
+                        else:
+                            value_to_convert = value
+
+                        if opt.get('is_flag', False):
+                            # Flags are boolean; if a string value is provided, attempt to convert
+                            if isinstance(value_to_convert, str):
+                                # If 'type' is provided and is bool, convert accordingly
+                                if 'type' in opt and opt['type'] == bool:
+                                    value_to_convert = convert_type(value_to_convert, bool, name)
+                                else:
+                                    value_to_convert = True
+                            elif isinstance(value_to_convert, bool):
+                                # Use the boolean value
+                                value_to_convert = value_to_convert
+                            else:
+                                # Non-boolean provided, try convert to bool
+                                value_to_convert = convert_type(value_to_convert, bool, name)
+
+                        if 'type' in opt and not opt.get('is_flag', False):
+                            value_to_convert = convert_type(value_to_convert, opt['type'], name)
+                        if 'choices' in opt and opt['choices']:
+                            validate_choice(
+                                value_to_convert,
+                                opt['choices'],
+                                name,
+                                opt.get('case_sensitive', True)
+                            )
+                        params[name] = value_to_convert
+                    # Apply callback if provided
+                    if opt.get('callback') and callable(opt.get('callback')):
+                        params[name] = opt.get('callback')(params[name])
                 elif opt.get('required', False):
                     raise UsageError(f"Missing required option: {name}")
                 elif 'default' in opt:
@@ -289,16 +359,45 @@ class CLI:
         
         # Show commands
         console.print("\n[bold]Commands:[/]")
+        printed = set()
         for name, cmd in self.commands.items():
+            primary = cmd.get('name', name)
+            if primary in printed:
+                continue
+            printed.add(primary)
             if not cmd.get('hidden', False):
-                console.print(f"  {name:20} {cmd['help'] or ''}")
+                aliases = cmd.get('aliases', [])
+                alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                console.print(f"  {primary:20} {cmd['help'] or ''}{alias_text}")
         
         # Show command groups
         for name, group in self.groups.items():
             console.print(f"\n[bold]{name} commands:[/]")
+            printed_group = set()
             for cmd_name, cmd in group.commands.items():
-                if not cmd.get('hidden', False):
-                    console.print(f"  {cmd_name:20} {cmd['help'] or ''}")
+                # cmd can be Group or dict
+                if isinstance(cmd, dict):
+                    primary = cmd.get('name', cmd_name)
+                elif hasattr(cmd, 'name'):
+                    primary = cmd.name
+                else:
+                    primary = cmd_name
+                if primary in printed_group:
+                    continue
+                printed_group.add(primary)
+                # Get help and hidden
+                help_text = ''
+                hidden = False
+                aliases = []
+                if isinstance(cmd, dict):
+                    hidden = cmd.get('hidden', False)
+                    help_text = cmd.get('help', '')
+                    aliases = cmd.get('aliases', [])
+                elif isinstance(cmd, Group):
+                    help_text = cmd.help or ''
+                if not hidden:
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    console.print(f"  {primary:20} {help_text}{alias_text}")
         
         console.print("\nUse -h or --help with any command for more info")
         if self.version:

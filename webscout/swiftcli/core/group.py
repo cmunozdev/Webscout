@@ -90,6 +90,7 @@ class Group:
         def decorator(f):
             cmd_name = name or f.__name__
             self.commands[cmd_name] = {
+                'name': cmd_name,
                 'func': f,
                 'help': help or f.__doc__,
                 'aliases': aliases or [],
@@ -180,7 +181,27 @@ class Group:
                 return 1
             
             try:
-                result = command['func'](**self._parse_args(command, command_args))
+                import inspect
+                import asyncio
+
+                func = command['func']
+                params = self._parse_args(command, command_args)
+
+                # Inject context if function was decorated with pass_context
+                if getattr(func, '_pass_context', False):
+                    call_args = (ctx,)
+                else:
+                    call_args = ()
+
+                # If coroutine function, run it using asyncio
+                if inspect.iscoroutinefunction(func):
+                    result = asyncio.run(func(*call_args, **params))
+                else:
+                    result = func(*call_args, **params)
+
+                # If function returned a coroutine-like object
+                if not inspect.iscoroutine(result) and hasattr(result, '__await__'):
+                    result = asyncio.run(result)
                 
                 if self.parent:
                     self.parent.plugin_manager.after_command(
@@ -227,13 +248,26 @@ class Group:
         console.print(f"\n[bold]{self.name}[/] - {self.help or ''}")
         
         console.print("\n[bold]Commands:[/]")
+        printed = set()
         for name, cmd in self.commands.items():
+            # cmd can be a Group or a dict mapping
             if isinstance(cmd, Group):
-                console.print(f"  {name} [group]")
+                primary = cmd.name
+                if primary in printed:
+                    continue
+                printed.add(primary)
+                console.print(f"  {primary} [group]")
                 if cmd.help:
                     console.print(f"    {cmd.help}")
-            elif not cmd.get('hidden', False):
-                console.print(f"  {name:20} {cmd['help'] or ''}")
+            elif isinstance(cmd, dict):
+                primary = cmd.get('name', name)
+                if primary in printed:
+                    continue
+                printed.add(primary)
+                if not cmd.get('hidden', False):
+                    aliases = cmd.get('aliases', [])
+                    alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
+                    console.print(f"  {primary:20} {cmd['help'] or ''}{alias_text}")
         
         console.print("\nUse -h or --help with any command for more info")
     

@@ -321,3 +321,15 @@ Made with ❤️ by the [Webscout](https://github.com/OEvortex/Webscout) team
 [![GitHub stars](https://img.shields.io/github/stars/OEvortex/Webscout?style=social)](https://github.com/OEvortex/Webscout)
 
 </div>
+
+## Changelog (selected fixes/enhancements)
+
+- Fix: parse_args now accepts --key=value and -k=value syntax, and accumulates repeated options into lists
+- Fix: convert_type handles boolean inputs and list-typed values robustly
+- Fix: CLI now supports 'count' and 'multiple' option attributes, and validates 'choices' for multiple options
+- Fix: CLI and Group run now inject Context object with @pass_context decorator
+- Fix: CLI and Group run support async (coroutine) commands
+- Enhancement: Help output deduplicates commands and prints aliases neatly
+- Enhancement: Option decorator now distinguishes unspecified default vs explicit default using a sentinel
+- Tests: Added multiple unit tests to cover parsing, options, flags, groups, plugins, and async commands
+

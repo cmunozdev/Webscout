@@ -1,4 +1,6 @@
 # Utility Decorators (`AIutel.py`)
+> Last updated: 2025-11-16
+> Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 Webscout's [`AIutel.py`](../webscout/AIutel.py:1) module provides powerful utility decorators for function timing and automatic retry logic. These decorators are designed for robust, flexible, and high-performance function enhancement, supporting both synchronous and asynchronous functions with comprehensive error handling and performance monitoring.
 

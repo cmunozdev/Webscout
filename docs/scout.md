@@ -1,4 +1,6 @@
 # Scout: Advanced HTML Parser & Web Crawler
+> Last updated: 2025-11-16
+> Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 **🚀 The Most Advanced HTML Parser & Web Crawler for AI/LLM Data Collection**
 
@@ -47,7 +49,7 @@ pip install webscout
 Or install the latest version from GitHub:
 
 ```bash
-pip install git+https://github.com/pyscout/Webscout.git
+pip install git+https://github.com/OEvortex/Webscout.git
 ```
 
 ## 🚀 Quick Start
@@ -483,7 +485,7 @@ soup.prettify()
 - `_crawl_page(url, depth=0)`: Crawl a single page (internal method)
 - `_is_valid_url(url)`: Check if a URL is valid (internal method)
 
-For detailed API documentation, please refer to the [documentation](https://github.com/pyscout/Webscout/wiki).
+For detailed API documentation, please refer to the [documentation](https://github.com/OEvortex/Webscout/wiki).
 
 ## 🔧 Dependencies
 
@@ -518,9 +520,9 @@ This project is licensed under the MIT License - see the LICENSE file for detail
 <div align="center">
   <p>Made with ❤️ by the Webscout team</p>
   <p>
-    <a href="https://github.com/pyscout/Webscout">GitHub</a> •
-    <a href="https://github.com/pyscout/Webscout/wiki">Documentation</a> •
-    <a href="https://github.com/pyscout/Webscout/issues">Report Bug</a> •
-    <a href="https://github.com/pyscout/Webscout/issues">Request Feature</a>
+    <a href="https://github.com/OEvortex/Webscout">GitHub</a> •
+    <a href="https://github.com/OEvortex/Webscout/wiki">Documentation</a> •
+    <a href="https://github.com/OEvortex/Webscout/issues">Report Bug</a> •
+    <a href="https://github.com/OEvortex/Webscout/issues">Request Feature</a>
   </p>
 </div>

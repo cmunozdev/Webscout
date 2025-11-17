@@ -1,4 +1,6 @@
 # Stream Sanitization Utilities (`sanitize.py`)
+> Last updated: 2025-11-16
+> Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 Webscout's [`sanitize.py`](../webscout/sanitize.py:1) module provides a comprehensive suite of utilities for processing, transforming, and sanitizing data streams. These tools are designed for robust, flexible, and high-performance handling of text and byte streams, including real-time data, API responses, and streaming content from various sources.
 

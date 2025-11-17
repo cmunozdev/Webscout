@@ -1,4 +1,6 @@
 # OpenAI-Compatible API Server (`webscout.server`)
+> Last updated: 2025-11-16
+> Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 Webscout's [`webscout.server`](../webscout/server/__init__.py:1) module provides a comprehensive OpenAI-compatible API server with provider management capabilities. This server allows you to use any supported provider with tools and applications designed for OpenAI's API.
 
@@ -323,7 +325,7 @@ raise APIError(
     "type": "invalid_request_error",
     "param": "model",
     "code": "model_not_found",
-    "footer": "If you believe this is a bug, please pull an issue at https://github.com/OEvortex/Webscout."
+    "footer": "If you believe this is a bug, please file an issue at https://github.com/OEvortex/Webscout."
   }
 }
 ```

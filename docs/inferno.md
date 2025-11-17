@@ -1,4 +1,6 @@
 # Inferno LLM Integration
+> Last updated: 2025-11-16
+> Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 Inferno is a local LLM server designed to run Large Language Models (LLMs) on your hardware, offering an intuitive Command Line Interface (CLI) and an OpenAI/Ollama-compatible API. It supports various cutting-edge models and provides features for model management, quantization, and GPU acceleration.
 
