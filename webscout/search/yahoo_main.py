@@ -1,7 +1,7 @@
 """Yahoo unified search interface."""
 
 from __future__ import annotations
-from typing import Dict, List, Optional
+from typing import List, Optional
 from .base import BaseSearch
 from .engines.yahoo.text import YahooText
 from .engines.yahoo.images import YahooImages
@@ -12,24 +12,25 @@ from .engines.yahoo.answers import YahooAnswers
 from .engines.yahoo.maps import YahooMaps
 from .engines.yahoo.translate import YahooTranslate
 from .engines.yahoo.weather import YahooWeather
+from .results import TextResult, ImagesResult, VideosResult, NewsResult
 
 
 class YahooSearch(BaseSearch):
     """Unified Yahoo search interface."""
 
-    def text(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[Dict[str, str]]:
+    def text(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[TextResult]:
         search = YahooText()
         return search.run(keywords, region, safesearch, max_results)
 
-    def images(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[Dict[str, str]]:
+    def images(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[ImagesResult]:
         search = YahooImages()
         return search.run(keywords, region, safesearch, max_results)
 
-    def videos(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[Dict[str, str]]:
+    def videos(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[VideosResult]:
         search = YahooVideos()
         return search.run(keywords, region, safesearch, max_results)
 
-    def news(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[Dict[str, str]]:
+    def news(self, keywords: str, region: str = "us", safesearch: str = "moderate", max_results: Optional[int] = None) -> List[NewsResult]:
         search = YahooNews()
         return search.run(keywords, region, safesearch, max_results)
 

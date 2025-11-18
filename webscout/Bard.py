@@ -17,7 +17,7 @@ from typing import Dict, List, Optional, Tuple, Union
 # Import trio before curl_cffi to prevent eventlet socket monkey-patching conflicts
 # See: https://github.com/python-trio/trio/issues/3015
 try:
-    import trio  # noqa: F401
+    import trio  # type: ignore
 except ImportError:
     pass  # trio is optional, ignore if not available
 from curl_cffi import CurlError
@@ -97,6 +97,11 @@ class Model(Enum):
     G_2_5_PRO = (
         "gemini-2.5-pro",
         {"x-goog-ext-525001261-jspb": '[1,null,null,null,"2525e3954d185b3c"]'},
+        False,
+    )
+    G_3_PRO = (
+        "gemini-3-pro",
+        {"x-goog-ext-525001261-jspb": '[1,null,null,null,"9d8ca3786ebdfbea"]'},
         False,
     )
 

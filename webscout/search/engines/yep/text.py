@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 from urllib.parse import urlencode
 
 from .base import YepBase
+from webscout.search.results import TextResult
 
 
 class YepSearch(YepBase):
-    def run(self, *args, **kwargs) -> List[Dict[str, str]]:
+    def run(self, *args, **kwargs) -> List[TextResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "all")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -47,7 +48,7 @@ class YepSearch(YepBase):
             else:
                  raise Exception(f"Yep search failed: {str(e)}")
 
-    def format_results(self, raw_results: dict) -> List[Dict]:
+    def format_results(self, raw_results: dict) -> List[TextResult]:
         formatted_results = []
 
         if not raw_results or len(raw_results) < 2:
@@ -56,31 +57,11 @@ class YepSearch(YepBase):
         results = raw_results[1].get('results', [])
 
         for result in results:
-            formatted_result = {
-                "title": self._remove_html_tags(result.get("title", "")),
-                "href": result.get("url", ""),
-                "body": self._remove_html_tags(result.get("snippet", "")),
-                "source": result.get("visual_url", ""),
-                "position": len(formatted_results) + 1,
-                "type": result.get("type", "organic"),
-                "first_seen": result.get("first_seen", None)
-            }
-
-            if "sitelinks" in result:
-                sitelinks = []
-                if "full" in result["sitelinks"]:
-                    sitelinks.extend(result["sitelinks"]["full"])
-                if "short" in result["sitelinks"]:
-                    sitelinks.extend(result["sitelinks"]["short"])
-
-                if sitelinks:
-                    formatted_result["sitelinks"] = [
-                        {
-                            "title": self._remove_html_tags(link.get("title", "")),
-                            "href": link.get("url", "")
-                        }
-                        for link in sitelinks
-                    ]
+            formatted_result = TextResult(
+                title=self._remove_html_tags(result.get("title", "")),
+                href=result.get("url", ""),
+                body=self._remove_html_tags(result.get("snippet", ""))
+            )
 
             formatted_results.append(formatted_result)
 

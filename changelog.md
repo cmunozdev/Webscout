@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.11.19] - 2025-11-19
+
+### 🔧 Maintenance
+ - **chore**: Bard - added `gemini-3-pro` model with appropriate headers to `BardModel` enum
+ - **GEMINI** - added `gemini-3-pro` model support in `GEMINI` class
+ - **feat**: Updated search engines to use dataclass objects from results.py for better type safety and consistency
 
 ## [2025.11.17] - 2025-11-17
 

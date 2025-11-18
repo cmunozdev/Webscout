@@ -6,13 +6,14 @@ import warnings
 from random import shuffle
 
 from ....exceptions import WebscoutE
+from ....search.results import TextResult
 from .base import DuckDuckGoBase
 
 
 class DuckDuckGoTextSearch(DuckDuckGoBase):
     """DuckDuckGo text/web search."""
     
-    def run(self, *args, **kwargs) -> list[dict[str, str]]:
+    def run(self, *args, **kwargs) -> list[TextResult]:
         """Perform text search on DuckDuckGo.
         
         Args:
@@ -24,7 +25,7 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
             max_results: Maximum number of results.
             
         Returns:
-            List of search result dictionaries.
+            List of TextResult objects.
         """
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "wt-wt")
@@ -58,7 +59,7 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
         region: str = "wt-wt",
         timelimit: str | None = None,
         max_results: int | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[TextResult]:
         """Text search using HTML backend."""
         assert keywords, "keywords is mandatory"
 
@@ -78,9 +79,9 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
             payload["vqd"] = vqd
 
         cache = set()
-        results: list[dict[str, str]] = []
+        results: list[TextResult] = []
 
-        def _text_html_page(s: int) -> list[dict[str, str]]:
+        def _text_html_page(s: int) -> list[TextResult]:
             payload["s"] = f"{s}"
             resp_content = self._get_url("POST", "https://html.duckduckgo.com/html", data=payload).content
             if b"No  results." in resp_content:
@@ -107,11 +108,11 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
                         title = str(titlexpath[0]) if titlexpath and isinstance(titlexpath, list) else ""
                         bodyxpath = e.xpath("./a//text()")
                         body = "".join(str(x) for x in bodyxpath) if bodyxpath and isinstance(bodyxpath, list) else ""
-                        result = {
-                            "title": self._normalize(title),
-                            "href": self._normalize_url(href),
-                            "body": self._normalize(body),
-                        }
+                        result = TextResult(
+                            title=self._normalize(title),
+                            href=self._normalize_url(href),
+                            body=self._normalize(body),
+                        )
                         page_results.append(result)
             return page_results
 
@@ -133,7 +134,7 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
         region: str = "wt-wt",
         timelimit: str | None = None,
         max_results: int | None = None,
-    ) -> list[dict[str, str]]:
+    ) -> list[TextResult]:
         """Text search using lite backend."""
         assert keywords, "keywords is mandatory"
 
@@ -150,9 +151,9 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
             payload["df"] = timelimit
 
         cache = set()
-        results: list[dict[str, str]] = []
+        results: list[TextResult] = []
 
-        def _text_lite_page(s: int) -> list[dict[str, str]]:
+        def _text_lite_page(s: int) -> list[TextResult]:
             payload["s"] = f"{s}"
             resp_content = self._get_url("POST", "https://lite.duckduckgo.com/lite/", data=payload).content
             if b"No more results." in resp_content:
@@ -190,11 +191,11 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
                             else ""
                         )
                         if href:
-                            result = {
-                                "title": self._normalize(title),
-                                "href": self._normalize_url(href),
-                                "body": self._normalize(body),
-                            }
+                            result = TextResult(
+                                title=self._normalize(title),
+                                href=self._normalize_url(href),
+                                body=self._normalize(body),
+                            )
                             page_results.append(result)
             return page_results
 

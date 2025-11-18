@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import List
 from urllib.parse import urlencode
 from time import sleep
 
 from .base import BingBase
 from webscout.scout import Scout
+from webscout.search.results import NewsResult
 
 
 class BingNewsSearch(BingBase):
-    def run(self, *args, **kwargs) -> List[Dict[str, str]]:
+    def run(self, *args, **kwargs) -> List[NewsResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "us")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -73,13 +74,14 @@ class BingNewsSearch(BingBase):
                 date = item.select_one('span.date')
 
                 if title:
-                    news_result = {
-                        'title': title.get_text(strip=True),
-                        'url': title.get('href', ''),
-                        'body': snippet.get_text(strip=True) if snippet else '',
-                        'source': source.get_text(strip=True) if source else '',
-                        'date': date.get_text(strip=True) if date else ''
-                    }
+                    news_result = NewsResult(
+                        title=title.get_text(strip=True),
+                        url=title.get('href', ''),
+                        body=snippet.get_text(strip=True) if snippet else '',
+                        source=source.get_text(strip=True) if source else '',
+                        date=date.get_text(strip=True) if date else '',
+                        image=""
+                    )
                     results.append(news_result)
 
             first += 10

@@ -3,11 +3,12 @@ from __future__ import annotations
 from datetime import datetime, timezone
 
 from ....exceptions import WebscoutE
+from ....search.results import NewsResult
 from .base import DuckDuckGoBase
 
 
 class DuckDuckGoNews(DuckDuckGoBase):
-    def run(self, *args, **kwargs) -> list[dict[str, str]]:
+    def run(self, *args, **kwargs) -> list[NewsResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "wt-wt")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -31,9 +32,9 @@ class DuckDuckGoNews(DuckDuckGoBase):
             payload["df"] = timelimit
 
         cache = set()
-        results: list[dict[str, str]] = []
+        results: list[NewsResult] = []
 
-        def _news_page(s: int) -> list[dict[str, str]]:
+        def _news_page(s: int) -> list[NewsResult]:
             payload["s"] = f"{s}"
             resp_content = self._get_url("GET", "https://duckduckgo.com/news.js", params=payload).content
             resp_json = self.json_loads(resp_content)
@@ -43,14 +44,14 @@ class DuckDuckGoNews(DuckDuckGoBase):
                 if row["url"] not in cache:
                     cache.add(row["url"])
                     image_url = row.get("image", None)
-                    result = {
-                        "date": datetime.fromtimestamp(row["date"], timezone.utc).isoformat(),
-                        "title": row["title"],
-                        "body": self._normalize(row["excerpt"]),
-                        "url": self._normalize_url(row["url"]),
-                        "image": self._normalize_url(image_url),
-                        "source": row["source"],
-                    }
+                    result = NewsResult(
+                        date=datetime.fromtimestamp(row["date"], timezone.utc).isoformat(),
+                        title=row["title"],
+                        body=self._normalize(row["excerpt"]),
+                        url=self._normalize_url(row["url"]),
+                        image=self._normalize_url(image_url),
+                        source=row["source"],
+                    )
                     page_results.append(result)
             return page_results
 

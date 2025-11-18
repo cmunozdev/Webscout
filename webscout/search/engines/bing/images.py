@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import List
 from urllib.parse import urlencode
 from time import sleep
 
 from .base import BingBase
 from webscout.scout import Scout
+from webscout.search.results import ImagesResult
 
 
 class BingImagesSearch(BingBase):
-    def run(self, *args, **kwargs) -> List[Dict[str, str]]:
+    def run(self, *args, **kwargs) -> List[ImagesResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "us")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -91,13 +92,15 @@ class BingImagesSearch(BingBase):
                     if source_tag:
                         source = source_tag.get_text(strip=True)
 
-                results.append({
-                    'title': title,
-                    'image': image_url,
-                    'thumbnail': thumbnail,
-                    'url': image_url,  # For compatibility
-                    'source': source
-                })
+                results.append(ImagesResult(
+                    title=title,
+                    image=image_url,
+                    thumbnail=thumbnail,
+                    url=image_url,
+                    height=0,
+                    width=0,
+                    source=source
+                ))
 
             first += 35
             sfx += 1

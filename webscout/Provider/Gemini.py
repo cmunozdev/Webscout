@@ -16,7 +16,7 @@ MODEL_ALIASES: Dict[str, Model] = {
     "unspecified": Model.UNSPECIFIED,
     "gemini-2.5-flash": Model.G_2_5_FLASH,
     "gemini-2.5-pro": Model.G_2_5_PRO,
-    # Add shorter aliases for convenience
+    "gemini-3-pro": Model.G_3_PRO,
     "flash-2.5": Model.G_2_5_FLASH,
     "pro": Model.G_2_5_PRO,
     "unspecified": Model.UNSPECIFIED,

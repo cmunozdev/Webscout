@@ -55,6 +55,10 @@ def retry(retries: int = 3, delay: float = 1) -> Callable:
                     last_exc = exc
                     print(f"Attempt {attempt + 1} failed: {exc}. Retrying in {delay} seconds...")
                     time.sleep(delay)
-            raise last_exc
+            # Ensure we have an exception to raise
+            if last_exc is not None:
+                raise last_exc
+            else:
+                raise RuntimeError(f"Function {func.__name__} failed after {retries} retries with no exception recorded")
         return wrapper
     return decorator

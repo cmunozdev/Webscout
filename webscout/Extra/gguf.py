@@ -1,42 +1,3 @@
-"""
-Convert Hugging Face models to GGUF format with advanced features.
-
-🔥 2025 UPDATE: ALL CMAKE BUILD ERRORS FIXED! 🔥
-
-This converter has been completely updated for 2025 compatibility with the latest llama.cpp:
-
-CRITICAL FIXES:
-- ✅ Updated all deprecated LLAMA_* flags to GGML_* (LLAMA_CUBLAS → GGML_CUDA)
-- ✅ Fixed CURL dependency error by adding -DLLAMA_CURL=OFF
-- ✅ Disabled optional dependencies (LLAMA_LLGUIDANCE=OFF)
-- ✅ Cross-platform hardware detection (Windows, macOS, Linux)
-- ✅ Robust CMake configuration with multiple fallback strategies
-- ✅ Priority-based acceleration selection (CUDA > Metal > Vulkan > OpenCL > ROCm > BLAS)
-- ✅ Enhanced error handling and recovery mechanisms
-- ✅ Platform-specific optimizations and build generators
-- ✅ Automatic build directory cleanup to avoid cached CMake conflicts
-
-SUPPORTED ACCELERATION:
-- CUDA: GGML_CUDA=ON (NVIDIA GPUs)
-- Metal: GGML_METAL=ON (Apple Silicon/macOS)
-- Vulkan: GGML_VULKAN=ON (Cross-platform GPU)
-- OpenCL: GGML_OPENCL=ON (Cross-platform GPU)
-- ROCm: GGML_HIPBLAS=ON (AMD GPUs)
-- BLAS: GGML_BLAS=ON (Optimized CPU libraries)
-- Accelerate: GGML_ACCELERATE=ON (Apple Accelerate framework)
-
-For detailed documentation, see: webscout/Extra/gguf.md
-
-USAGE EXAMPLES:
->>> python -m webscout.Extra.gguf convert -m "OEvortex/HelpingAI-Lite-1.5T" -q "q4_k_m,q5_k_m"
->>> # With upload options:
->>> python -m webscout.Extra.gguf convert -m "your-model" -u "username" -t "token" -q "q4_k_m"
->>> # With imatrix quantization:
->>> python -m webscout.Extra.gguf convert -m "your-model" -i -q "iq4_nl" --train-data "train_data.txt"
->>> # With model splitting:
->>> python -m webscout.Extra.gguf convert -m "your-model" -s --split-max-tensors 256
-"""
-
 import subprocess
 import os 
 import sys
@@ -68,6 +29,7 @@ class ModelConverter:
     
     VALID_METHODS: Dict[str, str] = {
         "fp16": "16-bit floating point - maximum accuracy, largest size",
+        "bf16": "bfloat16 - good balance for some models",
         "q2_k": "2-bit quantization (smallest size, lowest accuracy)",
         "q3_k_l": "3-bit quantization (large) - balanced for size/accuracy",
         "q3_k_m": "3-bit quantization (medium) - good balance for most use cases",
@@ -81,7 +43,9 @@ class ModelConverter:
         "q5_k_m": "5-bit quantization (medium) - best balance for quality/size",
         "q5_k_s": "5-bit quantization (small) - optimized for speed",
         "q6_k": "6-bit quantization - highest accuracy, largest size",
-        "q8_0": "8-bit quantization - maximum accuracy, largest size"
+        "q8_0": "8-bit quantization - maximum accuracy, largest size",
+        "tq1_0": "1-bit ternary quantization - experimental, very small size",
+        "tq2_0": "2-bit ternary quantization - experimental, small size"
     }
     
     VALID_IMATRIX_METHODS: Dict[str, str] = {
@@ -422,7 +386,7 @@ class ModelConverter:
                 # Configure CMake build with robust options
                 cmake_args: List[str] = ['cmake', '-B', 'build']
 
-                # Add basic CMake options with correct LLAMA prefixes
+                # Add basic CMake options
                 cmake_args.extend([
                     '-DCMAKE_BUILD_TYPE=Release',
                     '-DLLAMA_BUILD_TESTS=OFF',
@@ -430,11 +394,7 @@ class ModelConverter:
                     '-DLLAMA_BUILD_SERVER=OFF',
                     # Disable optional dependencies that might cause issues
                     '-DLLAMA_CURL=OFF',           # Disable CURL (not needed for GGUF conversion)
-                    '-DLLAMA_LLGUIDANCE=OFF',     # Disable LLGuidance (optional feature)
-                    # Explicitly disable deprecated flags to avoid conflicts
-                    '-DLLAMA_CUBLAS=OFF',
-                    '-DLLAMA_CLBLAST=OFF',
-                    '-DLLAMA_HIPBLAS=OFF'
+                    '-DLLAMA_LLGUIDANCE=OFF'      # Disable LLGuidance (optional feature)
                 ])
 
                 # Add hardware acceleration options with latest 2025 llama.cpp GGML flags
@@ -486,7 +446,6 @@ class ModelConverter:
 
                 if not acceleration_enabled:
                     console.print("[yellow]No hardware acceleration available, using CPU only")
-                    console.print("[cyan]Note: All deprecated LLAMA_* flags have been updated to GGML_* for 2025 compatibility")
 
                 # Platform-specific optimizations
                 if system == 'Windows':
@@ -527,7 +486,7 @@ class ModelConverter:
                 # Try fallback without hardware acceleration if main config failed
                 if not config_success:
                     console.print("[yellow]Attempting fallback configuration without hardware acceleration...")
-                    console.print("[cyan]Using 2025-compatible LLAMA build flags...")
+                    console.print("[cyan]Using CPU-only build configuration...")
                     fallback_args = [
                         'cmake', '-B', 'build',
                         '-DCMAKE_BUILD_TYPE=Release',
@@ -537,11 +496,6 @@ class ModelConverter:
                         # Disable optional dependencies that might cause issues
                         '-DLLAMA_CURL=OFF',           # Disable CURL (not needed for GGUF conversion)
                         '-DLLAMA_LLGUIDANCE=OFF',     # Disable LLGuidance (optional feature)
-                        # Explicitly disable all deprecated flags
-                        '-DLLAMA_CUBLAS=OFF',
-                        '-DLLAMA_CLBLAST=OFF',
-                        '-DLLAMA_HIPBLAS=OFF',
-                        '-DLLAMA_METAL=OFF',
                         # Enable CPU optimizations
                         '-DGGML_NATIVE=OFF',  # Disable native optimizations for compatibility
                         '-DGGML_AVX=ON',      # Enable AVX if available
@@ -564,17 +518,12 @@ class ModelConverter:
                     console.print("[yellow]Attempting minimal configuration...")
                     minimal_args = [
                         'cmake', '-B', 'build',
+                        '-DCMAKE_BUILD_TYPE=Release',
                         # Disable optional dependencies that might cause issues
                         '-DLLAMA_CURL=OFF',           # Disable CURL (not needed for GGUF conversion)
                         '-DLLAMA_LLGUIDANCE=OFF',     # Disable LLGuidance (optional feature)
                         '-DLLAMA_BUILD_SERVER=OFF',   # Disable server (not needed for conversion)
-                        '-DLLAMA_BUILD_TESTS=OFF',    # Disable tests (not needed for conversion)
-                        # Explicitly disable ALL deprecated flags to avoid conflicts
-                        '-DLLAMA_CUBLAS=OFF',
-                        '-DLLAMA_CLBLAST=OFF',
-                        '-DLLAMA_HIPBLAS=OFF',
-                        '-DLLAMA_METAL=OFF',
-                        '-DLLAMA_ACCELERATE=OFF'
+                        '-DLLAMA_BUILD_TESTS=OFF'     # Disable tests (not needed for conversion)
                     ]
                     try:
                         console.print(f"[cyan]Minimal CMake command: {' '.join(minimal_args)}")

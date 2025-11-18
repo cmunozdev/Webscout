@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 from ....exceptions import WebscoutE
+from ....search.results import VideosResult
 from .base import DuckDuckGoBase
 
 
 class DuckDuckGoVideos(DuckDuckGoBase):
-    def run(self, *args, **kwargs) -> list[dict[str, str]]:
+    def run(self, *args, **kwargs) -> list[VideosResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "wt-wt")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -34,9 +35,9 @@ class DuckDuckGoVideos(DuckDuckGoBase):
         }
 
         cache = set()
-        results: list[dict[str, str]] = []
+        results: list[VideosResult] = []
 
-        def _videos_page(s: int) -> list[dict[str, str]]:
+        def _videos_page(s: int) -> list[VideosResult]:
             payload["s"] = f"{s}"
             resp_content = self._get_url("GET", "https://duckduckgo.com/v.js", params=payload).content
             resp_json = self.json_loads(resp_content)
@@ -46,7 +47,22 @@ class DuckDuckGoVideos(DuckDuckGoBase):
             for row in page_data:
                 if row["content"] not in cache:
                     cache.add(row["content"])
-                    page_results.append(row)
+                    result = VideosResult(
+                        content=row.get("content", ""),
+                        description=row.get("description", ""),
+                        duration=row.get("duration", ""),
+                        embed_html=row.get("embed_html", ""),
+                        embed_url=row.get("embed_url", ""),
+                        image_token=row.get("image_token", ""),
+                        images=row.get("images", {}),
+                        provider=row.get("provider", ""),
+                        published=row.get("published", ""),
+                        publisher=row.get("publisher", ""),
+                        statistics=row.get("statistics", {}),
+                        title=row.get("title", ""),
+                        uploader=row.get("uploader", ""),
+                    )
+                    page_results.append(result)
             return page_results
 
         slist = [0]

@@ -22,7 +22,12 @@ try:
     update_message = check_for_updates()
     if update_message:
         print(update_message)
-except Exception:
-    pass  # Silently handle any update check errors
+except Exception as e:
+    # Silently handle update check errors, but log for debugging if needed
+    import os
+    if os.environ.get('WEBSCOUT_DEBUG'):
+        import traceback
+        traceback.print_exc()
+    pass
 # Import models for easy access
 from .models import model

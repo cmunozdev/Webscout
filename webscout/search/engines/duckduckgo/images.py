@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from ....exceptions import WebscoutE
+from ....search.results import ImagesResult
 from .base import DuckDuckGoBase
 
 
 class DuckDuckGoImages(DuckDuckGoBase):
     """DuckDuckGo image search."""
     
-    def run(self, *args, **kwargs) -> list[dict[str, str]]:
+    def run(self, *args, **kwargs) -> list[ImagesResult]:
         """Perform image search on DuckDuckGo.
         
         Args:
@@ -25,7 +26,7 @@ class DuckDuckGoImages(DuckDuckGoBase):
             max_results: Maximum number of results.
             
         Returns:
-            List of image result dictionaries.
+            List of ImagesResult objects.
         """
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "wt-wt")
@@ -59,9 +60,9 @@ class DuckDuckGoImages(DuckDuckGoBase):
         }
 
         cache = set()
-        results: list[dict[str, str]] = []
+        results: list[ImagesResult] = []
 
-        def _images_page(s: int) -> list[dict[str, str]]:
+        def _images_page(s: int) -> list[ImagesResult]:
             payload["s"] = f"{s}"
             resp_content = self._get_url("GET", "https://duckduckgo.com/i.js", params=payload).content
             resp_json = self.json_loads(resp_content)
@@ -72,15 +73,15 @@ class DuckDuckGoImages(DuckDuckGoBase):
                 image_url = row.get("image")
                 if image_url and image_url not in cache:
                     cache.add(image_url)
-                    result = {
-                        "title": row["title"],
-                        "image": self._normalize_url(image_url),
-                        "thumbnail": self._normalize_url(row["thumbnail"]),
-                        "url": self._normalize_url(row["url"]),
-                        "height": row["height"],
-                        "width": row["width"],
-                        "source": row["source"],
-                    }
+                    result = ImagesResult(
+                        title=row["title"],
+                        image=self._normalize_url(image_url),
+                        thumbnail=self._normalize_url(row["thumbnail"]),
+                        url=self._normalize_url(row["url"]),
+                        height=row["height"],
+                        width=row["width"],
+                        source=row["source"],
+                    )
                     page_results.append(result)
             return page_results
 

@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import List
 from urllib.parse import urlencode
 from time import sleep
 
 from .base import BingBase
 from webscout.scout import Scout
+from webscout.search.results import TextResult
 
 
 class BingTextSearch(BingBase):
-    def run(self, *args, **kwargs) -> List[Dict[str, str]]:
+    def run(self, *args, **kwargs) -> List[TextResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "us")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -88,11 +89,11 @@ class BingTextSearch(BingBase):
                         continue
                     fetched_links.add(href)
 
-                    fetched_results.append({
-                        'title': title,
-                        'href': href,
-                        'body': body
-                    })
+                    fetched_results.append(TextResult(
+                        title=title,
+                        href=href,
+                        body=body
+                    ))
 
             # Get next page
             next_page_tag = soup.select_one('div#b_content nav[role="navigation"] a.sb_pagN')

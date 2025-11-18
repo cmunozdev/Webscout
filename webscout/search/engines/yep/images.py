@@ -1,13 +1,14 @@
 from __future__ import annotations
 
-from typing import Dict, List, Optional
+from typing import List, Optional
 from urllib.parse import urlencode
 
 from .base import YepBase
+from webscout.search.results import ImagesResult
 
 
 class YepImages(YepBase):
-    def run(self, *args, **kwargs) -> List[Dict[str, str]]:
+    def run(self, *args, **kwargs) -> List[ImagesResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "all")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
@@ -46,18 +47,15 @@ class YepImages(YepBase):
                 if result.get("type") != "Image":
                     continue
 
-                formatted_result = {
-                    "title": self._remove_html_tags(result.get("title", "")),
-                    "image": result.get("image_id", ""),
-                    "thumbnail": result.get("src", ""),
-                    "url": result.get("host_page", ""),
-                    "height": result.get("height", 0),
-                    "width": result.get("width", 0),
-                    "source": result.get("visual_url", "")
-                }
-
-                if "srcset" in result:
-                    formatted_result["thumbnail_hd"] = result["srcset"].split(",")[1].strip().split(" ")[0]
+                formatted_result = ImagesResult(
+                    title=self._remove_html_tags(result.get("title", "")),
+                    image=result.get("image_id", ""),
+                    thumbnail=result.get("src", ""),
+                    url=result.get("host_page", ""),
+                    height=result.get("height", 0),
+                    width=result.get("width", 0),
+                    source=result.get("visual_url", "")
+                )
 
                 formatted_results.append(formatted_result)
 
