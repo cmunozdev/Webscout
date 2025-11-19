@@ -9,37 +9,50 @@ from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent
 
-class TogetherAI(Provider):
+class Algion(Provider):
     """
-    A class to interact with the Together AI Chat API (https://chat.together.ai/).
-    Uses the chat interface API endpoint with model UUIDs.
+    A class to interact with the Algion API (OpenAI-compatible free API).
+    
+    Attributes:
+        AVAILABLE_MODELS: List of available models
+        url: API endpoint URL
+        api: API key for authentication
+         
+    Examples:
+        >>> from webscout.Provider.Algion import Algion
+        >>> ai = Algion()
+        >>> response = ai.chat("Hello, how are you?")
+        >>> print(response)
     """
-    required_auth = True
-    AVAILABLE_MODELS = {
-        "DeepSeek R1 (0528)": "dc11fae1-a7a2-4bed-9bd5-bd31bd8f5053",
-        "DeepSeek V3 (0324)": "3e26fb3e-5b59-454d-b4af-dcd10d8c91a4",
-        "GPT OSS 120B": "34dd95c6-5b8b-42f8-b7a9-99cc01b27a39",
-        "Kimi K2 Instruct (0905)": "e91f96e5-fc2f-4e15-95af-43edaa1c6549",
-        "Qwen3 Coder 480B": "4fbbacb9-2b02-42db-827e-4c4dd6e12f84",
-        "GLM-4.5-Air": "37fb891c-1c2c-43f5-8cc0-f2a80b1f4a36",
-        "Llama 4 Maverick": "84b39408-ac91-43a0-a2f0-6e4fb72e9800",
-    }
+    required_auth = False
+    AVAILABLE_MODELS = [
+        "gpt-5.1",
+        "gpt-5",
+        "gpt-5-mini",
+        "gpt-4.1",
+        "gpt-4-0125-preview",
+        "gpt-4o",
+        "gpt-4o-mini",
+        "gpt-4",
+        "gpt-3.5-turbo",
+        "claude-sonnet-4",
+        "claude-haiku-4.5",
+        "claude-sonnet-4.5",
+        "grok-code-fast-1",
+        "gemini-3-pro-preview",
+        "gemini-2.5-pro",
+    ]
 
     @staticmethod
-    def _together_ai_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
-        """Extracts content from Together AI stream JSON objects."""
+    def _algion_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
+        """Extracts content from Algion stream JSON objects (OpenAI format)."""
         if isinstance(chunk, dict):
-            # Extract from streaming response format
-            choices = chunk.get("choices", [])
-            if choices and len(choices) > 0:
-                delta = choices[0].get("delta", {})
-                if isinstance(delta, dict):
-                    return delta.get("content")
+            return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
         return None
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: Optional[str] = "123123",  # Default free API key
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
@@ -49,60 +62,65 @@ class TogetherAI(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        model: str = "DeepSeek R1 (0528)",
+        model: str = "gpt-4o",
         system_prompt: str = "You are a helpful assistant.",
-        temperature: float = 0.6,
-        top_p: float = 0.95,
         browser: str = "chrome"
     ):
-        """Initializes the Together AI chat client."""
+        """Initializes the Algion API client.
+        
+        Args:
+            api_key: API key for authentication (default: "123123" - free key)
+            is_conversation: Whether to use conversation mode
+            max_tokens: Maximum tokens to generate
+            timeout: Request timeout in seconds
+            intro: Introduction message for conversation
+            filepath: Path to save conversation history
+            update_file: Whether to update conversation file
+            proxies: Proxy configuration
+            history_offset: Conversation history offset
+            act: Act/role for the assistant
+            model: Model to use (default: "gpt-4o")
+            system_prompt: System prompt for the assistant
+            browser: Browser fingerprint to use
+        """
         if model not in self.AVAILABLE_MODELS:
-            raise ValueError(f"Invalid model: {model}. Choose from: {list(self.AVAILABLE_MODELS.keys())}")
+            raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
 
-        self.url = "https://chat.together.ai/api/chat-completion"
-        self.model_name = model
-        self.model_id = self.AVAILABLE_MODELS[model]
-        self.temperature = temperature
-        self.top_p = top_p
+        self.url = "https://api.algion.dev/v1/chat/completions"
 
         # Initialize LitAgent
         self.agent = LitAgent()
         self.fingerprint = self.agent.generate_fingerprint(browser)
         self.api = api_key
-        
-        # Setup headers
+
+        # Set up headers
         self.headers = {
             "Accept": self.fingerprint["accept"],
             "Accept-Language": self.fingerprint["accept_language"],
             "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Origin": "https://chat.together.ai",
-            "Pragma": "no-cache",
-            "Referer": "https://chat.together.ai/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
+            "Authorization": f"Bearer {self.api}",
             "User-Agent": self.fingerprint.get("user_agent", ""),
             "Sec-CH-UA": self.fingerprint.get("sec_ch_ua", ""),
             "Sec-CH-UA-Mobile": "?0",
             "Sec-CH-UA-Platform": f'"{self.fingerprint.get("platform", "")}"',
-            "X-Forwarded-For": self.fingerprint.get("x-forwarded-for", ""),
-            "X-Real-IP": self.fingerprint.get("x-real-ip", ""),
-            "X-Client-IP": self.fingerprint.get("x-client-ip", ""),
+            "Origin": "https://algion.dev",
+            "Referer": "https://algion.dev/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-site",
         }
-        
-        if self.api is not None:
-            self.headers["Authorization"] = f"Bearer {self.api}"
 
         # Initialize curl_cffi Session
         self.session = Session()
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
+
         self.system_prompt = system_prompt
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.timeout = timeout
         self.last_response = {}
+        self.model = model
 
         self.__available_optimizers = (
             method
@@ -128,6 +146,9 @@ class TogetherAI(Provider):
 
         Args:
             browser: Specific browser to use for the new fingerprint
+            
+        Returns:
+            dict: New fingerprint
         """
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
@@ -138,9 +159,12 @@ class TogetherAI(Provider):
             "Accept-Language": self.fingerprint["accept_language"],
             "User-Agent": self.fingerprint.get("user_agent", ""),
             "Sec-CH-UA": self.fingerprint.get("sec_ch_ua", ""),
+            "Sec-CH-UA-Platform": f'"{self.fingerprint.get("platform", "")}"',
         })
 
+        # Update session headers
         self.session.headers.update(self.headers)
+
         return self.fingerprint
 
     def ask(
@@ -151,6 +175,24 @@ class TogetherAI(Provider):
         optimizer: str = None,
         conversationally: bool = False,
     ) -> Union[Dict[str, Any], Generator]:
+        """
+        Sends a prompt to the Algion API and returns the response.
+
+        Args:
+            prompt: The prompt to send
+            stream: Whether to stream the response
+            raw: Whether to return raw response
+            optimizer: Optimizer to use for the prompt
+            conversationally: Whether to use conversation mode
+
+        Returns:
+            Dict or Generator: Response from the API
+            
+        Examples:
+            >>> ai = Algion()
+            >>> response = ai.ask("What is AI?")
+            >>> print(response['text'])
+        """
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -160,18 +202,14 @@ class TogetherAI(Provider):
             else:
                 raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
 
-        # Payload construction
+        # Payload construction (OpenAI format)
         payload = {
-            "modelId": self.model_id,
-            "temperature": self.temperature,
-            "topP": self.top_p,
+            "model": self.model,
             "messages": [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": conversation_prompt},
             ],
-            "stream": stream,
-            "maxTokens": self.max_tokens_to_sample,
-            "options": {}
+            "stream": stream
         }
 
         def for_stream():
@@ -186,17 +224,19 @@ class TogetherAI(Provider):
                 )
                 response.raise_for_status()
 
+                # Use sanitize_stream for OpenAI-format streaming
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None),
                     intro_value="data:",
                     to_json=True,
                     skip_markers=["[DONE]"],
-                    content_extractor=self._together_ai_extractor,
+                    content_extractor=self._algion_extractor,
                     yield_raw_on_error=False,
                     raw=raw
                 )
 
                 for content_chunk in processed_stream:
+                    # Always yield as string, even in raw mode
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
                     
@@ -208,9 +248,13 @@ class TogetherAI(Provider):
                             yield dict(text=content_chunk)
 
             except CurlError as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed (CurlError): {str(e)}"
+                ) from e
             except Exception as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed ({type(e).__name__}): {str(e)}"
+                ) from e
             finally:
                 if not raw and streaming_text:
                     self.last_response = {"text": streaming_text}
@@ -228,6 +272,7 @@ class TogetherAI(Provider):
 
                 response_text = response.text
 
+                # Parse non-streaming JSON response
                 processed_stream = sanitize_stream(
                     data=response_text,
                     to_json=True,
@@ -243,10 +288,14 @@ class TogetherAI(Provider):
                 return self.last_response if not raw else content
 
             except CurlError as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed (CurlError): {e}"
+                ) from e
             except Exception as e:
                 err_text = getattr(e, 'response', None) and getattr(e.response, 'text', '')
-                raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {e} - {err_text}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed ({type(e).__name__}): {e} - {err_text}"
+                ) from e
 
         return for_stream() if stream else for_non_stream()
 
@@ -258,6 +307,24 @@ class TogetherAI(Provider):
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
+        """
+        Generates a response from the Algion API.
+
+        Args:
+            prompt: The prompt to send
+            stream: Whether to stream the response
+            optimizer: Optimizer to use for the prompt
+            conversationally: Whether to use conversation mode
+            raw: Whether to return raw response chunks
+
+        Returns:
+            str or Generator: Response text
+            
+        Examples:
+            >>> ai = Algion()
+            >>> response = ai.chat("Tell me a joke")
+            >>> print(response)
+        """
         def for_stream_chat():
             gen = self.ask(
                 prompt, stream=True, raw=raw,
@@ -282,17 +349,28 @@ class TogetherAI(Provider):
         return for_stream_chat() if stream else for_non_stream_chat()
 
     def get_message(self, response: dict) -> str:
+        """
+        Extracts the message from the API response.
+
+        Args:
+            response: The API response dictionary
+
+        Returns:
+            str: The message content
+        """
         assert isinstance(response, dict), "Response should be of dict data-type only"
         return response["text"]
 
 if __name__ == "__main__":
-    print("-" * 100)
+    from rich import print
+    
+    print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    print("-" * 100)
+    print("-" * 80)
 
-    for model_name in TogetherAI.AVAILABLE_MODELS:
+    for model in Algion.AVAILABLE_MODELS: 
         try:
-            test_ai = TogetherAI(model=model_name, timeout=60)
+            test_ai = Algion(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
             for chunk in response:
@@ -305,6 +383,6 @@ if __name__ == "__main__":
             else:
                 status = "✗"
                 display_text = "Empty or invalid response"
-            print(f"\r{model_name:<50} {status:<10} {display_text}")
+            print(f"\r{model:<50} {status:<10} {display_text}")
         except Exception as e:
-            print(f"\r{model_name:<50} {'✗':<10} {str(e)[:50]}")
+            print(f"\r{model:<50} {'✗':<10} {str(e)}")

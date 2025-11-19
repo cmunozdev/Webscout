@@ -177,12 +177,16 @@ class Elmo(Provider):
                     intro_value=None, # No simple prefix
                     to_json=False,    # Content is text after extraction
                     content_extractor=self._elmo_extractor, # Use the specific extractor
-                    yield_raw_on_error=True
+                    yield_raw_on_error=True,
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
                         resp = dict(text=content_chunk)
                         yield resp if not raw else content_chunk
 

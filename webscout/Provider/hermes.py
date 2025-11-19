@@ -167,15 +167,18 @@ class NousHermes(Provider):
                     intro_value="data:",
                     to_json=True,     # Stream sends JSON
                     content_extractor=self._hermes_extractor, # Use the specific extractor
-                    yield_raw_on_error=False # Skip non-JSON lines or lines where extractor fails
+                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    # content_chunk is the string extracted by _hermes_extractor
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        resp = dict(text=content_chunk)
-                        yield resp if not raw else content_chunk
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            resp = dict(text=content_chunk)
+                            yield resp if not raw else content_chunk
 
                 self.last_response = dict(text=streaming_text) # Use streaming_text
                 self.conversation.update_chat_history(

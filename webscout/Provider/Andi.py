@@ -6,7 +6,7 @@ from webscout.AIutel import Conversation
 from webscout.AIutel import AwesomePrompts
 from webscout.AIbase import  Provider
 from webscout import exceptions
-from ..search import DuckDuckGoSearch
+from webscout.search import DuckDuckGoSearch
 from webscout.litagent import LitAgent
 
 class AndiSearch(Provider):
@@ -104,12 +104,12 @@ class AndiSearch(Provider):
                     f"Optimizer is not one of {self.__available_optimizers}"
                 )
 
-        # Initialize the webscout instance
-        webs = WEBS()
+        # Initialize the DuckDuckGo search instance
+        ddg_search = DuckDuckGoSearch()
 
         # Fetch search results
         search_query = prompt
-        search_results = webs.text(search_query, max_results=7)
+        search_results = ddg_search.text(search_query, max_results=7)
 
         # Format the search results into the required serp payload structure
         serp_payload = {
@@ -126,12 +126,12 @@ class AndiSearch(Provider):
                 "engine": "andi-b",
                 "results": [
                     {
-                        "title": result["title"],
-                        "link": result["href"],
-                        "desc": result["body"],
+                        "title": result.title,
+                        "link": result.href,
+                        "desc": result.body,
                         "image": "",  
                         "type": "website",
-                        "source": result["href"].split("//")[1].split("/")[0]  # Extract the domain name
+                        "source": result.href.split("//")[1].split("/")[0] if "//" in result.href else result.href.split("/")[0]  # Extract the domain name
                     }
                     for result in search_results
                 ]
@@ -220,6 +220,7 @@ class AndiSearch(Provider):
         """
         assert isinstance(response, dict), "Response should be of dict data-type only"
         return response["text"]
+        
 if __name__ == '__main__':
     from rich import print
     ai = AndiSearch()

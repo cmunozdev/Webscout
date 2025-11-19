@@ -277,16 +277,20 @@ class GROQ(Provider):
                     intro_value="data:",
                     to_json=True,     # Stream sends JSON
                     content_extractor=self._groq_extractor, # Use the delta extractor
-                    yield_raw_on_error=False # Skip non-JSON lines or lines where extractor fails
+                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
+                    raw=raw
                 )
 
                 for delta in processed_stream:
                     # delta is the extracted 'delta' object or None
-                    if delta and isinstance(delta, dict):
-                        content = delta.get("content")
-                        if content:
-                            streaming_text += content
-                            resp = {"text": content} # Yield only the new chunk text
+                    if raw:
+                        yield delta
+                    else:
+                        if delta and isinstance(delta, dict):
+                            content = delta.get("content")
+                            if content:
+                                streaming_text += content
+                                resp = {"text": content} # Yield only the new chunk text
                             self.last_response = {"choices": [{"delta": {"content": streaming_text}}]} # Update last_response structure
                             yield resp if not raw else content # Yield dict or raw string chunk
                         # Note: Tool calls in streaming delta are less common in OpenAI format, usually in final message
@@ -360,11 +364,14 @@ class GROQ(Provider):
                     intro_value=None,
                     # Extractor for non-stream structure (returns the whole parsed dict)
                     content_extractor=lambda chunk: chunk if isinstance(chunk, dict) else None,
-                    yield_raw_on_error=False
+                    yield_raw_on_error=False,
+                    raw=raw
                 )
                 
                 # Extract the single result (the parsed JSON dictionary)
                 resp = next(processed_stream, None)
+                if raw:
+                    return resp
                 if resp is None:
                     raise exceptions.FailedToGenerateResponseError("Failed to parse non-stream JSON response")
 

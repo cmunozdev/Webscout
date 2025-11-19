@@ -210,11 +210,43 @@ class DeepInfra(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
     ) -> Union[Dict[str, Any], Generator]:
+        """
+        Sends a prompt to the DeepInfra API and returns the response.
+        
+        Args:
+            prompt: The prompt to send to the API
+            stream: Whether to stream the response
+            raw: If True, returns unprocessed response chunks without any 
+                processing or sanitization. Useful for debugging or custom
+                processing pipelines. Defaults to False.
+            optimizer: Optional prompt optimizer name
+            conversationally: Whether to use conversation context
+            
+        Returns:
+            When raw=False: Dict with 'text' key (non-streaming) or 
+                Generator yielding dicts (streaming)
+            When raw=True: Raw string response (non-streaming) or 
+                Generator yielding raw string chunks (streaming)
+                
+        Examples:
+            >>> ai = DeepInfra()
+            >>> # Get processed response
+            >>> response = ai.ask("Hello")
+            >>> print(response["text"])
+            
+            >>> # Get raw response
+            >>> raw_response = ai.ask("Hello", raw=True)
+            >>> print(raw_response)
+            
+            >>> # Stream raw chunks
+            >>> for chunk in ai.ask("Hello", stream=True, raw=True):
+            ...     print(chunk, end='', flush=True)
+        """
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -255,23 +287,29 @@ class DeepInfra(Provider):
                     to_json=True,     # Stream sends JSON
                     skip_markers=["[DONE]"],
                     content_extractor=self._deepinfra_extractor, # Use the specific extractor
-                    yield_raw_on_error=False # Skip non-JSON lines or lines where extractor fails
+                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    # content_chunk is the string extracted by _deepinfra_extractor
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        resp = dict(text=content_chunk)
-                        yield resp if not raw else content_chunk
+                    # Ensure string output
+                    if isinstance(content_chunk, bytes):
+                        content_chunk = content_chunk.decode('utf-8', errors='ignore')
+                    
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            yield dict(text=content_chunk)
 
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)}") from e
             finally:
-                # Update history after stream finishes or fails
-                if streaming_text:
+                # Update history after stream finishes or fails (only for processed responses)
+                if not raw and streaming_text:
                     self.last_response = {"text": streaming_text}
                     self.conversation.update_chat_history(prompt, streaming_text)
 
@@ -288,24 +326,26 @@ class DeepInfra(Provider):
                 )
                 response.raise_for_status() # Check for HTTP errors
 
-                response_text = response.text # Get raw text
+                if raw:
+                    # Return raw response text
+                    return response.text
 
-                # Use sanitize_stream to parse the non-streaming JSON response
-                processed_stream = sanitize_stream(
-                    data=response_text,
-                    to_json=True, # Parse the whole text as JSON
-                    intro_value=None,
-                    # Extractor for non-stream structure
-                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
-                    yield_raw_on_error=False
-                )
-                # Extract the single result
-                content = next(processed_stream, None)
-                content = content if isinstance(content, str) else "" # Ensure it's a string
+                response_json = response.json() # Parse JSON directly for non-streaming response
+
+                # Extract content - non-streaming responses have different structure than streaming
+                if isinstance(response_json, dict):
+                    choices = response_json.get("choices", [])
+                    if choices:
+                        message_content = choices[0].get("message", {}).get("content")
+                        content = message_content if message_content is not None else ""
+                    else:
+                        content = ""
+                else:
+                    content = ""
 
                 self.last_response = {"text": content}
                 self.conversation.update_chat_history(prompt, content)
-                return self.last_response if not raw else content # Return dict or raw string
+                return self.last_response
 
             except CurlError as e: # Catch CurlError
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e
@@ -321,24 +361,61 @@ class DeepInfra(Provider):
         prompt: str,
         stream: bool = False,
         optimizer: str = None,
+        raw: bool = False,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
+        """
+        Generates a chat response from the DeepInfra API.
+        
+        Args:
+            prompt: The prompt to send to the API
+            stream: Whether to stream the response
+            optimizer: Optional prompt optimizer name
+            raw: If True, returns unprocessed response chunks without any 
+                processing or sanitization. Useful for debugging or custom
+                processing pipelines. Defaults to False.
+            conversationally: Whether to use conversation context
+            
+        Returns:
+            When raw=False: Extracted message string or Generator yielding strings
+            When raw=True: Raw response or Generator yielding raw chunks
+                
+        Examples:
+            >>> ai = DeepInfra()
+            >>> # Get processed response
+            >>> response = ai.chat("Hello")
+            >>> print(response)
+            
+            >>> # Get raw response
+            >>> raw_response = ai.chat("Hello", raw=True)
+            >>> print(raw_response)
+            
+            >>> # Stream raw chunks
+            >>> for chunk in ai.chat("Hello", stream=True, raw=True):
+            ...     print(chunk, end='', flush=True)
+        """
         def for_stream_chat():
             # ask() yields dicts or strings when streaming
             gen = self.ask(
-                prompt, stream=True, raw=False, # Ensure ask yields dicts
+                prompt, stream=True, raw=raw,
                 optimizer=optimizer, conversationally=conversationally
             )
             for response_dict in gen:
-                yield self.get_message(response_dict) # get_message expects dict
+                if raw:
+                    yield response_dict
+                else:
+                    yield self.get_message(response_dict) # get_message expects dict
 
         def for_non_stream_chat():
             # ask() returns dict or str when not streaming
             response_data = self.ask(
-                prompt, stream=False, raw=False, # Ensure ask returns dict
+                prompt, stream=False, raw=raw,
                 optimizer=optimizer, conversationally=conversationally
             )
-            return self.get_message(response_data) # get_message expects dict
+            if raw:
+                return response_data
+            else:
+                return self.get_message(response_data) # get_message expects dict
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
@@ -347,27 +424,7 @@ class DeepInfra(Provider):
         return response["text"]
 
 if __name__ == "__main__":
-    # Ensure curl_cffi is installed
-    print("-" * 80)
-    print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    print("-" * 80)
-
-    for model in DeepInfra.AVAILABLE_MODELS:
-        try:
-            test_ai = DeepInfra(model=model, timeout=60,)
-            response = test_ai.chat("Say 'Hello' in one word", stream=True)
-            response_text = ""
-            for chunk in response:
-                response_text += chunk
-
-            if response_text and len(response_text.strip()) > 0:
-                status = "✓"
-                # Clean and truncate response
-                clean_text = response_text.strip().encode('utf-8', errors='ignore').decode('utf-8')
-                display_text = clean_text[:50] + "..." if len(clean_text) > 50 else clean_text
-            else:
-                status = "✗"
-                display_text = "Empty or invalid response"
-            print(f"\r{model:<50} {status:<10} {display_text}")
-        except Exception as e:
-            print(f"\r{model:<50} {'✗':<10} {str(e)}")
+    ai = DeepInfra()
+    response = ai.chat("Hello", raw=True, stream=True)
+    for chunk in response:
+        print(chunk, end="")

@@ -191,14 +191,17 @@ class SearchChatAI(Provider):
                     to_json=True,     # Stream sends JSON
                     skip_markers=["[DONE]"],
                     content_extractor=lambda chunk: chunk.get('choices', [{}])[0].get('delta', {}).get('content') if isinstance(chunk, dict) else None,
-                    yield_raw_on_error=False # Skip non-JSON or lines where extractor fails
+                    yield_raw_on_error=False, # Skip non-JSON or lines where extractor fails
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    # content_chunk is the string extracted by the content_extractor
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        yield dict(text=content_chunk) if not raw else content_chunk
+                    if raw:
+                        yield content_chunk 
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            yield dict(text=content_chunk)
                 
                 # Update history and last response after stream finishes
                 self.last_response = {"text": streaming_text}
@@ -271,23 +274,7 @@ class SearchChatAI(Provider):
         return response["text"]
 
 if __name__ == "__main__":
-    # Ensure curl_cffi is installed
-    print("-" * 80)
-    print(f"{'Status':<10} {'Response'}")
-    print("-" * 80)
-
-    try:
-        test_ai = SearchChatAI(timeout=60)
-        response = test_ai.chat("Say 'Hello' in one word")
-        response_text = response
-        
-        if response_text and len(response_text.strip()) > 0:
-            status = "✓"
-            # Truncate response if too long
-            display_text = response_text.strip()[:50] + "..." if len(response_text.strip()) > 50 else response_text.strip()
-        else:
-            status = "✗"
-            display_text = "Empty or invalid response"
-        print(f"{status:<10} {display_text}")
-    except Exception as e:
-        print(f"{'✗':<10} {str(e)}")
+    ai = SearchChatAI()
+    resp = ai.chat("Hello", stream=True, raw=True)
+    for chunk in resp:
+        print(chunk, end="")

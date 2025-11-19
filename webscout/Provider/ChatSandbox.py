@@ -206,13 +206,17 @@ class ChatSandbox(Provider):
                     data=response.iter_content(chunk_size=None),  # Pass byte iterator
                     intro_value=None,  # No simple prefix to remove here
                     to_json=False,     # Content is not JSON
-                    content_extractor=self._chatsandbox_extractor  # Use the specific extractor
+                    content_extractor=self._chatsandbox_extractor , # Use the specific extractor
+                    raw=raw,
                 )
 
                 for content_chunk in processed_stream:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_response += content_chunk
-                        yield content_chunk if raw else dict(text=content_chunk)
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_response += content_chunk
+                            yield dict(text=content_chunk)
 
                 self.last_response.update(dict(text=streaming_response))
                 self.conversation.update_chat_history(

@@ -223,12 +223,16 @@ class AkashGPT(Provider):
                     intro_value=None, # No simple prefix
                     to_json=False,    # Content is not JSON, handled by extractor
                     content_extractor=self._akash_extractor, # Use the specific extractor
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_response += content_chunk
-                        yield content_chunk if raw else dict(text=content_chunk)
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_response += content_chunk
+                            yield dict(text=content_chunk)
 
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"An unexpected error occurred during streaming ({type(e).__name__}): {e}")
@@ -316,7 +320,7 @@ if __name__ == "__main__":
 
     for model in AkashGPT.AVAILABLE_MODELS:
         try:
-            test_ai = AkashGPT(model=model, timeout=60, api_key="240f96202f87570d9d16c85a148ebdb1ea49d69557b73839a1658970c6d092a4") # Example key
+            test_ai = AkashGPT(model=model, timeout=60, api_key="5ef9b0782df982fab720810f6ee72a9af01ebadbd9eb05adae0ecc8711ec79c5; _ga_LFRGN2J2RV=GS2.1.s1763554272$o4$g1$t1763554284$j48$l0$h0") # Example key
             response = test_ai.chat("Say 'Hello' in one word")
             response_text = response
             

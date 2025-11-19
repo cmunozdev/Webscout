@@ -285,24 +285,26 @@ class GithubChat(Provider):
                 
                 # If still not successful, raise exception
                 response.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
-                
-                # Process the streaming response
-                # Use sanitize_stream
+
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None), # Pass byte iterator
                     intro_value="data:",
                     to_json=True,     # Stream sends JSON
                     skip_markers=["[DONE]"],
                     content_extractor=self._github_extractor, # Use the specific extractor
-                    yield_raw_on_error=False # Skip non-JSON lines or lines where extractor fails
+                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
                     # content_chunk is the string extracted by _github_extractor
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        resp = {"text": content_chunk}
-                        yield resp if not raw else content_chunk
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            resp = {"text": content_chunk}
+                            yield resp if not raw else content_chunk
                 
             except Exception as e:
                 if isinstance(e, CurlError): # Check for CurlError

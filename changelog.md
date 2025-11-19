@@ -8,7 +8,17 @@ All notable changes to this project will be documented in this file.
  - **chore**: Bard - added `gemini-3-pro` model with appropriate headers to `BardModel` enum
  - **GEMINI** - added `gemini-3-pro` model support in `GEMINI` class
  - **feat**: Updated search engines to use dataclass objects from results.py for better type safety and consistency
+ - **refactor**: Updated all Providers to use `raw` flag of sanatize_stream for easy debugging
+ - **removed**: Removed Cloudflare Provider
 
+### 🐛 Fixed
+ - **fix**: ChatGPT provider - Fixed OpenAI compatibility issues in `webscout/Provider/OPENAI/chatgpt.py` by updating streaming and non-streaming implementations to properly handle Server-Sent Events format and match OpenAI's response structure exactly
+ - **fix**: ChatGPT provider - Enhanced error handling and parameter validation to follow OpenAI conventions
+ - **fix**: AkashGPT provider - Fixed authentication issue in `webscout/Provider/akashgpt.py` by updating API key handling to use cookies for authentication
+
+### ✨ Added
+ - **feat**: ChatGPT provider - Added new models to AVAILABLE_MODELS including `gpt-5-1`, `gpt-5-1-instant`, `gpt-5-1-thinking`, `gpt-5`, `gpt-5-instant`, `gpt-5-thinking`
+ - **feat**: New Provider: Algion with `gpt-5.1`and other models
 ## [2025.11.17] - 2025-11-17
 
 ### 🔧 Maintenance

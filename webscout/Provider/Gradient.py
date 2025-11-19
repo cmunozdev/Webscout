@@ -138,11 +138,15 @@ class Gradient(Provider):
                     skip_markers=[],
                     content_extractor=self._Gradient_extractor,
                     yield_raw_on_error=False,
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
                         resp = dict(text=content_chunk)
                         yield resp if not raw else content_chunk
 

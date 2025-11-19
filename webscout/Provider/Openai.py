@@ -160,14 +160,18 @@ class OPENAI(Provider):
                     to_json=True,
                     skip_markers=["[DONE]"],
                     content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("delta", {}).get("content") if isinstance(chunk, dict) else None,
-                    yield_raw_on_error=False
+                    yield_raw_on_error=False,
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        resp = dict(text=content_chunk)
-                        yield resp if not raw else content_chunk
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            resp = dict(text=content_chunk)
+                            yield resp if not raw else content_chunk
 
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
@@ -197,10 +201,13 @@ class OPENAI(Provider):
                     to_json=True,
                     intro_value=None,
                     content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
-                    yield_raw_on_error=False
+                    yield_raw_on_error=False,
+                    raw=raw
                 )
                 # Extract the single result
                 content = next(processed_stream, None)
+                if raw:
+                    return content
                 content = content if isinstance(content, str) else ""
 
                 self.last_response = {"text": content}

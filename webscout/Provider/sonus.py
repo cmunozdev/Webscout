@@ -139,14 +139,17 @@ class SonusAI(Provider):
                     intro_value="data:",
                     to_json=True,     # Stream sends JSON
                     content_extractor=self._sonus_extractor, # Use the specific extractor
-                    yield_raw_on_error=False # Skip non-JSON lines or lines where extractor fails
+                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    # content_chunk is the string extracted by _sonus_extractor
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        yield dict(text=content_chunk) if not raw else content_chunk
+                    if raw: 
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            yield dict(text=content_chunk)
                 
                 # Update history and last response after stream finishes
                 self.last_response = {"text": streaming_text}
@@ -180,7 +183,8 @@ class SonusAI(Provider):
                     intro_value="data:",
                     to_json=True,
                     content_extractor=self._sonus_extractor,
-                    yield_raw_on_error=False
+                    yield_raw_on_error=False,
+                    raw=raw
                 )
 
                 # Aggregate the results
@@ -233,27 +237,7 @@ class SonusAI(Provider):
         return response["text"]
 
 if __name__ == "__main__":
-    # Ensure curl_cffi is installed
-    print("-" * 80)
-    print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    print("-" * 80)
-
-    for model in SonusAI.AVAILABLE_MODELS:
-        try:
-            test_ai = SonusAI(model=model, timeout=60)
-            response = test_ai.chat("Say 'Hello' in one word", stream=True)
-            response_text = ""
-            for chunk in response:
-                response_text += chunk
-            
-            if response_text and len(response_text.strip()) > 0:
-                status = "✓"
-                # Clean and truncate response
-                clean_text = response_text.strip().encode('utf-8', errors='ignore').decode('utf-8')
-                display_text = clean_text[:50] + "..." if len(clean_text) > 50 else clean_text
-            else:
-                status = "✗"
-                display_text = "Empty or invalid response"
-            print(f"\r{model:<50} {status:<10} {display_text}")
-        except Exception as e:
-            print(f"\r{model:<50} {'✗':<10} {str(e)}")
+    sonus = SonusAI()
+    resp = sonus.chat("Hello", stream=True, raw=True)
+    for chunk in resp:
+        print(chunk, end="")
