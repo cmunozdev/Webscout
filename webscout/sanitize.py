@@ -1,6 +1,17 @@
+"""Stream sanitization and processing utilities for handling various data formats.
+
+This module provides utilities for processing streaming data from various sources,
+including support for byte streams, text streams, JSON parsing, regex filtering,
+and marker-based extraction.
+"""
+
+import asyncio
 import codecs
+import functools
 import json
 import re
+import sys
+from itertools import chain
 from typing import (
     Any,
     AsyncGenerator,
@@ -12,16 +23,26 @@ from typing import (
     List,
     Literal,
     Optional,
-    Pattern,
     Union,
 )
 
 # Expanded encoding types
-EncodingType = Literal['utf-8', 'utf-16', 'utf-32', 'ascii', 'latin1', 'cp1252', 'iso-8859-1',
-                        'iso-8859-2', 'windows-1250', 'windows-1251', 'windows-1252', 'gbk', 'big5',
-                        'shift_jis', 'euc-jp', 'euc-kr']
+EncodingType = Literal[
+    'utf-8', 'utf-16', 'utf-32', 'ascii', 'latin1', 'cp1252', 'iso-8859-1',
+    'iso-8859-2', 'windows-1250', 'windows-1251', 'windows-1252', 'gbk', 'big5',
+    'shift_jis', 'euc-jp', 'euc-kr'
+]
 
-def _compile_regexes(patterns: Optional[List[Union[str, Pattern[str]]]]) -> Optional[List[Pattern[str]]]:
+# Public API
+__all__ = [
+    'sanitize_stream',
+    'LITSTREAM',
+    'sanitize_stream_decorator',
+    'lit_streamer',
+    'EncodingType',
+]
+
+def _compile_regexes(patterns: Optional[List[Union[str, re.Pattern[str]]]]) -> Optional[List[re.Pattern[str]]]:
     """
     Compile regex patterns from strings or return compiled patterns as-is.
     
@@ -42,12 +63,15 @@ def _compile_regexes(patterns: Optional[List[Union[str, Pattern[str]]]]) -> Opti
         try:
             if isinstance(pattern, str):
                 compiled_patterns.append(re.compile(pattern))
-            elif isinstance(pattern, Pattern):
+            elif isinstance(pattern, re.Pattern):
                 compiled_patterns.append(pattern)
             else:
-                raise ValueError(f"Pattern at index {i} must be a string or compiled regex pattern, got {type(pattern)}")
+                raise ValueError(
+                    f"Pattern at index {i} must be a string or compiled regex pattern, "
+                    f"got {type(pattern).__name__}"
+                )
         except re.error as e:
-            raise ValueError(f"Invalid regex pattern at index {i}: '{pattern}' - {str(e)}")
+            raise ValueError(f"Invalid regex pattern at index {i}: '{pattern}' - {e}")
     
     return compiled_patterns
 
@@ -59,8 +83,8 @@ def _process_chunk(
     strip_chars: Optional[str],
     yield_raw_on_error: bool,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
-    skip_regexes: Optional[List[Pattern[str]]] = None,
-    extract_regexes: Optional[List[Pattern[str]]] = None,
+    skip_regexes: Optional[List[re.Pattern[str]]] = None,
+    extract_regexes: Optional[List[re.Pattern[str]]] = None,
 ) -> Union[str, Dict[str, Any], None]:
     """
     Sanitizes and potentially parses a single chunk of text.
@@ -293,8 +317,8 @@ def _sanitize_stream_sync(
     buffer_size: int = 8192,
     line_delimiter: Optional[str] = None,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
-    skip_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
-    extract_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
+    skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     raw: bool = False,
 ) -> Generator[Any, None, None]:
     """
@@ -381,7 +405,6 @@ def _sanitize_stream_sync(
         if first_item is None:  # Iterable was empty
             return
 
-        from itertools import chain
         # Reconstruct the full iterable including the first_item
         stream_input_iterable = chain([first_item], _iter)
 
@@ -519,8 +542,7 @@ def _sanitize_stream_sync(
                 else:
                     break
     except Exception as e:
-        import sys
-        print(f"Stream processing error: {str(e)}", file=sys.stderr)
+        print(f"Stream processing error: {e}", file=sys.stderr)
 
 
 async def _sanitize_stream_async(
@@ -538,8 +560,8 @@ async def _sanitize_stream_async(
     buffer_size: int = 8192,
     line_delimiter: Optional[str] = None,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
-    skip_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
-    extract_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
+    skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     raw: bool = False,
 ) -> AsyncGenerator[Any, None]:
     """
@@ -683,124 +705,128 @@ async def _sanitize_stream_async(
                 continue
             buffer += line
             while True:
+                # Look for start marker if needed
                 if not found_start and start_marker:
                     idx = buffer.find(start_marker)
-                if idx != -1:
-                    found_start = True
-                    buffer = buffer[idx + len(start_marker) :]
-                else:
-                    buffer = buffer[-max(len(start_marker), 256) :]
-                    break
-            if found_start and end_marker:
-                idx = buffer.find(end_marker)
-                if idx != -1:
-                    chunk = buffer[:idx]
-                    buffer = buffer[idx + len(end_marker) :]
-                    processing_active = False
-                else:
+                    if idx != -1:
+                        found_start = True
+                        buffer = buffer[idx + len(start_marker):]
+                    else:
+                        # Not found, keep buffering
+                        buffer = buffer[-max(len(start_marker), 256):]
+                        break
+                # Look for end marker if needed
+                if found_start and end_marker:
+                    idx = buffer.find(end_marker)
+                    if idx != -1:
+                        chunk = buffer[:idx]
+                        buffer = buffer[idx + len(end_marker):]
+                        processing_active = False
+                    else:
+                        chunk = buffer
+                        buffer = ""
+                        processing_active = True
+                    # Process chunk if we are in active region
+                    if chunk and processing_active:
+                        for subline in (
+                            chunk.split(line_delimiter)
+                            if line_delimiter is not None
+                            else chunk.splitlines()
+                        ):
+                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                            
+                            result = _process_chunk(
+                                subline,
+                                intro_value,
+                                to_json,
+                                effective_skip_markers,
+                                strip_chars,
+                                yield_raw_on_error,
+                                error_handler,
+                                compiled_skip_regexes,
+                                use_extract_in_process,
+                            )
+                            if result is None:
+                                continue
+                            if content_extractor:
+                                try:
+                                    final_content = content_extractor(result)
+                                    if final_content is not None:
+                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                            extracted = None
+                                            for regex in compiled_extract_regexes:
+                                                match = regex.search(final_content)
+                                                if match:
+                                                    if match.groups():
+                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                    else:
+                                                        extracted = match.group(0)
+                                                    break
+                                            if extracted is not None:
+                                                yield extracted
+                                        else:
+                                            yield final_content
+                                except Exception as e:
+                                    logger.debug("Content extractor error: %s", e)
+                            else:
+                                yield result
+                    if not processing_active:
+                        found_start = False
+                    if idx == -1:
+                        break
+                elif found_start:
+                    # No end marker, process all buffered content
                     chunk = buffer
                     buffer = ""
-                    processing_active = True
-                if chunk and processing_active:
-                    for subline in (
-                        chunk.split(line_delimiter)
-                        if line_delimiter is not None
-                        else chunk.splitlines()
-                    ):
-                        use_extract_in_process = compiled_extract_regexes if not content_extractor else None
-                        
-                        result = _process_chunk(
-                            subline,
-                            intro_value,
-                            to_json,
-                            effective_skip_markers,
-                            strip_chars,
-                            yield_raw_on_error,
-                            error_handler,
-                            compiled_skip_regexes,
-                            use_extract_in_process,
-                        )
-                        if result is None:
-                            continue
-                        if content_extractor:
-                            try:
-                                final_content = content_extractor(result)
-                                if final_content is not None:
-                                    if compiled_extract_regexes and isinstance(final_content, str):
-                                        extracted = None
-                                        for regex in compiled_extract_regexes:
-                                            match = regex.search(final_content)
-                                            if match:
-                                                if match.groups():
-                                                    extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
-                                                else:
-                                                    extracted = match.group(0)
-                                                break
-                                        if extracted is not None:
-                                            yield extracted
-                                    else:
-                                        yield final_content
-                            except Exception:
-                                pass
-                        else:
-                            yield result
-                if not processing_active:
-                    found_start = False
-                if idx == -1:
+                    if chunk:
+                        for subline in (
+                            chunk.split(line_delimiter)
+                            if line_delimiter is not None
+                            else chunk.splitlines()
+                        ):
+                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                            
+                            result = _process_chunk(
+                                subline,
+                                intro_value,
+                                to_json,
+                                effective_skip_markers,
+                                strip_chars,
+                                yield_raw_on_error,
+                                error_handler,
+                                compiled_skip_regexes,
+                                use_extract_in_process,
+                            )
+                            if result is None:
+                                continue
+                            if content_extractor:
+                                try:
+                                    final_content = content_extractor(result)
+                                    if final_content is not None:
+                                        # Apply extract_regexes to extracted content if provided
+                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                            extracted = None
+                                            for regex in compiled_extract_regexes:
+                                                match = regex.search(final_content)
+                                                if match:
+                                                    if match.groups():
+                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                    else:
+                                                        extracted = match.group(0)
+                                                    break
+                                            if extracted is not None:
+                                                yield extracted
+                                        else:
+                                            yield final_content
+                                except Exception as e:
+                                    logger.debug("Content extractor error: %s", e)
+                            else:
+                                yield result
                     break
-            elif found_start:
-                chunk = buffer
-                buffer = ""
-                if chunk:
-                    for subline in (
-                        chunk.split(line_delimiter)
-                        if line_delimiter is not None
-                        else chunk.splitlines()
-                    ):
-                        use_extract_in_process = compiled_extract_regexes if not content_extractor else None
-                        
-                        result = _process_chunk(
-                            subline,
-                            intro_value,
-                            to_json,
-                            effective_skip_markers,
-                            strip_chars,
-                            yield_raw_on_error,
-                            error_handler,
-                            compiled_skip_regexes,
-                            use_extract_in_process,
-                        )
-                        if result is None:
-                            continue
-                        if content_extractor:
-                            try:
-                                final_content = content_extractor(result)
-                                if final_content is not None:
-                                    # Apply extract_regexes to extracted content if provided
-                                    if compiled_extract_regexes and isinstance(final_content, str):
-                                        extracted = None
-                                        for regex in compiled_extract_regexes:
-                                            match = regex.search(final_content)
-                                            if match:
-                                                if match.groups():
-                                                    extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
-                                                else:
-                                                    extracted = match.group(0)
-                                                break
-                                        if extracted is not None:
-                                            yield extracted
-                                    else:
-                                        yield final_content
-                            except Exception:
-                                pass
-                        else:
-                            yield result
-                break
-            else:
-                break
+                else:
+                    break
     except Exception as e:
-        import sys
-        print(f"Async stream processing error: {str(e)}", file=sys.stderr)
+        print(f"Async stream processing error: {e}", file=sys.stderr)
 
 
 def sanitize_stream(
@@ -831,8 +857,8 @@ def sanitize_stream(
     buffer_size: int = 8192,
     line_delimiter: Optional[str] = None,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
-    skip_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
-    extract_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
+    skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     object_mode: Literal["as_is", "json", "str"] = "json",
     raw: bool = False,
 ) -> Union[Generator[Any, None, None], AsyncGenerator[Any, None]]:
@@ -1026,9 +1052,6 @@ def sanitize_stream(
     )
 
 # --- Decorator version of sanitize_stream ---
-import functools
-import asyncio
-from typing import overload
 
 def _sanitize_stream_decorator(
     _func=None,
@@ -1046,8 +1069,8 @@ def _sanitize_stream_decorator(
     buffer_size: int = 8192,
     line_delimiter: Optional[str] = None,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
-    skip_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
-    extract_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
+    skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     object_mode: Literal["as_is", "json", "str"] = "json",
     raw: bool = False,
 ):

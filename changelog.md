@@ -2,6 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.11.20] - 2025-11-20
+
+### 🐛 Fixed
+ - **fix**: sanitize.py - Fixed critical async stream processing logic error where variable `idx` was used outside its conditional scope, causing potential `UnboundLocalError`
+ - **fix**: sanitize.py - Fixed Python 3.9+ compatibility issue by replacing `Pattern` from typing with `re.Pattern` for proper isinstance() checks
+
+### 🔧 Maintenance
+ - **refactor**: sanitize.py - Reorganized imports for better structure (moved chain, functools, asyncio to top level)
+ - **chore**: sanitize.py - Added `__all__` export list for explicit public API definition
+ - **docs**: sanitize.py - Added comprehensive module docstring
+ - **refactor**: sanitize.py - Updated all type hints to use modern syntax with `re.Pattern[str]`
+ - **refactor**: Apriel.py - Simplified raw mode streaming logic for better performance
+
 ## [2025.11.19] - 2025-11-19
 
 ### 🔧 Maintenance

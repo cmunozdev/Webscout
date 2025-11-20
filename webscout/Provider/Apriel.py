@@ -214,14 +214,18 @@ class Apriel(Provider):
                     intro_value="data:",
                     to_json=True,
                     content_extractor=self._apriel_extractor,
-                    yield_raw_on_error=False
+                    yield_raw_on_error=False,
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
                     if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        resp = dict(text=content_chunk)
-                        yield resp if not raw else content_chunk
+                        if raw:
+                            yield content_chunk
+                        else:
+                            streaming_text += content_chunk
+                            resp = dict(text=content_chunk)
+                            yield resp
 
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}")
