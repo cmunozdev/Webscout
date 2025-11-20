@@ -1,5 +1,7 @@
 .qodo
 .vscode
+.kiro
+.qoder
 build/
 dist/
 webscout.egg-info/

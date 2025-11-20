@@ -2,6 +2,21 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.11.21] - 2025-11-21
+
+### 🐛 Fixed
+ - **fix**: IBM.py - Fixed typo in `refresh_identity` method where `s-elf.headers` was incorrectly used instead of `self.headers`
+ - **fix**: AIauto.py - Fixed critical bug where `chat` method could return a generator when `stream=False`, causing `AssertionError` in providers like AI4Chat
+ - **fix**: AIauto.py - Added proper handling for providers that return generators even in non-streaming mode by consuming the generator to extract the return value
+
+### ✨ Added
+ - **feat**: AIauto.py - Enhanced provider failover mechanism to "peek" at the first chunk of streaming responses, allowing automatic failover to next provider if current one fails immediately
+ - **feat**: AIauto.py - Split `chat` method into `_chat_stream` and `_chat_non_stream` helper methods for clearer separation of streaming vs non-streaming logic
+
+### 🔧 Maintenance
+ - **refactor**: AIauto.py - Improved robustness of AUTO provider to work seamlessly with all providers in webscout.Provider package
+ - **refactor**: AIauto.py - Added generator type checking and handling to prevent type mismatches between streaming and non-streaming responses
+
 ## [2025.11.20] - 2025-11-20
 
 ### 🐛 Fixed

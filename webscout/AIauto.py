@@ -187,6 +187,33 @@ class AUTO(Provider):
                     act=self.act,
                 )
                 response = self.provider.ask(**ask_kwargs)
+
+                if stream and inspect.isgenerator(response):
+                    try:
+                        first_chunk = next(response)
+                    except StopIteration:
+                        continue
+                    except Exception:
+                        continue
+                    
+                    def chained_gen():
+                        yield first_chunk
+                        yield from response
+                        
+                    if self.print_provider_info:
+                        print(f"\033[1;34m{self.provider_name}\033[0m\n")
+                    return chained_gen()
+                
+                if not stream and inspect.isgenerator(response):
+                    # Handle providers that return a generator even when stream=False
+                    try:
+                        while True:
+                            next(response)
+                    except StopIteration as e:
+                        response = e.value
+                    except Exception:
+                        continue
+
                 # Print provider info if enabled
                 if self.print_provider_info:
                     print(f"\033[1;34m{self.provider_name}\033[0m\n")
@@ -217,19 +244,29 @@ class AUTO(Provider):
             Union[str, Generator[str, None, None]]: The response string or a generator yielding
                                                      response chunks.
         """
-        # run_new_test is not used in the current implementation, but we keep it for API compatibility
+        if stream:
+            return self._chat_stream(prompt, optimizer, conversationally)
+        else:
+            return self._chat_non_stream(prompt, optimizer, conversationally)
+
+    def _chat_stream(self, prompt, optimizer, conversationally):
         response = self.ask(
             prompt,
-            stream,
+            stream=True,
             optimizer=optimizer,
             conversationally=conversationally,
         )
-        
-        if stream:
-            for chunk in response:
-                yield self.get_message(chunk)
-        else:
-            return self.get_message(response)
+        for chunk in response:
+            yield self.get_message(chunk)
+
+    def _chat_non_stream(self, prompt, optimizer, conversationally):
+        response = self.ask(
+            prompt,
+            stream=False,
+            optimizer=optimizer,
+            conversationally=conversationally,
+        )
+        return self.get_message(response)
 
     def get_message(self, response: dict) -> str:
         """

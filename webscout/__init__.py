@@ -3,6 +3,7 @@
 from .search import *
 from .version import __version__
 from .Provider import *
+from .AIauto import *
 from .Provider.TTI import *
 from .Provider.TTS import *
 from .Provider.AISEARCH import *
