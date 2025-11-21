@@ -346,7 +346,7 @@ class TogetherAI(OpenAICompatibleProvider):
             "x-client-ip": ip,
             "forwarded": f"for={ip};proto=https",
             "x-forwarded-proto": "https",
-            "x-request-id": self._agent.random_id(8),
+            "x-request-id": self._agent.random_id(8) if hasattr(self._agent, 'random_id') else ''.join(random.choices('0123456789abcdef', k=8)),
         }
 
         return fingerprint
