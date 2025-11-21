@@ -1,20 +1,14 @@
-import requests
-import random
-import string
 import json
-import time
-from typing import Optional, List, Dict, Any
-from webscout.Provider.TTI.utils import (
-    ImageData,
-    ImageResponse
-)
-from webscout.Provider.TTI.base import TTICompatibleProvider, BaseImages
-from io import BytesIO
-import os
-import tempfile
-from webscout.litagent import LitAgent
+import random
+from typing import Dict, Optional
+
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
+
+from webscout.litagent import LitAgent
+from webscout.Provider.TTI.base import BaseImages, TTICompatibleProvider
+from webscout.Provider.TTI.utils import ImageData, ImageResponse
 
 
 class Images(BaseImages):
@@ -43,7 +37,7 @@ class Images(BaseImages):
         """Get API key from activation endpoint or cache"""
         if hasattr(self._client, '_api_key_cache') and self._client._api_key_cache:
             return self._client._api_key_cache
-            
+
         try:
             activation_endpoint = "https://www.codegeneration.ai/activate-v2"
             response = requests.get(
@@ -60,11 +54,14 @@ class Images(BaseImages):
             raise Exception(f"Failed to get activation key: {e}")
 
     def build_headers(self, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
-        """Build headers with API authorization"""
+        """Build headers with API authorization using consistent fingerprint"""
         api_key = self.get_api_key()
-        
-        agent = LitAgent()
-        fp = agent.generate_fingerprint("chrome")
+
+        # Reuse or generate fingerprint once for the session
+        if not hasattr(self._client, '_fingerprint') or self._client._fingerprint is None:
+            self._client._fingerprint = self._generate_consistent_fingerprint()
+
+        fp = self._client._fingerprint
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
@@ -81,6 +78,44 @@ class Images(BaseImages):
         if extra:
             headers.update(extra)
         return headers
+
+    def _generate_consistent_fingerprint(self) -> Dict[str, str]:
+        """
+        Generate a consistent browser fingerprint using the client's LitAgent.
+
+        This ensures the same IP addresses and user agent are used across
+        multiple image generation requests, preventing 404 errors.
+        """
+        from webscout.litagent.constants import BROWSERS, FINGERPRINTS
+
+        agent = self._client._agent
+        user_agent = agent.browser("chrome")
+
+        accept_language = random.choice(FINGERPRINTS["accept_language"])
+        accept = random.choice(FINGERPRINTS["accept"])
+        platform = random.choice(FINGERPRINTS["platforms"])
+
+        # Generate sec-ch-ua for chrome
+        version = random.randint(*BROWSERS["chrome"])
+        sec_ch_ua = FINGERPRINTS["sec_ch_ua"]["chrome"].format(version, version)
+
+        # Use the client's agent for consistent IP rotation
+        ip = agent.rotate_ip()
+        fingerprint = {
+            "user_agent": user_agent,
+            "accept_language": accept_language,
+            "accept": accept,
+            "sec_ch_ua": sec_ch_ua,
+            "platform": platform,
+            "x-forwarded-for": ip,
+            "x-real-ip": ip,
+            "x-client-ip": ip,
+            "forwarded": f"for={ip};proto=https",
+            "x-forwarded-proto": "https",
+            "x-request-id": agent.random_id(8) if hasattr(agent, 'random_id') else ''.join(random.choices('0123456789abcdef', k=8)),
+        }
+
+        return fingerprint
 
     def create(
         self,
@@ -101,12 +136,12 @@ class Images(BaseImages):
     ) -> ImageResponse:
         """
         Create images using Together.xyz image models
-        
+
         Args:
             model: Image model to use (defaults to first available)
             prompt: Text description of the image to generate
             n: Number of images to generate (1-4)
-            size: Image size in format "WIDTHxHEIGHT" 
+            size: Image size in format "WIDTHxHEIGHT"
             response_format: "url" or "b64_json"
             timeout: Request timeout in seconds
             steps: Number of inference steps (1-50)
@@ -144,7 +179,7 @@ class Images(BaseImages):
         # Add optional parameters
         if seed is not None:
             body["seed"] = seed
-            
+
         # Add any additional kwargs
         body.update(kwargs)
 
@@ -156,20 +191,20 @@ class Images(BaseImages):
                 headers=self.build_headers(),
                 timeout=timeout,
             )
-            
+
             data = resp.json()
-            
+
             # Check for errors
             if "error" in data:
                 error_msg = data["error"].get("message", str(data["error"]))
                 raise RuntimeError(f"Together.xyz API error: {error_msg}")
-                
+
             if not data.get("data") or len(data["data"]) == 0:
                 raise RuntimeError("Failed to process image. No data found.")
 
             result = data["data"]
             result_data = []
-            
+
             for i, item in enumerate(result):
                 if response_format == "url":
                     if "url" in item:
@@ -177,12 +212,12 @@ class Images(BaseImages):
                 else:  # b64_json
                     if "b64_json" in item:
                         result_data.append(ImageData(b64_json=item["b64_json"]))
-            
+
             if not result_data:
                 raise RuntimeError("No valid image data found in response")
-                
+
             return ImageResponse(data=result_data)
-            
+
         except requests.exceptions.Timeout:
             raise RuntimeError(f"Request timed out after {timeout} seconds. Try reducing image size or steps.")
         except requests.exceptions.RequestException as e:
@@ -205,7 +240,7 @@ class TogetherImage(TTICompatibleProvider):
     Updated: 2025-08-01 10:42:41 UTC by OEvortex
     Supports FLUX and other image generation models
     """
-    
+
     # Image models from Together.xyz API (filtered for image type only)
     AVAILABLE_MODELS = [
         "black-forest-labs/FLUX.1-canny",
@@ -226,20 +261,23 @@ class TogetherImage(TTICompatibleProvider):
     def __init__(self):
         self.images = Images(self)
         self._api_key_cache = None
+        # Initialize LitAgent for consistent fingerprints across image generation requests
+        self._agent = LitAgent()
+        self._fingerprint = None
 
-    @property 
+    @property
     def models(self):
         class _ModelList:
             def list(inner_self):
                 return TogetherImage.AVAILABLE_MODELS
-                
+
         return _ModelList()
 
     def convert_model_name(self, model: str) -> str:
         """Convert model alias to full model name"""
         if model in self.AVAILABLE_MODELS:
             return model
-        
+
         # Default to first available model
         return self.AVAILABLE_MODELS[0]
 
@@ -251,23 +289,23 @@ class TogetherImage(TTICompatibleProvider):
     #             "Authorization": f"Bearer {api_key}",
     #             "Accept": "application/json"
     #         }
-            
+
     #         response = requests.get(
-    #             "https://api.together.xyz/v1/models", 
-    #             headers=headers, 
+    #             "https://api.together.xyz/v1/models",
+    #             headers=headers,
     #             timeout=30
     #         )
     #         response.raise_for_status()
     #         models_data = response.json()
-            
+
     #         # Filter image models
     #         image_models = []
     #         for model in models_data:
     #             if isinstance(model, dict) and model.get("type", "").lower() == "image":
     #                 image_models.append(model["id"])
-            
+
     #         return sorted(image_models)
-        
+
     #     except Exception as e:
     #         return self.AVAILABLE_MODELS
 
@@ -275,7 +313,7 @@ class TogetherImage(TTICompatibleProvider):
 if __name__ == "__main__":
     from rich import print
     client = TogetherImage()
-    
+
     # Test with a sample prompt
     response = client.images.create(
         model="black-forest-labs/FLUX.1-schnell-Free",  # Free FLUX model
