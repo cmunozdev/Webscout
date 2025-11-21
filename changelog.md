@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file.
 ## [2025.11.21] - 2025-11-21
 
 ### 🐛 Fixed
+ - **fix**: FreeGemini.py - Fixed `TypeError: Session.request() got an unexpected keyword argument 'impersonate'` by overriding the parent class's `requests.Session` with `curl_cffi.requests.Session` to support browser impersonation for bypassing bot detection
  - **fix**: IBM.py - Fixed typo in `refresh_identity` method where `s-elf.headers` was incorrectly used instead of `self.headers`
  - **fix**: AIauto.py - Fixed critical bug where `chat` method could return a generator when `stream=False`, causing `AssertionError` in providers like AI4Chat
  - **fix**: AIauto.py - Added proper handling for providers that return generators even in non-streaming mode by consuming the generator to extract the return value
@@ -12,6 +13,9 @@ All notable changes to this project will be documented in this file.
 ### ✨ Added
  - **feat**: AIauto.py - Enhanced provider failover mechanism to "peek" at the first chunk of streaming responses, allowing automatic failover to next provider if current one fails immediately
  - **feat**: AIauto.py - Split `chat` method into `_chat_stream` and `_chat_non_stream` helper methods for clearer separation of streaming vs non-streaming logic
+ - **feat**: OPENAI/ibm.py - Added OpenAI-compatible IBM Granite provider in `webscout/Provider/OPENAI/` with support for `granite-chat` and `granite-search` models
+ - **feat**: OPENAI/ibm.py - Implemented using `format_prompt()` and `count_tokens()` utilities from utils.py for proper message formatting and accurate token counting
+ - **feat**: OPENAI/ibm.py - Manual SSE (Server-Sent Events) stream parsing without sanitize_stream dependency, consistent with other OPENAI providers
 
 ### 🔧 Maintenance
  - **refactor**: AIauto.py - Improved robustness of AUTO provider to work seamlessly with all providers in webscout.Provider package

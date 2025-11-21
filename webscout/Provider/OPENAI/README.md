@@ -41,6 +41,7 @@ Currently, the following providers are implemented with OpenAI-compatible interf
 - LLMChatCo
 - YEPCHAT
 - HeckAI
+- IBM
 - SonusAI
 - ExaChat
 - Netwrck
@@ -75,6 +76,7 @@ Currently, the following providers are implemented with OpenAI-compatible interf
 - QodoAI
 - Kimi
 - GptOss
+
 ## 💻 Usage Examples
 
 Here are examples of how to use the OpenAI-compatible providers in your code.
@@ -427,6 +429,80 @@ for chunk in stream:
     if chunk.choices[0].delta.content:
         print(chunk.choices[0].delta.content, end="", flush=True)
 print()  # Add a newline at the end
+```
+
+### Basic Usage with IBM
+
+```python
+from webscout.Provider.OPENAI.ibm import IBM
+
+# Initialize the client
+client = IBM(timeout=30)
+
+# Create a completion (non-streaming)
+response = client.chat.completions.create(
+    model="granite-chat",
+    messages=[
+        {"role": "user", "content": "Tell me about Python programming."}
+    ]
+)
+
+# Print the response
+print(response.choices[0].message.content)
+```
+
+### Streaming with IBM
+
+```python
+from webscout.Provider.OPENAI.ibm import IBM
+
+# Initialize the client
+client = IBM()
+
+# Create a streaming completion
+stream = client.chat.completions.create(
+    model="granite-chat",
+    messages=[
+        {"role": "user", "content": "Write a short poem about programming."}
+    ],
+    stream=True
+)
+
+# Process the streaming response
+for chunk in stream:
+    if chunk.choices[0].delta.content:
+        print(chunk.choices[0].delta.content, end="", flush=True)
+print()  # Add a newline at the end
+```
+
+### Using Different IBM Granite Models
+
+```python
+from webscout.Provider.OPENAI.ibm import IBM
+
+# Initialize the client
+client = IBM()
+
+# Get available models
+print("Available models:", client.models.list())
+
+# Use granite-chat model
+response = client.chat.completions.create(
+    model="granite-chat",
+    messages=[
+        {"role": "user", "content": "Explain quantum computing in simple terms."}
+    ]
+)
+print("Granite Chat:", response.choices[0].message.content)
+
+# Use granite-search model (optimized for search tasks)
+search_response = client.chat.completions.create(
+    model="granite-search",
+    messages=[
+        {"role": "user", "content": "What are the best practices for Python development?"}
+    ]
+)
+print("Granite Search:", search_response.choices[0].message.content)
 ```
 
 ### Streaming with ExaAI

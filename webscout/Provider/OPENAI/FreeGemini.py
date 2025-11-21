@@ -259,6 +259,16 @@ class FreeGemini(OpenAICompatibleProvider):
             proxies: Optional proxy configuration dictionary
         """
         super().__init__(proxies=proxies)
+        
+        # Override the session with curl_cffi Session to support 'impersonate' parameter
+
+        self.session = Session()
+
+        if proxies:
+
+            self.session.proxies = proxies
+      
+
         self.timeout = 30
         # Update the API endpoint to match the working implementation
         self.api_endpoint = "https://free-gemini.vercel.app/api/google/v1beta/models/gemini-2.0-flash:streamGenerateContent?alt=sse"
