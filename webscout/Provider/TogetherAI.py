@@ -1,13 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class TogetherAI(Provider):
     """
@@ -65,11 +66,11 @@ class TogetherAI(Provider):
         self.temperature = temperature
         self.top_p = top_p
 
-        # Initialize LitAgent
+        # Initialize LitAgent and generate consistent fingerprint
         self.agent = LitAgent()
-        self.fingerprint = self.agent.generate_fingerprint(browser)
+        self.fingerprint = self._generate_consistent_fingerprint(browser)
         self.api = api_key
-        
+
         # Setup headers
         self.headers = {
             "Accept": self.fingerprint["accept"],
@@ -90,7 +91,7 @@ class TogetherAI(Provider):
             "X-Real-IP": self.fingerprint.get("x-real-ip", ""),
             "X-Client-IP": self.fingerprint.get("x-client-ip", ""),
         }
-        
+
         if self.api is not None:
             self.headers["Authorization"] = f"Bearer {self.api}"
 
@@ -122,6 +123,65 @@ class TogetherAI(Provider):
         )
         self.conversation.history_offset = history_offset
 
+    def _generate_consistent_fingerprint(self, browser: Optional[str] = None) -> Dict[str, str]:
+        """
+        Generate a consistent browser fingerprint using the instance's LitAgent.
+
+        This method uses the same LitAgent instance to ensure consistent IP addresses
+        and user agent across multiple requests in a conversation, preventing 404 errors
+        caused by rapidly changing fingerprints.
+
+        Args:
+            browser (Optional[str]): The browser name to generate the fingerprint for.
+                If not specified, a random browser is used.
+
+        Returns:
+            Dict[str, str]: A dictionary containing fingerprinting headers and values.
+        """
+        import random
+
+        from webscout.litagent.constants import BROWSERS, FINGERPRINTS
+
+        # Get a user agent from the instance's agent
+        if browser:
+            browser = browser.lower()
+            if browser in BROWSERS:
+                user_agent = self.agent.browser(browser)
+            else:
+                user_agent = self.agent.random()
+        else:
+            user_agent = self.agent.random()
+
+        accept_language = random.choice(FINGERPRINTS["accept_language"])
+        accept = random.choice(FINGERPRINTS["accept"])
+        platform = random.choice(FINGERPRINTS["platforms"])
+
+        # Generate sec-ch-ua based on the user agent
+        sec_ch_ua = ""
+        for browser_name in FINGERPRINTS["sec_ch_ua"]:
+            if browser_name in user_agent.lower():
+                version = random.randint(*BROWSERS[browser_name])
+                sec_ch_ua = FINGERPRINTS["sec_ch_ua"][browser_name].format(version, version)
+                break
+
+        # Use the instance's agent for consistent IP rotation
+        ip = self.agent.rotate_ip()
+        fingerprint = {
+            "user_agent": user_agent,
+            "accept_language": accept_language,
+            "accept": accept,
+            "sec_ch_ua": sec_ch_ua,
+            "platform": platform,
+            "x-forwarded-for": ip,
+            "x-real-ip": ip,
+            "x-client-ip": ip,
+            "forwarded": f"for={ip};proto=https",
+            "x-forwarded-proto": "https",
+            "x-request-id": self.agent.random_id(8) if hasattr(self.agent, 'random_id') else ''.join(random.choices('0123456789abcdef', k=8)),
+        }
+
+        return fingerprint
+
     def refresh_identity(self, browser: str = None):
         """
         Refreshes the browser identity fingerprint.
@@ -130,7 +190,7 @@ class TogetherAI(Provider):
             browser: Specific browser to use for the new fingerprint
         """
         browser = browser or self.fingerprint.get("browser_type", "chrome")
-        self.fingerprint = self.agent.generate_fingerprint(browser)
+        self.fingerprint = self._generate_consistent_fingerprint(browser)
 
         # Update headers with new fingerprint
         self.headers.update({
@@ -138,6 +198,9 @@ class TogetherAI(Provider):
             "Accept-Language": self.fingerprint["accept_language"],
             "User-Agent": self.fingerprint.get("user_agent", ""),
             "Sec-CH-UA": self.fingerprint.get("sec_ch_ua", ""),
+            "X-Forwarded-For": self.fingerprint.get("x-forwarded-for", ""),
+            "X-Real-IP": self.fingerprint.get("x-real-ip", ""),
+            "X-Client-IP": self.fingerprint.get("x-client-ip", ""),
         })
 
         self.session.headers.update(self.headers)
@@ -199,7 +262,7 @@ class TogetherAI(Provider):
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:
