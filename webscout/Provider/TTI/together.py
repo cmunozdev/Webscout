@@ -112,7 +112,7 @@ class Images(BaseImages):
             "x-client-ip": ip,
             "forwarded": f"for={ip};proto=https",
             "x-forwarded-proto": "https",
-            "x-request-id": agent.random_id(8),
+            "x-request-id": agent.random_id(8) if hasattr(agent, 'random_id') else ''.join(random.choices('0123456789abcdef', k=8)),
         }
 
         return fingerprint
