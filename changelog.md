@@ -2,6 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.11.22] - 2025-11-22
+
+### 🐛 Fixed
+ - **fix**: TogetherAI.py - Updated API endpoint from `https://chat.together.ai/api/chat-completion` to `https://api.together.xyz/v1/chat/completions` for compatibility with the public Together API
+ - **fix**: TogetherAI.py - Fixed payload parameters to use OpenAI-compatible format (`model`, `max_tokens`, `top_p` instead of `modelId`, `maxTokens`, `topP`)
+ - **fix**: OPENAI/TogetherAI.py - Removed self-activation endpoint logic that auto-fetched API keys from external service
+
+### ✨ Added
+ - **feat**: TogetherAI.py - Implemented dynamic model loading from `https://api.together.xyz/v1/models` API, similar to Groq provider
+ - **feat**: TogetherAI.py - Added `get_models()` and `update_available_models()` class methods for automatic model discovery
+ - **feat**: OPENAI/TogetherAI.py - Added dynamic model loading support with automatic model list updates on initialization
+ - **feat**: OPENAI/TogetherAI.py - Now requires user-provided API key via `api_key` parameter, following Groq provider pattern
+
+### 🔧 Maintenance
+ - **refactor**: TogetherAI.py - Changed `AVAILABLE_MODELS` from hardcoded dictionary to dynamically populated list
+ - **refactor**: TogetherAI.py - Updated model validation to handle empty model lists gracefully when API fetch fails
+ - **refactor**: OPENAI/TogetherAI.py - Removed `activation_endpoint` and `get_activation_key()` method for better security practices
+ - **refactor**: OPENAI/TogetherAI.py - Updated `__init__` to accept `api_key` parameter and conditionally update models if key is provided
+
 ## [2025.11.21] - 2025-11-21
 
 ### 🐛 Fixed

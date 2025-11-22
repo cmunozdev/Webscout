@@ -16,15 +16,52 @@ class TogetherAI(Provider):
     Uses the chat interface API endpoint with model UUIDs.
     """
     required_auth = True
-    AVAILABLE_MODELS = {
-        "DeepSeek R1 (0528)": "dc11fae1-a7a2-4bed-9bd5-bd31bd8f5053",
-        "DeepSeek V3 (0324)": "3e26fb3e-5b59-454d-b4af-dcd10d8c91a4",
-        "GPT OSS 120B": "34dd95c6-5b8b-42f8-b7a9-99cc01b27a39",
-        "Kimi K2 Instruct (0905)": "e91f96e5-fc2f-4e15-95af-43edaa1c6549",
-        "Qwen3 Coder 480B": "4fbbacb9-2b02-42db-827e-4c4dd6e12f84",
-        "GLM-4.5-Air": "37fb891c-1c2c-43f5-8cc0-f2a80b1f4a36",
-        "Llama 4 Maverick": "84b39408-ac91-43a0-a2f0-6e4fb72e9800",
-    }
+    AVAILABLE_MODELS = []
+
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available models from Together API."""
+        if not api_key:
+            return cls.AVAILABLE_MODELS
+
+        try:
+            # Use a temporary session for fetching models
+            session = Session()
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            response = session.get(
+                "https://api.together.xyz/v1/models",
+                headers=headers,
+                impersonate="chrome110"
+            )
+            
+            if response.status_code != 200:
+                return cls.AVAILABLE_MODELS
+                
+            data = response.json()
+            # Together API returns a list of model objects
+            if isinstance(data, list):
+                # Filter for chat/language models if possible, or just return all IDs
+                # The API returns objects with 'id', 'type', etc.
+                return [model["id"] for model in data if isinstance(model, dict) and "id" in model]
+            
+            return cls.AVAILABLE_MODELS
+            
+        except Exception:
+            return cls.AVAILABLE_MODELS
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from Together API"""
+        try:
+            models = cls.get_models(api_key)
+            if models:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            pass
 
     @staticmethod
     def _together_ai_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
@@ -40,7 +77,7 @@ class TogetherAI(Provider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,
+        api_key: str,
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
@@ -57,12 +94,15 @@ class TogetherAI(Provider):
         browser: str = "chrome"
     ):
         """Initializes the Together AI chat client."""
-        if model not in self.AVAILABLE_MODELS:
-            raise ValueError(f"Invalid model: {model}. Choose from: {list(self.AVAILABLE_MODELS.keys())}")
+        self.update_available_models(api_key)
 
-        self.url = "https://chat.together.ai/api/chat-completion"
+        if model not in self.AVAILABLE_MODELS:
+            if self.AVAILABLE_MODELS:
+                raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
+
+        self.url = "https://api.together.xyz/v1/chat/completions"
         self.model_name = model
-        self.model_id = self.AVAILABLE_MODELS[model]
+        self.model_id = model
         self.temperature = temperature
         self.top_p = top_p
 
@@ -225,16 +265,15 @@ class TogetherAI(Provider):
 
         # Payload construction
         payload = {
-            "modelId": self.model_id,
+            "model": self.model_id,
             "temperature": self.temperature,
-            "topP": self.top_p,
+            "top_p": self.top_p,
             "messages": [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": conversation_prompt},
             ],
             "stream": stream,
-            "maxTokens": self.max_tokens_to_sample,
-            "options": {}
+            "max_tokens": self.max_tokens_to_sample,
         }
 
         def for_stream():

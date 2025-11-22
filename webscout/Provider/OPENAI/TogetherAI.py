@@ -42,9 +42,9 @@ class Completions(BaseCompletions):
         """
         # Get API key if not already set
         if not self._client.headers.get("Authorization"):
-            api_key = self._client.get_activation_key()
-            self._client.headers["Authorization"] = f"Bearer {api_key}"
-            self._client.session.headers.update(self._client.headers)
+             # If no API key is set, we can't proceed. 
+             # The user should have provided it in __init__.
+             pass
 
         model_name = self._client.convert_model_name(model)
         payload = {
@@ -209,81 +209,70 @@ class TogetherAI(OpenAICompatibleProvider):
     """
     OpenAI-compatible client for TogetherAI API.
     """
-    AVAILABLE_MODELS = [
-        "NousResearch/Nous-Hermes-2-Mixtral-8x7B-DPO",
-        "Qwen/QwQ-32B",
-        "Qwen/Qwen2-72B-Instruct",
-        "Qwen/Qwen2-VL-72B-Instruct",
-        "Qwen/Qwen2.5-72B-Instruct-Turbo",
-        "Qwen/Qwen2.5-7B-Instruct-Turbo",
-        "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "Qwen/Qwen2.5-VL-72B-Instruct",
-        "Qwen/Qwen3-235B-A22B-Instruct-2507-tput",
-        "Qwen/Qwen3-235B-A22B-Thinking-2507",
-        "Qwen/Qwen3-235B-A22B-fp8-tput",
-        "Qwen/Qwen3-Coder-480B-A35B-Instruct-FP8",
-        "Salesforce/Llama-Rank-V1",
-        "Virtue-AI/VirtueGuard-Text-Lite",
-        "arcee-ai/AFM-4.5B",
-        "arcee-ai/coder-large",
-        "arcee-ai/maestro-reasoning",
-        "arcee-ai/virtuoso-large",
-        "arcee_ai/arcee-spotlight",
-        "blackbox/meta-llama-3-1-8b",
-        "deepcogito/cogito-v2-preview-deepseek-671b",
-        "deepseek-ai/DeepSeek-R1",
-        "deepseek-ai/DeepSeek-R1-0528-tput",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B-free",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-1.5B",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-14B",
-        "deepseek-ai/DeepSeek-V3",
-        "google/gemma-2-27b-it",
-        "google/gemma-3n-E4B-it",
-        "lgai/exaone-3-5-32b-instruct",
-        "lgai/exaone-deep-32b",
-        "marin-community/marin-8b-instruct",
-        "meta-llama/Llama-2-70b-hf",
-        "meta-llama/Llama-3-70b-chat-hf",
-        "meta-llama/Llama-3-8b-chat-hf",
-        "meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
-        "meta-llama/Llama-3.2-3B-Instruct-Turbo",
-        "meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo-Free",
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-        "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-        "meta-llama/Llama-Vision-Free",
-        "meta-llama/Meta-Llama-3-70B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3-8B-Instruct-Lite",
-        "meta-llama/Meta-Llama-3.1-405B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        "mistralai/Mistral-7B-Instruct-v0.1",
-        "mistralai/Mistral-7B-Instruct-v0.2",
-        "mistralai/Mistral-7B-Instruct-v0.3",
-        "mistralai/Mistral-Small-24B-Instruct-2501",
-        "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "moonshotai/Kimi-K2-Instruct",
-        "nvidia/Llama-3.1-Nemotron-70B-Instruct-HF",
-        "perplexity-ai/r1-1776",
-        "scb10x/scb10x-llama3-1-typhoon2-70b-instruct",
-        "scb10x/scb10x-typhoon-2-1-gemma3-12b",
-        "togethercomputer/Refuel-Llm-V2-Small",
-        "zai-org/GLM-4.5-Air-FP8"
-    ]
+    AVAILABLE_MODELS = []
 
-    def __init__(self, browser: str = "chrome", proxies: Optional[Dict[str, str]] = None):
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available models from Together API."""
+        if not api_key:
+            return cls.AVAILABLE_MODELS
+
+        try:
+            # Use a temporary session for fetching models
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json"
+            }
+            
+            response = requests.get(
+                "https://api.together.xyz/v1/models",
+                headers=headers,
+                timeout=30
+            )
+            
+            if response.status_code != 200:
+                return cls.AVAILABLE_MODELS
+                
+            data = response.json()
+            # Together API returns a list of model objects
+            if isinstance(data, list):
+                return [model["id"] for model in data if isinstance(model, dict) and "id" in model]
+            
+            return cls.AVAILABLE_MODELS
+            
+        except Exception:
+            return cls.AVAILABLE_MODELS
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from Together API"""
+        try:
+            models = cls.get_models(api_key)
+            if models:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            pass
+
+    def __init__(self, api_key: str = None, browser: str = "chrome", proxies: Optional[Dict[str, str]] = None):
         super().__init__(proxies=proxies)
         self.timeout = 60
         self.api_endpoint = "https://api.together.xyz/v1/chat/completions"
-        self.activation_endpoint = "https://www.codegeneration.ai/activate-v2"
         # Initialize LitAgent for consistent fingerprints across requests
         self._agent = LitAgent()
         self.headers = self._generate_consistent_fingerprint(browser=browser)
+        
+        if api_key:
+            self.headers["Authorization"] = f"Bearer {api_key}"
+            
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
-        self._api_key_cache = None
+        
+        # Try to update models if API key is provided
+        if api_key:
+            try:
+                self.update_available_models(api_key)
+            except Exception:
+                pass
 
     @property
     def models(self):
@@ -351,37 +340,23 @@ class TogetherAI(OpenAICompatibleProvider):
 
         return fingerprint
 
-    def get_activation_key(self) -> str:
-        """Get API key from activation endpoint"""
-        if self._api_key_cache:
-            return self._api_key_cache
 
-        try:
-            response = requests.get(
-                self.activation_endpoint,
-                headers={"Accept": "application/json"},
-                timeout=30
-            )
-            response.raise_for_status()
-            activation_data = response.json()
-            self._api_key_cache = activation_data["openAIParams"]["apiKey"]
-            return self._api_key_cache
-        except Exception as e:
-            raise Exception(f"Failed to get activation key: {e}")
 
     def convert_model_name(self, model: str) -> str:
         """Convert model name - returns model if valid, otherwise default"""
         if model in self.AVAILABLE_MODELS:
             return model
 
-        # Default to first available model if not found
-        return self.AVAILABLE_MODELS[0]
+        # Default to first available model if not found, or return the model itself if list is empty
+        if self.AVAILABLE_MODELS:
+            return self.AVAILABLE_MODELS[0]
+        return model
 
 
 if __name__ == "__main__":
     from rich import print
 
-    client = TogetherAI()
+    client = TogetherAI(api_key="YOUR_API_KEY")
     messages = [
         {"role": "user", "content": "Hello, how are you?"},
         {"role": "assistant", "content": "I'm fine, thank you! How can I help you today?"},
