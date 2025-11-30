@@ -32,7 +32,7 @@ def cache_find(diff: Union[dict, list]) -> Optional[str]:
     return None
 
 
-ModeType = Literal["question", "academic", "fast", "forums", "wiki", "advanced"]
+ModeType = Literal["question", "academic", "forums", "wiki", "thinking"]
 DetailLevelType = Literal["concise", "detailed", "comprehensive"]
 
 
@@ -226,14 +226,11 @@ class IAsk(AISearch):
                 return result
             finally:
                 loop.close()
-
-        # For streaming, use a simpler approach with a single event loop
-        # that stays open until the generator is exhausted
         buffer = ""
 
         def sync_generator():
             nonlocal buffer
-            # Create a new event loop for this generator
+
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
 
@@ -378,33 +375,8 @@ class IAsk(AISearch):
 
 
 if __name__ == "__main__":
-    from rich import print
 
     ai = IAsk()
-
-    # Example 1: Simple search with default mode
-    print("\n[bold cyan]Example 1: Simple search with default mode[/bold cyan]")
     response = ai.search("What is Python?", stream=True)
     for chunk in response:
         print(chunk, end="", flush=True)
-    print("\n\n[bold green]Response complete.[/bold green]\n")
-
-    # Example 2: Search with academic mode
-    print("\n[bold cyan]Example 2: Search with academic mode[/bold cyan]")
-    response = ai.search("Quantum computing applications", mode="academic", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
-    print("\n\n[bold green]Response complete.[/bold green]\n")
-
-    # Example 3: Search with advanced mode and detailed level
-    print("\n[bold cyan]Example 3: Search with advanced mode and detailed level[/bold cyan]")
-    response = ai.search("Climate change solutions", mode="advanced", detail_level="detailed", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
-    print("\n\n[bold green]Response complete.[/bold green]\n")
-
-    # Example 4: Demonstrating the create_url method
-    print("\n[bold cyan]Example 4: Generated URL for browser access[/bold cyan]")
-    url = ai.create_url("Helpingai details", mode="question", detail_level="detailed")
-    print(f"URL: {url}")
-    print("This URL can be used directly in a browser or with other HTTP clients.")

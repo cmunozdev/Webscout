@@ -3,7 +3,10 @@
 import sys
 from typing import Any, Dict, List, Optional, Union
 
+
 from rich.console import Console
+
+from .group import Group  # Fix: Import Group for type checking and usage
 
 from ..exceptions import UsageError
 from ..plugins.manager import PluginManager
@@ -130,7 +133,7 @@ class CLI:
                 '''Run migrations'''
                 pass
         """
-        from .group import Group  # Import here to avoid circular dependency
+        # Group is now imported at the top
         
         def decorator(f):
             group_name = name or f.__name__

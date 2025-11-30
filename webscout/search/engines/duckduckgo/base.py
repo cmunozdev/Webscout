@@ -11,7 +11,7 @@ from time import sleep, time
 from typing import Any
 
 try:
-    import trio
+    import trio # type: ignore
 except ImportError:
     pass
 

@@ -756,9 +756,13 @@ class Scout:
 
     def tables_to_dataframe(self, table_index=0, pandas_module=None):
         """Convert the nth table in the document to a pandas DataFrame."""
-        import pandas as pd
-        if pandas_module:
-            pd = pandas_module
+        try:
+            if pandas_module:
+                pd = pandas_module
+            else:
+                import pandas as pd # type: ignore
+        except ImportError:
+            raise ImportError("pandas is required for tables_to_dataframe. Please install pandas.")
         tables = self.find_all('table')
         if not tables or table_index >= len(tables):
             return None

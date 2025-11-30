@@ -23,7 +23,7 @@ def get_current_app() -> str:
 
     if system_name == "Windows":
         try:
-            import win32gui  # pywin32 must be installed
+            import win32gui  # pywin32 must be installed for this to work # type: ignore
             window_handle = win32gui.GetForegroundWindow()
             title = win32gui.GetWindowText(window_handle)
             return title if title else "Unknown"

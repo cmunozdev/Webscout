@@ -84,7 +84,7 @@ class ScoutCrawler:
     """
     Ultra-advanced web crawling utility optimized for LLM data collection.
     """
-    def __init__(self, base_url: str, max_pages: int = 50, tags_to_remove: List[str] = None, session: Optional[Session] = None, delay: float = 0.5, obey_robots: bool = True, allowed_domains: Optional[List[str]] = None):
+    def __init__(self, base_url: str, max_pages: int = 50, tags_to_remove: List[str] = None, session: Optional[Any] = None, delay: float = 0.5, obey_robots: bool = True, allowed_domains: Optional[List[str]] = None):
         """
         Initialize the web crawler.
 
@@ -260,7 +260,7 @@ class ScoutCrawler:
         """
         with concurrent.futures.ThreadPoolExecutor(max_workers=10) as executor:
             futures = {executor.submit(self._crawl_page, self.base_url, 0)}
-            submitted_links: set[str] = set()
+            submitted_links: Set[str] = set()
 
             while futures:
                 if self.max_pages is not None and len(self.visited_urls) >= self.max_pages:

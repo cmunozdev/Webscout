@@ -281,7 +281,7 @@ class ModelConverter:
 
         # Check for BLAS libraries
         try:
-            import numpy as np
+            import numpy as np # type: ignore
             # Check if numpy is linked with optimized BLAS
             config = np.__config__.show()
             if any(lib in str(config).lower() for lib in ['openblas', 'mkl', 'atlas', 'blis']):

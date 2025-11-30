@@ -13,7 +13,7 @@ from .engines.yahoo.maps import YahooMaps
 from .engines.yahoo.translate import YahooTranslate
 from .engines.yahoo.weather import YahooWeather
 from .results import TextResult, ImagesResult, VideosResult, NewsResult
-
+from typing import Dict
 
 class YahooSearch(BaseSearch):
     """Unified Yahoo search interface."""

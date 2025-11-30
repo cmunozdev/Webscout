@@ -2,7 +2,25 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2025.11.22] - 2025-11-22
+
+## [2025.11.30] - 2025-11-30
+
+### 🔧 Maintenance
+ - **refactor**: Added missing `# type: ignore` to imports for optional dependencies (trio, numpy, tiktoken, pandas) in multiple modules for better compatibility and linting
+ - **refactor**: Improved type hints and error handling in `scout/core/crawler.py` and `scout/core/scout.py`
+ - **refactor**: Updated `oivscode.py` to generate and use a unique ClientId (UUID) in headers
+ - **refactor**: Updated CLI group import in `swiftcli/core/cli.py` to avoid circular dependency
+ - **refactor**: Minor docstring and comment cleanups in AISEARCH providers
+ - **chore**: Removed unfinished providers: `Aitopia.py`, `VercelAIGateway.py`, `puterjs.py`, `scira_search.py`, `hika_search.py` from Provider/UNFINISHED and Provider/AISEARCH
+
+### 🐛 Fixed
+ - **fix**: Fixed error handling in `sanitize.py` async stream processing (removed logger usage in extractor error branch)
+ - **fix**: Fixed import and type hint issues in `duckduckgo/base.py`, `search/http_client.py`, `Provider/cerebras.py`, and others
+ - **fix**: Fixed streaming output and test code in `genspark_search.py`, `PERPLEXED_search.py`, and `iask_search.py` for more robust CLI testing
+ - **fix**: Fixed YahooSearch import for Dict type in `search/yahoo_main.py`
+
+### 🚮 Removed
+ - **removed**: Deleted unfinished provider files: `Aitopia.py`, `VercelAIGateway.py`, `puterjs.py`, `scira_search.py`, `hika_search.py` for codebase cleanup
 
 ### 🐛 Fixed
  - **fix**: TogetherAI.py - Updated API endpoint from `https://chat.together.ai/api/chat-completion` to `https://api.together.xyz/v1/chat/completions` for compatibility with the public Together API

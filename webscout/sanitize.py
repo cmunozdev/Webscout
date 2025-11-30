@@ -767,7 +767,7 @@ async def _sanitize_stream_async(
                                         else:
                                             yield final_content
                                 except Exception as e:
-                                    logger.debug("Content extractor error: %s", e)
+                                    pass
                             else:
                                 yield result
                     if not processing_active:
@@ -819,7 +819,7 @@ async def _sanitize_stream_async(
                                         else:
                                             yield final_content
                                 except Exception as e:
-                                    logger.debug("Content extractor error: %s", e)
+                                    pass
                             else:
                                 yield result
                     break

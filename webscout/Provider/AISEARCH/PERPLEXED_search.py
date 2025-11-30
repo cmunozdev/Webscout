@@ -206,9 +206,6 @@ class PERPLEXED(AISearch):
 if __name__ == "__main__":
 
     ai = PERPLEXED()
-    
-    # Test with raw=False to see debug output
-    print("=== Testing with raw=True ===")
-    response = ai.search(input(">>> "), stream=True, raw=True)
+    response = ai.search(input(">>> "), stream=True, raw=False)
     for chunks in response:
         print(chunks, end="", flush=True)

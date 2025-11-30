@@ -2,6 +2,7 @@ import secrets
 import requests
 import random
 import string
+import uuid
 from typing import Union, Any, Dict, Generator
 
 from webscout.AIutel import Optimizers
@@ -17,29 +18,6 @@ class oivscode(Provider):
     """
     required_auth = False
     AVAILABLE_MODELS = [
-        "*",
-        "Qwen/Qwen2.5-72B-Instruct-Turbo",
-        "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-7-sonnet-20250219",
-        "custom/blackbox-base",
-        "custom/blackbox-pro",
-        "custom/blackbox-pro-designer",
-        "custom/blackbox-pro-plus",
-        "deepseek-r1",
-        "deepseek-v3",
-        "deepseek/deepseek-chat",
-        "gemini-2.5-pro-preview-03-25",
-        "gpt-4o-mini",
-        "grok-3-beta",
-        "image-gen",
-        "llama-4-maverick-17b-128e-instruct-fp8",
-        "o1",
-        "o3-mini",
-        "o4-mini",
-        "transcribe",
-        "anthropic/claude-sonnet-4"
     ]
 
 
@@ -54,31 +32,34 @@ class oivscode(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        model: str = "claude-3-5-sonnet-20240620",
+        model: str = "gpt-4o-mini",
         system_prompt: str = "You are a helpful AI assistant.",
         
     ):
         """
         Initializes the oivscode with given parameters.
         """
-        if model not in self.AVAILABLE_MODELS:
-            raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
+        if model not in self.AVAILABLE_MODELS and "*" not in self.AVAILABLE_MODELS:
+             if model not in self.AVAILABLE_MODELS:
+                raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
 
 
         self.session = requests.Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.api_endpoints = [
-            "https://oi-vscode-server.onrender.com/v1/chat/completions",
-            "https://oi-vscode-server-2.onrender.com/v1/chat/completions",
             "https://oi-vscode-server-5.onrender.com/v1/chat/completions",
-            "https://oi-vscode-server-0501.onrender.com/v1/chat/completions"
+            "https://oi-vscode-server-0501.onrender.com/v1/chat/completions",
         ]
         self.api_endpoint = random.choice(self.api_endpoints)
         self.timeout = timeout
         self.last_response = {}
         self.model = model
         self.system_prompt = system_prompt
+        
+        # Generate ClientId (UUID)
+        self.client_id = str(uuid.uuid4())
+        
         self.headers = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9,en-GB;q=0.8,en-IN;q=0.7",
@@ -92,6 +73,7 @@ class oivscode(Provider):
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-site",
+            "ClientId": self.client_id, # Add ClientId
         }
         self.userid = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(21))
         self.headers["userid"] = self.userid

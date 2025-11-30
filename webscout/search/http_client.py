@@ -7,7 +7,7 @@ from random import choice
 from typing import Any, Literal
 
 try:
-    import trio  # noqa: F401
+    import trio  # type: ignore
 except ImportError:
     pass
 

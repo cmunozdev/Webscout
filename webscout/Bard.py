@@ -929,6 +929,7 @@ class Image(BaseModel):
                 cookies=cookies,
                 proxies=proxies_dict,
                 impersonate=self.impersonate
+                
                 # follow_redirects is handled automatically by curl_cffi
             ) as client:
                 if verbose:
