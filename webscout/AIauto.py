@@ -173,8 +173,6 @@ class AUTO(Provider):
         # Try webscout-based providers
         for provider_name, provider_class in available_providers:
             try:
-                self.provider_name = f"webscout-{provider_name}"
-                
                 self.provider = provider_class(
                     is_conversation=self.is_conversation,
                     max_tokens=self.max_tokens,
@@ -186,6 +184,7 @@ class AUTO(Provider):
                     history_offset=self.history_offset,
                     act=self.act,
                 )
+                self.provider_name = provider_name
                 response = self.provider.ask(**ask_kwargs)
 
                 if stream and inspect.isgenerator(response):
@@ -195,15 +194,19 @@ class AUTO(Provider):
                         continue
                     except Exception:
                         continue
-                    
+
                     def chained_gen():
+                        if self.print_provider_info:
+                            model = getattr(self.provider, "model", None)
+                            provider_class_name = self.provider.__class__.__name__
+                            if model:
+                                print(f"\033[1;34m{provider_class_name}:{model}\033[0m\n")
+                            else:
+                                print(f"\033[1;34m{provider_class_name}\033[0m\n")
                         yield first_chunk
                         yield from response
-                        
-                    if self.print_provider_info:
-                        print(f"\033[1;34m{self.provider_name}\033[0m\n")
                     return chained_gen()
-                
+
                 if not stream and inspect.isgenerator(response):
                     # Handle providers that return a generator even when stream=False
                     try:
@@ -216,7 +219,12 @@ class AUTO(Provider):
 
                 # Print provider info if enabled
                 if self.print_provider_info:
-                    print(f"\033[1;34m{self.provider_name}\033[0m\n")
+                    model = getattr(self.provider, "model", None)
+                    provider_class_name = self.provider.__class__.__name__
+                    if model:
+                        print(f"\033[1;34m{provider_class_name}:{model}\033[0m\n")
+                    else:
+                        print(f"\033[1;34m{provider_class_name}\033[0m\n")
                 return response
             except Exception:
                 continue

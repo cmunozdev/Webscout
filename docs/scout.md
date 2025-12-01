@@ -511,10 +511,6 @@ Contributions are welcome! Here's how you can contribute:
 
 Please make sure to update tests as appropriate.
 
-## 📄 License
-
-This project is licensed under the MIT License - see the LICENSE file for details.
-
 ---
 
 <div align="center">

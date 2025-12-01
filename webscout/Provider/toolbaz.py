@@ -36,6 +36,7 @@ class Toolbaz(Provider):
         "gpt-4o-latest",
 
         "grok-4-fast",
+        "grok-4.1-fast",
         
         "toolbaz-v4.5-fast",
         "toolbaz_v4",

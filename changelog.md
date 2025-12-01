@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.12.01] - 2025-12-01
+
+### ✨ Added
+ - **feat**: sanitize.py - Added `output_formatter` parameter to `sanitize_stream()` for custom output transformation
+ - **feat**: sanitize.py - Users can now define custom formatter functions to transform each output item into any desired structure before yielding
+
+### 🚮 Removed
+ - **removed**: sanitize.py - Removed built-in response formatters (`ResponseFormatter`, `OutputFormat`, `create_openai_response`, `create_openai_stream_chunk`, `create_anthropic_response`, `create_anthropic_stream_chunk`, `format_output`) in favor of user-defined `output_formatter` functions
+ - **removed**: sanitize.py - Removed `output_format` and `format_options` parameters from `sanitize_stream()` - use `output_formatter` instead
+
+### 📝 Documentation
+ - **docs**: sanitize.md - Updated documentation with `output_formatter` parameter and usage examples
+ - **docs**: sanitize.md - Removed references to removed built-in formatters
+
 ## [2025.11.30] - 2025-11-30
 
 ### 🔧 Maintenance

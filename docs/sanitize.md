@@ -33,7 +33,7 @@ for item in gen:
 **Function Signature:**
 ```python
 def sanitize_stream(
-    data: Union[str, bytes, Iterable[str], Iterable[bytes], AsyncIterable[str], 
+    data: Union[str, bytes, Iterable[str], Iterable[bytes], AsyncIterable[str],
                 AsyncIterable[bytes], dict, list, int, float, bool, None],
     intro_value: str = "data:",
     to_json: bool = True,
@@ -52,6 +52,7 @@ def sanitize_stream(
     extract_regexes: Optional[List[Union[str, Pattern[str]]]] = None,
     object_mode: Literal["as_is", "json", "str"] = "json",
     raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
 ) -> Union[Generator[Any, None, None], AsyncGenerator[Any, None]]
 ```
 
@@ -77,6 +78,7 @@ def sanitize_stream(
 | `extract_regexes` | `Optional[List[Union[str, Pattern]]]` | `None` | Regex patterns for content extraction |
 | `object_mode` | `Literal["as_is", "json", "str"]` | `"json"` | How to handle non-iterable objects |
 | `raw` | `bool` | `False` | Yield raw API response chunks |
+| `output_formatter` | `Optional[Callable[[Any], Any]]` | `None` | Custom callable to format/transform each output item before yielding |
 
 ### Supported Encodings
 
@@ -287,14 +289,47 @@ import requests
 
 def process_streaming_api():
     response = requests.get('https://api.example.com/stream', stream=True)
-    
+
     # Process raw chunks
     for chunk in sanitize_stream(response.iter_content(chunk_size=1024), raw=True):
         print(f"Raw chunk: {chunk}")
-    
+
     # Process as JSON stream
     for item in sanitize_stream(response.iter_lines(decode_unicode=True)):
         print(f"Parsed: {item}")
+```
+
+### Output Formatting with `output_formatter`
+
+The `output_formatter` parameter allows you to transform each output item into any desired structure before yielding. Define your own custom formatter function to structure the output however you need.
+
+```python
+from webscout.sanitize import sanitize_stream
+import time
+
+# Simple custom formatter - wrap content in a dict with timestamp
+def simple_formatter(content):
+    return {'text': content, 'timestamp': time.time()}
+
+data = ['data: {"message": "Hello"}', 'data: {"message": "World"}']
+for item in sanitize_stream(data, output_formatter=simple_formatter):
+    print(item)  # {'text': {'message': 'Hello'}, 'timestamp': 1234567890.123}
+
+# Message format with role
+def message_formatter(content):
+    return {'role': 'assistant', 'content': content}
+
+for item in sanitize_stream(data, output_formatter=message_formatter):
+    print(item)  # {'role': 'assistant', 'content': {'message': 'Hello'}}
+
+# Custom OpenAI-like response format
+def openai_formatter(content):
+    return {
+        'choices': [{'message': {'role': 'assistant', 'content': content}}]
+    }
+
+for item in sanitize_stream(data, output_formatter=openai_formatter):
+    print(item['choices'][0]['message']['content'])
 ```
 
 ### Decorator Usage
@@ -309,9 +344,7 @@ def api_data_generator():
     yield 'data: {"result": 2}'
 
 # Decorator with parameters
-@lit_streamer(skip_markers=["
-
-[DONE]"], to_json=True)
+@lit_streamer(skip_markers=["[DONE]"], to_json=True)
 def streaming_response():
     yield 'data: {"message": "hello"}'
     yield 'data: {"message": "world"}'

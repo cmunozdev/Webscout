@@ -2,7 +2,7 @@
 
 This module provides utilities for processing streaming data from various sources,
 including support for byte streams, text streams, JSON parsing, regex filtering,
-and marker-based extraction.
+marker-based extraction, and customizable output response formatting.
 """
 
 import asyncio
@@ -41,6 +41,7 @@ __all__ = [
     'lit_streamer',
     'EncodingType',
 ]
+
 
 def _compile_regexes(patterns: Optional[List[Union[str, re.Pattern[str]]]]) -> Optional[List[re.Pattern[str]]]:
     """
@@ -320,13 +321,15 @@ def _sanitize_stream_sync(
     skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
 ) -> Generator[Any, None, None]:
     """
     Processes a stream of data (strings or bytes) in real-time, applying various transformations and filtering.
 
     This function is designed to handle streaming data, allowing for operations such as
     prefix removal, JSON parsing, skipping lines based on markers, regex-based filtering,
-    and extracting specific content. It also supports custom error handling for JSON parsing failures.
+    and extracting specific content. It also supports custom error handling for JSON parsing failures
+    and output response formatting.
 
     Args:
         data: String, iterable of strings, or iterable of bytes to process.
@@ -348,9 +351,11 @@ def _sanitize_stream_sync(
         skip_regexes: List of regex patterns (strings or compiled) for skipping lines that match.
         extract_regexes: List of regex patterns (strings or compiled) for extracting content using capturing groups.
         raw: If True, yields the raw response as returned by the API, chunk by chunk (no processing).
+        output_formatter: Custom callable to format/transform each output item before yielding.
 
     Yields:
-        Any: Processed data, which can be a string, a dictionary (if `to_json` is True), or the result of `content_extractor`.
+        Any: Processed data, which can be a string, a dictionary (if `to_json` is True),
+             the result of `content_extractor`, or formatted by output_formatter.
 
     Raises:
         TypeError: If the input `data` is not a string or an iterable.
@@ -373,7 +378,15 @@ def _sanitize_stream_sync(
                 yield data
             return
     # --- END RAW MODE ---
-    
+
+    # --- OUTPUT FORMATTING SETUP ---
+    def _apply_output_format(item: Any) -> Any:
+        """Apply output formatting to a processed item."""
+        if output_formatter is not None:
+            return output_formatter(item)
+        return item
+    # --- END OUTPUT FORMATTING SETUP ---
+
     effective_skip_markers = skip_markers or []
     # Compile regex patterns
     compiled_skip_regexes = _compile_regexes(skip_regexes)
@@ -484,13 +497,13 @@ def _sanitize_stream_sync(
                                                         extracted = match.group(0)
                                                     break
                                             if extracted is not None:
-                                                yield extracted
+                                                yield _apply_output_format(extracted)
                                         else:
-                                            yield final_content
+                                            yield _apply_output_format(final_content)
                                 except Exception:
                                     pass
                             else:
-                                yield result
+                                yield _apply_output_format(result)
                     if not processing_active:
                         found_start = False
                     if idx == -1:
@@ -502,7 +515,7 @@ def _sanitize_stream_sync(
                     if chunk:
                         for subline in (chunk.split(line_delimiter) if line_delimiter is not None else chunk.splitlines()):
                             use_extract_in_process = compiled_extract_regexes if not content_extractor else None
-                            
+
                             result = _process_chunk(
                                 subline,
                                 intro_value,
@@ -531,13 +544,13 @@ def _sanitize_stream_sync(
                                                         extracted = match.group(0)
                                                     break
                                             if extracted is not None:
-                                                yield extracted
+                                                yield _apply_output_format(extracted)
                                         else:
-                                            yield final_content
+                                            yield _apply_output_format(final_content)
                                 except Exception:
                                     pass
                             else:
-                                yield result
+                                yield _apply_output_format(result)
                     break
                 else:
                     break
@@ -563,6 +576,7 @@ async def _sanitize_stream_async(
     skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
 ) -> AsyncGenerator[Any, None]:
     """
     Asynchronously processes a stream of data (strings or bytes), applying transformations and filtering.
@@ -570,7 +584,7 @@ async def _sanitize_stream_async(
     This function is the asynchronous counterpart to `_sanitize_stream_sync`. It handles
     streaming data, allowing for operations such as prefix removal, JSON parsing,
     skipping lines based on markers, regex-based filtering, and extracting specific content.
-    It also supports custom error handling for JSON parsing failures.
+    It also supports custom error handling for JSON parsing failures and output response formatting.
 
     Args:
         data: String, iterable of strings, or iterable of bytes to process.
@@ -590,6 +604,7 @@ async def _sanitize_stream_async(
         skip_regexes: List of regex patterns (strings or compiled) for skipping lines that match.
         extract_regexes: List of regex patterns (strings or compiled) for extracting content using capturing groups.
         raw: If True, yields the raw response as returned by the API, chunk by chunk (no processing).
+        output_formatter: Custom callable to format/transform each output item before yielding.
     """
     # --- RAW MODE: yield each chunk exactly as returned by the API ---
     if raw:
@@ -615,7 +630,7 @@ async def _sanitize_stream_async(
                 yield data
             return
     # --- END RAW MODE ---
-    
+
     if isinstance(data, str):
         for item in _sanitize_stream_sync(
             data,
@@ -635,6 +650,7 @@ async def _sanitize_stream_async(
             skip_regexes=skip_regexes,
             extract_regexes=extract_regexes,
             raw=raw,
+            output_formatter=output_formatter,
         ):
             yield item
         return
@@ -659,9 +675,18 @@ async def _sanitize_stream_async(
             skip_regexes=skip_regexes,
             extract_regexes=extract_regexes,
             raw=raw,
+            output_formatter=output_formatter,
         ):
             yield item
         return
+
+    # --- OUTPUT FORMATTING SETUP FOR ASYNC ---
+    def _apply_output_format(item: Any) -> Any:
+        """Apply output formatting to a processed item."""
+        if output_formatter is not None:
+            return output_formatter(item)
+        return item
+    # --- END OUTPUT FORMATTING SETUP ---
 
     effective_skip_markers = skip_markers or []
     # Compile regex patterns
@@ -763,13 +788,13 @@ async def _sanitize_stream_async(
                                                         extracted = match.group(0)
                                                     break
                                             if extracted is not None:
-                                                yield extracted
+                                                yield _apply_output_format(extracted)
                                         else:
-                                            yield final_content
+                                            yield _apply_output_format(final_content)
                                 except Exception as e:
                                     pass
                             else:
-                                yield result
+                                yield _apply_output_format(result)
                     if not processing_active:
                         found_start = False
                     if idx == -1:
@@ -785,7 +810,7 @@ async def _sanitize_stream_async(
                             else chunk.splitlines()
                         ):
                             use_extract_in_process = compiled_extract_regexes if not content_extractor else None
-                            
+
                             result = _process_chunk(
                                 subline,
                                 intro_value,
@@ -815,13 +840,13 @@ async def _sanitize_stream_async(
                                                         extracted = match.group(0)
                                                     break
                                             if extracted is not None:
-                                                yield extracted
+                                                yield _apply_output_format(extracted)
                                         else:
-                                            yield final_content
+                                            yield _apply_output_format(final_content)
                                 except Exception as e:
                                     pass
                             else:
-                                yield result
+                                yield _apply_output_format(result)
                     break
                 else:
                     break
@@ -861,11 +886,12 @@ def sanitize_stream(
     extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     object_mode: Literal["as_is", "json", "str"] = "json",
     raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
 ) -> Union[Generator[Any, None, None], AsyncGenerator[Any, None]]:
     """
     Processes streaming data (strings or bytes) in either synchronous or asynchronous mode.
     Now supports non-iterable and miscellaneous input types (dict, list, int, float, bool, None).
-    Includes regex-based content filtering and extraction capabilities.
+    Includes regex-based content filtering, extraction capabilities, and customizable output response formatting.
 
     Args:
         data: The data to be processed. Can be a string, bytes, a synchronous iterable of strings or bytes,
@@ -887,20 +913,37 @@ def sanitize_stream(
         error_handler (Optional[Callable[[Exception, str], Optional[Any]]]):
             Callback invoked with ``(Exception, str)`` when JSON parsing fails.
             If the callback returns a value, it is yielded in place of the raw line. Defaults to None.
-        skip_regexes (Optional[List[Union[str, Pattern[str]]]]): List of regex patterns (strings or compiled) 
+        skip_regexes (Optional[List[Union[str, Pattern[str]]]]): List of regex patterns (strings or compiled)
             for skipping lines that match any pattern. Defaults to None.
-        extract_regexes (Optional[List[Union[str, Pattern[str]]]]): List of regex patterns (strings or compiled) 
+        extract_regexes (Optional[List[Union[str, Pattern[str]]]]): List of regex patterns (strings or compiled)
             for extracting content using capturing groups. If multiple groups are captured, they are returned as a tuple string. Defaults to None.
         object_mode (Literal["as_is", "json", "str"]): How to handle non-string, non-iterable objects.
             "json" (default) yields as JSON string, "str" yields as str(obj), "as_is" yields the object as-is.
         raw (bool): If True, yields the raw response as returned by the API, chunk by chunk (no splitting or joining).
+        output_formatter (Optional[Callable[[Any], Any]]): Custom callable to format/transform each output item
+            before yielding. Use this to structure output into any desired format (e.g., OpenAI-like responses,
+            custom dictionaries, etc.). The formatter receives the processed content and returns the formatted output.
 
     Returns:
         Union[Generator[Any, None, None], AsyncGenerator[Any, None]]:
-            A generator or an asynchronous generator yielding the processed data, or raw data if raw=True.
-            
+            A generator or an asynchronous generator yielding the processed data, or raw data if raw=True,
+            optionally transformed by output_formatter.
+
     Raises:
         ValueError: If any regex pattern is invalid.
+
+    Examples:
+        # Use custom formatter for simple dict structure
+        >>> def my_formatter(content):
+        ...     return {'text': content, 'timestamp': time.time()}
+        >>> for chunk in sanitize_stream(data, output_formatter=my_formatter):
+        ...     print(chunk)
+
+        # Format as message with role
+        >>> def message_formatter(content):
+        ...     return {'role': 'assistant', 'content': content}
+        >>> for chunk in sanitize_stream(data, output_formatter=message_formatter):
+        ...     print(chunk)
     """
     if raw:
         def _raw_passthrough_sync(source_iter):
@@ -954,7 +997,7 @@ def sanitize_stream(
             payload, intro_value, to_json, skip_markers, strip_chars,
             start_marker, end_marker, content_extractor, yield_raw_on_error,
             encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw,
+            skip_regexes, extract_regexes, raw, output_formatter,
         )
 
     # Handle string directly
@@ -963,7 +1006,7 @@ def sanitize_stream(
             data, intro_value, to_json, skip_markers, strip_chars,
             start_marker, end_marker, content_extractor, yield_raw_on_error,
             encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw,
+            skip_regexes, extract_regexes, raw, output_formatter,
         )
 
     # Handle dict, list, int, float, bool (non-iterable, non-string/bytes)
@@ -977,7 +1020,7 @@ def sanitize_stream(
                 str(data), intro_value, to_json, skip_markers, strip_chars,
                 start_marker, end_marker, content_extractor, yield_raw_on_error,
                 encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-                skip_regexes, extract_regexes, raw,
+                skip_regexes, extract_regexes, raw, output_formatter,
             )
         else:  # "json"
             try:
@@ -988,7 +1031,7 @@ def sanitize_stream(
                 json_str, intro_value, to_json, skip_markers, strip_chars,
                 start_marker, end_marker, content_extractor, yield_raw_on_error,
                 encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-                skip_regexes, extract_regexes, raw,
+                skip_regexes, extract_regexes, raw, output_formatter,
             )
 
     # Handle file-like objects (optional, treat as string if .read exists)
@@ -1001,7 +1044,7 @@ def sanitize_stream(
                 file_content, intro_value, to_json, skip_markers, strip_chars,
                 start_marker, end_marker, content_extractor, yield_raw_on_error,
                 encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-                skip_regexes, extract_regexes, raw,
+                skip_regexes, extract_regexes, raw, output_formatter,
             )
         except Exception:
             pass  # fallback to next
@@ -1013,7 +1056,7 @@ def sanitize_stream(
             payload, intro_value, to_json, skip_markers, strip_chars,
             start_marker, end_marker, content_extractor, yield_raw_on_error,
             encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw,
+            skip_regexes, extract_regexes, raw, output_formatter,
         )
     elif isinstance(content_attr, bytes):
         try:
@@ -1024,7 +1067,7 @@ def sanitize_stream(
             payload, intro_value, to_json, skip_markers, strip_chars,
             start_marker, end_marker, content_extractor, yield_raw_on_error,
             encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw,
+            skip_regexes, extract_regexes, raw, output_formatter,
         )
 
     # Handle async iterables
@@ -1033,7 +1076,7 @@ def sanitize_stream(
             data, intro_value, to_json, skip_markers, strip_chars,
             start_marker, end_marker, content_extractor, yield_raw_on_error,
             encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw,
+            skip_regexes, extract_regexes, raw, output_formatter,
         )
     # Handle sync iterables (but not strings/bytes)
     if hasattr(data, "__iter__"):
@@ -1041,14 +1084,14 @@ def sanitize_stream(
             data, intro_value, to_json, skip_markers, strip_chars,
             start_marker, end_marker, content_extractor, yield_raw_on_error,
             encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw,
+            skip_regexes, extract_regexes, raw, output_formatter,
         )
     # Fallback: treat as string
     return _sanitize_stream_sync(
         str(data), intro_value, to_json, skip_markers, strip_chars,
         start_marker, end_marker, content_extractor, yield_raw_on_error,
         encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-        skip_regexes, extract_regexes, raw,
+        skip_regexes, extract_regexes, raw, output_formatter,
     )
 
 # --- Decorator version of sanitize_stream ---
@@ -1073,10 +1116,11 @@ def _sanitize_stream_decorator(
     extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
     object_mode: Literal["as_is", "json", "str"] = "json",
     raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
 ):
     """
     Decorator for sanitize_stream. Can be used as @sanitize_stream or @sanitize_stream(...).
-    All arguments are the same as sanitize_stream().
+    All arguments are the same as sanitize_stream(), including output_formatter.
     """
     def decorator(func):
         if asyncio.iscoroutinefunction(func):
@@ -1102,6 +1146,7 @@ def _sanitize_stream_decorator(
                     extract_regexes=extract_regexes,
                     object_mode=object_mode,
                     raw=raw,
+                    output_formatter=output_formatter,
                 )
             return async_wrapper
         else:
@@ -1127,6 +1172,7 @@ def _sanitize_stream_decorator(
                     extract_regexes=extract_regexes,
                     object_mode=object_mode,
                     raw=raw,
+                    output_formatter=output_formatter,
                 )
             return sync_wrapper
     if _func is None:

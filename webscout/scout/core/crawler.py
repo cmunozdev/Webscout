@@ -7,23 +7,10 @@ import urllib.parse
 import time
 import hashlib
 import re
-import json
-import sqlite3
-import threading
-import queue
-import logging
-import mimetypes
-import pickle
-import asyncio
-import aiohttp
-import random
 from urllib import robotparser
-from datetime import datetime, timedelta
-from typing import Dict, List, Optional, Union, Set, Tuple, Callable, Any
-from collections import defaultdict, deque
-from dataclasses import dataclass, field
-from enum import Enum
-from pathlib import Path
+from datetime import datetime
+from typing import Dict, List, Optional, Union, Set, Any
+from dataclasses import dataclass
 
 try:
     from webscout.litagent import LitAgent
@@ -37,7 +24,6 @@ except ImportError:
     Session = requests.Session
 
 from .scout import Scout
-from .text_analyzer import ScoutTextAnalyzer
 
 
 @dataclass
