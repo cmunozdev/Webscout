@@ -13,9 +13,14 @@ class Repository:
             owner: Repository owner
             repo: Repository name
         """
-        self.owner = owner
-        self.repo = repo
-        self.base_url = f"https://api.github.com/repos/{owner}/{repo}"
+        if not owner or not repo:
+            raise ValueError("Owner and repository name are required")
+        if not isinstance(owner, str) or not isinstance(repo, str):
+            raise ValueError("Owner and repository name must be strings")
+        
+        self.owner = owner.strip()
+        self.repo = repo.strip()
+        self.base_url = f"https://api.github.com/repos/{self.owner}/{self.repo}"
 
     def get_info(self) -> Dict[str, Any]:
         """Get basic repository information"""
@@ -32,12 +37,12 @@ class Repository:
         """
         url = f"{self.base_url}/commits?page={page}&per_page={per_page}"
         if sha:
-            url += f"&sha={sha}"
+            url += f"&sha={quote(sha, safe='')}"
         return request(url)
 
     def get_commit(self, sha: str) -> Dict[str, Any]:
         """Get a specific commit details"""
-        url = f"{self.base_url}/commits/{sha}"
+        url = f"{self.base_url}/commits/{quote(sha, safe='')}"
         return request(url)
 
     def get_pull_requests(self, state: str = "all", page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
@@ -79,7 +84,7 @@ class Repository:
         """
         url = f"{self.base_url}/issues?state={state}&page={page}&per_page={per_page}"
         if labels:
-            url += f"&labels={labels}"
+            url += f"&labels={quote(labels, safe='')}"
         return request(url)
 
     def get_issue(self, issue_number: int) -> Dict[str, Any]:
@@ -144,14 +149,14 @@ class Repository:
 
     def get_branch(self, branch: str) -> Dict[str, Any]:
         """Get specific branch details"""
-        url = f"{self.base_url}/branches/{branch}"
+        url = f"{self.base_url}/branches/{quote(branch, safe='')}"
         return request(url)
 
     def get_contents(self, path: str = "", ref: Optional[str] = None) -> Dict[str, Any]:
         """Get contents of file or directory"""
         url = f"{self.base_url}/contents/{quote(path)}"
         if ref:
-            url += f"?ref={ref}"
+            url += f"?ref={quote(ref, safe='')}"
         return request(url)
 
     def get_collaborators(self) -> List[Dict[str, Any]]:

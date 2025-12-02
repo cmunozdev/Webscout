@@ -1,6 +1,6 @@
 import sys
 from .swiftcli import CLI, option
-from .search import DuckDuckGoSearch, YepSearch  # Import search classes
+from .search import DuckDuckGoSearch, YepSearch, BingSearch, YahooSearch
 from .version import __version__
 
 # Alias for backward compatibility
@@ -89,9 +89,9 @@ def answers(keywords: str, proxy: str = None, timeout: int = 10):
 @option("--timelimit", "-t", help="Time limit for results", default=None)
 @option("--size", "-size", help="Image size", default=None)
 @option("--color", "-c", help="Image color", default=None)
-@option("--type", "-type", help="Image type", default=None)
+@option("--type-image", "-type", help="Image type", default=None)
 @option("--layout", "-l", help="Image layout", default=None)
-@option("--license", "-lic", help="Image license", default=None)
+@option("--license-image", "-lic", help="Image license", default=None)
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=90)
 @option("--proxy", "-p", help="Proxy URL to use for requests")
 @option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
@@ -102,9 +102,9 @@ def images(
     timelimit: str,
     size: str,
     color: str,
-    type: str,
+    type_image: str,
     layout: str,
-    license: str,
+    license_image: str,
     max_results: int,
     proxy: str = None,
     timeout: int = 10,
@@ -112,7 +112,7 @@ def images(
     """Perform an images search using DuckDuckGo API."""
     webs = WEBS(proxy=proxy, timeout=timeout)
     try:
-        results = webs.images(keywords, region, safesearch, timelimit, size, color, type, layout, license, max_results)
+        results = webs.images(keywords, region, safesearch, timelimit, size, color, type_image, layout, license_image, max_results)
         _print_data(results)
     except Exception as e:
         raise e
@@ -124,7 +124,7 @@ def images(
 @option("--timelimit", "-t", help="Time limit for results", default=None)
 @option("--resolution", "-res", help="Video resolution", default=None)
 @option("--duration", "-d", help="Video duration", default=None)
-@option("--license", "-lic", help="Video license", default=None)
+@option("--license-videos", "-lic", help="Video license", default=None)
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=50)
 @option("--proxy", "-p", help="Proxy URL to use for requests")
 @option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
@@ -135,7 +135,7 @@ def videos(
     timelimit: str,
     resolution: str,
     duration: str,
-    license: str,
+    license_videos: str,
     max_results: int,
     proxy: str = None,
     timeout: int = 10,
@@ -143,7 +143,7 @@ def videos(
     """Perform a videos search using DuckDuckGo API."""
     webs = WEBS(proxy=proxy, timeout=timeout)
     try:
-        results = webs.videos(keywords, region, safesearch, timelimit, resolution, duration, license, max_results)
+        results = webs.videos(keywords, region, safesearch, timelimit, resolution, duration, license_videos, max_results)
         _print_data(results)
     except Exception as e:
         raise e
@@ -167,7 +167,7 @@ def news(keywords: str, region: str, safesearch: str, timelimit: str, max_result
 
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
-@option("--place", "-p", help="Simplified search - if set, the other parameters are not used")
+@option("--place", "-P", help="Simplified search - if set, the other parameters are not used")
 @option("--street", "-s", help="House number/street")
 @option("--city", "-c", help="City of search")
 @option("--county", "-county", help="County of search")
@@ -261,30 +261,18 @@ def weather(location: str, language: str, proxy: str = None, timeout: int = 10):
         raise e
 
 @app.command()
-@app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
 @option("--region", "-r", help="Region for search results", default="all")
 @option("--safesearch", "-s", help="SafeSearch setting (on, moderate, off)", default="moderate")
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=20)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--impersonate", "-i", help="Browser to impersonate", default="chrome110")
 def yep_text(
     keywords: str,
     region: str,
     safesearch: str,
     max_results: int,
-    timeout: int = 20,
-    proxy: str = None,
-    impersonate: str = "chrome110"
 ):
     """Perform a text search using Yep Search."""
-    yep = YepSearch(
-        timeout=timeout,
-        proxies={"https": proxy, "http": proxy} if proxy else None,
-        verify=True,
-        impersonate=impersonate
-    )
+    yep = YepSearch()
     
     try:
         results = yep.text(
@@ -303,25 +291,14 @@ def yep_text(
 @option("--region", "-r", help="Region for search results", default="all")
 @option("--safesearch", "-s", help="SafeSearch setting (on, moderate, off)", default="moderate")
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=20)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--impersonate", "-i", help="Browser to impersonate", default="chrome110")
 def yep_images(
     keywords: str,
     region: str,
     safesearch: str,
     max_results: int,
-    timeout: int = 20,
-    proxy: str = None,
-    impersonate: str = "chrome110"
 ):
     """Perform an image search using Yep Search."""
-    yep = YepSearch(
-        timeout=timeout,
-        proxies={"https": proxy, "http": proxy} if proxy else None,
-        verify=True,
-        impersonate=impersonate
-    )
+    yep = YepSearch()
     
     try:
         results = yep.images(
@@ -337,24 +314,13 @@ def yep_images(
 
 @app.command()
 @option("--query", "-q", help="Search query", required=True)
-@option("--region", "-r", help="Region for suggestions", default="all")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=20)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--impersonate", "-i", help="Browser to impersonate", default="chrome110")
+@option("--region", "-r", help="Region for suggestions", default="en-US")
 def yep_suggestions(
     query: str,
     region: str,
-    timeout: int = 20,
-    proxy: str = None,
-    impersonate: str = "chrome110"
 ):
     """Get search suggestions from Yep Search."""
-    yep = YepSearch(
-        timeout=timeout,
-        proxies={"https": proxy, "http": proxy} if proxy else None,
-        verify=True,
-        impersonate=impersonate
-    )
+    yep = YepSearch()
     
     try:
         results = yep.suggestions(query=query, region=region)
@@ -368,7 +334,256 @@ def yep_suggestions(
     except Exception as e:
         raise e
 
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+@option("--unique", "-u", help="Remove duplicate results", type=bool, default=True)
+def bing_text(
+    keywords: str,
+    region: str,
+    safesearch: str,
+    max_results: int,
+    unique: bool = True,
+):
+    """Perform a text search using Bing."""
+    bing = BingSearch()
+    try:
+        results = bing.text(keywords, region, safesearch, max_results, unique=unique)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+def bing_images(
+    keywords: str,
+    region: str,
+    safesearch: str,
+    max_results: int,
+):
+    """Perform an images search using Bing."""
+    bing = BingSearch()
+    try:
+        results = bing.images(keywords, region, safesearch, max_results)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+def bing_news(
+    keywords: str,
+    region: str,
+    safesearch: str,
+    max_results: int,
+):
+    """Perform a news search using Bing."""
+    bing = BingSearch()
+    try:
+        results = bing.news(keywords, region, safesearch, max_results)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--query", "-q", help="Search query", required=True)
+@option("--region", "-r", help="Region for suggestions", default="en-US")
+def bing_suggestions(
+    query: str,
+    region: str,
+):
+    """Get search suggestions from Bing."""
+    bing = BingSearch()
+    try:
+        results = bing.suggestions(query, region)
+        # Format suggestions for printing
+        formatted_results = []
+        for i, suggestion in enumerate(results, 1):
+            formatted_results.append({"position": i, "suggestion": suggestion["suggestion"]})
+            
+        _print_data(formatted_results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=25)
+def yahoo_text(keywords: str, region: str, safesearch: str, max_results: int):
+    """Perform a text search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.text(keywords, region, safesearch, max_results)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=90)
+def yahoo_images(
+    keywords: str,
+    region: str,
+    safesearch: str,
+    max_results: int,
+):
+    """Perform an images search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.images(keywords, region, safesearch, max_results)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=50)
+def yahoo_videos(
+    keywords: str,
+    region: str,
+    safesearch: str,
+    max_results: int,
+):
+    """Perform a videos search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.videos(keywords, region, safesearch, max_results)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--region", "-r", help="Region for search results", default="us")
+@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=25)
+def yahoo_news(keywords: str, region: str, safesearch: str, max_results: int):
+    """Perform a news search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.news(keywords, region, safesearch, max_results)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+def yahoo_answers(keywords: str):
+    """Perform an answers search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.answers(keywords)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--place", "-l", help="Simplified search - if set, the other parameters are not used")
+@option("--street", "-s", help="House number/street")
+@option("--city", "-c", help="City of search")
+@option("--county", "-county", help="County of search")
+@option("--state", "-state", help="State of search")
+@option("--country", "-country", help="Country of search")
+@option("--postalcode", "-post", help="Postal code of search")
+@option("--latitude", "-lat", help="Geographic coordinate (north-south position)")
+@option("--longitude", "-lon", help="Geographic coordinate (east-west position); if latitude and longitude are set, the other parameters are not used")
+@option("--radius", "-r", help="Expand the search square by the distance in kilometers", type=int, default=0)
+@option("--max-results", "-m", help="Number of results", type=int, default=50)
+def yahoo_maps(
+    keywords: str,
+    place: str,
+    street: str,
+    city: str,
+    county: str,
+    state: str,
+    country: str,
+    postalcode: str,
+    latitude: str,
+    longitude: str,
+    radius: int,
+    max_results: int,
+):
+    """Perform a maps search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.maps(
+            keywords,
+            place,
+            street,
+            city,
+            county,
+            state,
+            country,
+            postalcode,
+            latitude,
+            longitude,
+            radius,
+            max_results,
+        )
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--keywords", "-k", help="Text for translation", required=True)
+@option("--from", "-f", help="Language to translate from (defaults automatically)")
+@option("--to", "-t", help="Language to translate to (default: 'en')", default="en")
+def yahoo_translate(keywords: str, from_: str, to: str):
+    """Perform translation using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.translate(keywords, from_, to)
+        _print_data(results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--query", "-q", help="Search query", required=True)
+@option("--region", "-r", help="Region for suggestions", default="us")
+def yahoo_suggestions(query: str, region: str):
+    """Perform a suggestions search using Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.suggestions(query, region)
+        formatted_results = []
+        for i, suggestion in enumerate(results, 1):
+            formatted_results.append({"position": i, "suggestion": suggestion})
+            
+        _print_data(formatted_results)
+    except Exception as e:
+        raise e
+
+@app.command()
+@option("--location", "-l", help="Location to get weather for", required=True)
+def yahoo_weather(location: str):
+    """Get weather information for a location from Yahoo."""
+    yahoo = YahooSearch()
+    try:
+        results = yahoo.weather(location)
+        _print_weather(results)
+    except Exception as e:
+        raise e
+
 def main():
+    """Main entry point for the CLI."""
+    try:
+        app.run()
+    except Exception as e:
+        sys.exit(1)
     """Main entry point for the CLI."""
     try:
         app.run()
