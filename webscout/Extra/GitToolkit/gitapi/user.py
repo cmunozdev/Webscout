@@ -11,23 +11,28 @@ class User:
         Args:
             username: GitHub username
         """
-        self.username = username
-        self.base_url = f"https://api.github.com/users/{username}"
+        if not username:
+            raise ValueError("Username is required")
+        if not isinstance(username, str):
+            raise ValueError("Username must be a string")
+            
+        self.username = username.strip()
+        self.base_url = f"https://api.github.com/users/{self.username}"
 
     def get_profile(self) -> Dict[str, Any]:
         """Get user profile information"""
         return request(self.base_url)
 
-    def get_repositories(self, page: int = 1, per_page: int = 30, type: str = "all") -> List[Dict[str, Any]]:
+    def get_repositories(self, page: int = 1, per_page: int = 30, repo_type: str = "all") -> List[Dict[str, Any]]:
         """
         Get user's public repositories
         
         Args:
             page: Page number
             per_page: Items per page
-            type: Type of repositories (all/owner/member)
+            repo_type: Type of repositories (all/owner/member)
         """
-        url = f"{self.base_url}/repos?page={page}&per_page={per_page}&type={type}"
+        url = f"{self.base_url}/repos?page={page}&per_page={per_page}&type={repo_type}"
         return request(url)
 
     def get_starred(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:

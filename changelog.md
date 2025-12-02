@@ -3,8 +3,23 @@
 All notable changes to this project will be documented in this file.
 
 
-## [2025.12.01] - 2025-12-01
 
+## [2025.12.02] - 2025-12-02
+
+### ✨ Added
+ - **feat**: cli.py - Added CLI commands for Bing search (text, images, news, suggestions)
+ - **feat**: cli.py - Added CLI commands for Yahoo search (text, images, videos, news, answers, maps, translate, suggestions, weather)
+
+### 🧹 Maintenance
+ - **refactor**: prompt_manager.py - Removed unused imports, redundant code, and cleaned up class for clarity and minimalism
+ - **chore**: prompt_manager.py - Minor optimizations and code style improvements
+ - **refactor**: cli.py - Cleaned up incomplete command stubs and fixed inconsistencies in option decorators
+ - **removed**: cli.py - Removed unused imports and broken command implementations
+
+### 📝 Documentation
+ - **docs**: Updated changelog for prompt_manager.py maintenance changes
+
+## [2025.12.01] - 2025-12-01
 ### ✨ Added
  - **feat**: sanitize.py - Added `output_formatter` parameter to `sanitize_stream()` for custom output transformation
  - **feat**: sanitize.py - Users can now define custom formatter functions to transform each output item into any desired structure before yielding
