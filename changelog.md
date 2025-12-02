@@ -3,6 +3,20 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.12.02] - 2025-12-02
+
+### ✨ Added
+ - **feat**: webscout/search/engines/__init__.py - Updated auto-discovery logic to register all search engine classes with `name` and `category` attributes, not just BaseSearchEngine subclasses
+ - **feat**: webscout/server/routes.py - Enhanced `/search` endpoint to support all available search engines and additional search types (answers, maps, translate, weather, videos)
+ - **feat**: webscout/server/routes.py - Added new query parameters to `/search` endpoint: `place`, `street`, `city`, `county`, `state`, `country`, `postalcode`, `latitude`, `longitude`, `radius`, `from_`, `to`, `language`
+ - **feat**: added all engines to cli.py 
+### 🔧 Maintenance
+ - **refactor**: Added `name` and `category` attributes to all DuckDuckGo search engine classes (text, images, videos, news, suggestions, answers, maps, translate, weather)
+ - **refactor**: Added `name` and `category` attributes to Bing search engine classes (text, images, news, suggestions)
+ - **refactor**: Added `name` and `category` attributes to Yep search engine classes (text, images, suggestions)
+ - **refactor**: Updated webscout/search/engines/bing/__init__.py to import and expose Bing search engine classes
+ - **refactor**: Updated `/search` endpoint description to reflect support for all available search engines and search types
+
 ## [2025.12.01] - 2025-12-01
 
 ### ✨ Added
