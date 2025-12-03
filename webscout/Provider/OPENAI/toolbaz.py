@@ -288,7 +288,7 @@ class Toolbaz(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
-
+    required_auth = False
     AVAILABLE_MODELS = [
         "gemini-2.5-flash",
         "gemini-2.5-pro",
@@ -325,7 +325,6 @@ class Toolbaz(OpenAICompatibleProvider):
 
     def __init__(
         self,
-        api_key: Optional[str] = None,  # Not used but kept for compatibility
         timeout: int = 30,
         proxies: dict = {},
         browser: str = "chrome"

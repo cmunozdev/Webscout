@@ -272,6 +272,7 @@ class YEPCHAT(OpenAICompatibleProvider):
 
     # Create AVAILABLE_MODELS as a list of base model names (no prefix)
     AVAILABLE_MODELS = _base_models
+    required_auth = False
 
     def __init__(
         self,

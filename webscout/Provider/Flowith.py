@@ -19,7 +19,7 @@ class Flowith(Provider):
     AVAILABLE_MODELS = [
         "gpt-5-nano", "gpt-5-mini", "glm-4.5", "gpt-oss-120b", "gpt-oss-20b", "kimi-k2",
         "gpt-4.1", "gpt-4.1-mini", "deepseek-chat", "deepseek-reasoner",
-        "gemini-2.5-flash"
+        "gemini-2.5-flash", "grok-4.1-fast", "gemini-3-pro-preview", "claude-haiku-4.5", "deepseek-v3.2-speciale", "deepseek-v3.2"
     ]
 
     def __init__(

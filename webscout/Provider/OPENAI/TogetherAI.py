@@ -209,6 +209,7 @@ class TogetherAI(OpenAICompatibleProvider):
     """
     OpenAI-compatible client for TogetherAI API.
     """
+    required_auth = True
     AVAILABLE_MODELS = []
 
     @classmethod

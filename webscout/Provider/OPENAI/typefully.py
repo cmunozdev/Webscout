@@ -5,8 +5,8 @@ import re
 from typing import List, Dict, Optional, Union, Generator, Any
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from .utils import (
+from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage,
     format_prompt, get_system_prompt, count_tokens  # Import format_prompt, get_system_prompt and count_tokens
@@ -260,7 +260,7 @@ class TypefullyAI(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
-
+    required_auth = False
     AVAILABLE_MODELS = [
         "openai:gpt-4o-mini", 
         "openai:gpt-4o", 
@@ -360,3 +360,18 @@ class TypefullyAI(OpenAICompatibleProvider):
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
+
+if __name__ == "__main__":
+    # Example usage
+    client = TypefullyAI()
+
+    response = client.chat.completions.create(
+        model="gpt-4o-mini",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Explain the theory of relativity in simple terms."}
+        ],
+        max_tokens=150
+    )
+
+    print(f"{BOLD}Response:{RESET} {response.choices[0].message.content}")

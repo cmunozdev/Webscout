@@ -16,10 +16,9 @@ from webscout.Provider.OPENAI.utils import (
 )
 
 # Attempt to import LitAgent, fallback if not available
-try:
-    from webscout.litagent import LitAgent
-except ImportError:
-    pass
+from webscout.litagent import LitAgent
+
+from webscout import exceptions
 
 # --- PI.ai Client ---
 
@@ -83,6 +82,8 @@ class Completions(BaseCompletions):
         prompt_tokens: Optional[int] = None
     ) -> Generator[ChatCompletionChunk, None, None]:
         
+        from webscout.Provider.OPENAI.utils import count_tokens
+        
         data = {
             'text': prompt,
             'conversation': self._client.conversation_id
@@ -134,10 +135,10 @@ class Completions(BaseCompletions):
                             content = chunk_data.get('text', '')
                             
                             if content:
-                                # Calculate incremental content
-                                new_content = content[len(streaming_text):] if len(content) > len(streaming_text) else content
-                                streaming_text = content
-                                completion_tokens += len(new_content.split()) if new_content else 0
+                                # Assume content is incremental (new text since last chunk)
+                                new_content = content
+                                streaming_text += new_content
+                                completion_tokens += count_tokens(new_content) if new_content else 0
                                 total_tokens = prompt_tokens + completion_tokens
 
                                 # Create OpenAI-compatible chunk
@@ -191,9 +192,9 @@ class Completions(BaseCompletions):
                     ).start()
 
         except CurlError as e:
-            raise IOError(f"PI.ai request failed (CurlError): {e}") from e
+            raise exceptions.FailedToGenerateResponseError(f"PI.ai request failed (CurlError): {e}") from e
         except Exception as e:
-            raise IOError(f"PI.ai request failed: {e}") from e
+            raise exceptions.FailedToGenerateResponseError(f"PI.ai request failed: {e}") from e
 
     def _create_non_stream(
         self, request_id: str, created_time: int, model: str, prompt: str,
@@ -204,7 +205,6 @@ class Completions(BaseCompletions):
         
         # Collect streaming response into a single response
         full_content = ""
-        completion_tokens = 0
         # prompt_tokens = len(prompt.split()) if prompt else 0  # replaced
 
         # Use provided prompt_tokens if available
@@ -218,7 +218,9 @@ class Completions(BaseCompletions):
         ):
             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
                 full_content += chunk.choices[0].delta.content
-                completion_tokens += len(chunk.choices[0].delta.content.split())
+
+        # Calculate completion tokens properly
+        completion_tokens = count_tokens(full_content)
 
         # Create final completion response
         message = ChatCompletionMessage(
@@ -260,7 +262,7 @@ class PiAI(OpenAICompatibleProvider):
     
     Supports Pi.ai specific features like voice generation and conversation management.
     """
-    
+    required_auth = False
     AVAILABLE_MODELS = ["inflection_3_pi"]
     AVAILABLE_VOICES: Dict[str, int] = {
         "voice1": 1,
@@ -309,7 +311,7 @@ class PiAI(OpenAICompatibleProvider):
             'Sec-Fetch-Dest': 'empty',
             'Sec-Fetch-Mode': 'cors',
             'Sec-Fetch-Site': 'same-origin',
-            'User-Agent': LitAgent().random() if 'LitAgent' in globals() else 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+            'User-Agent': LitAgent().random(),
             'X-Api-Version': '3'
         }
         
@@ -354,12 +356,12 @@ class PiAI(OpenAICompatibleProvider):
                 self.conversation_id = data['conversations'][0]['sid']
                 return self.conversation_id
             else:
-                raise IOError(f"Unexpected response structure from start API: {data}")
+                raise exceptions.FailedToGenerateResponseError(f"Unexpected response structure from start API: {data}")
 
         except CurlError as e:
-            raise IOError(f"Failed to start conversation (CurlError): {e}") from e
+            raise exceptions.FailedToGenerateResponseError(f"Failed to start conversation (CurlError): {e}") from e
         except Exception as e:
-            raise IOError(f"Failed to start conversation: {e}") from e
+            raise exceptions.FailedToGenerateResponseError(f"Failed to start conversation: {e}") from e
 
     def download_audio_threaded(self, voice_name: str, second_sid: str, output_file: str) -> None:
         """Downloads audio in a separate thread."""

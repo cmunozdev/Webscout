@@ -805,6 +805,7 @@ class ChatGPT(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
+    required_auth = False
 
     def __init__(
         self,

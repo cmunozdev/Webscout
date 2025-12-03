@@ -9,6 +9,8 @@ from .base import DuckDuckGoBase
 
 
 class DuckDuckGoWeather(DuckDuckGoBase):
+    name = "duckduckgo"
+    category = "weather"
     def run(self, *args, **kwargs) -> dict[str, any]:
         location = args[0] if args else kwargs.get("location")
         language = args[1] if len(args) > 1 else kwargs.get("language", "en")

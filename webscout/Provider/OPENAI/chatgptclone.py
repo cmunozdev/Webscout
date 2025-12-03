@@ -368,6 +368,7 @@ class ChatGPTClone(OpenAICompatibleProvider):
     """
 
     url = "https://chatgpt-clone-ten-nu.vercel.app"
+    required_auth = False
     AVAILABLE_MODELS = ["gpt-4", "gpt-3.5-turbo"]
 
     def __init__(

@@ -1,11 +1,9 @@
-import json
 import time
 import uuid
 import base64
 from typing import List, Dict, Optional, Union, Generator, Any
 
 import requests
-from uuid import uuid4
 
 # Import base classes and utility structures
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
@@ -278,7 +276,7 @@ class GeminiProxy(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
-    
+    required_auth = False
     AVAILABLE_MODELS = [
         "gemini-2.0-flash-lite",
         "gemini-2.0-flash",
@@ -286,6 +284,7 @@ class GeminiProxy(OpenAICompatibleProvider):
         "gemini-2.5-pro-preview-05-06",
         "gemini-2.5-flash-preview-04-17",
         "gemini-2.5-flash-preview-05-20",
+        "gemini-3-pro-preview"
     ]
     
     def __init__(
@@ -326,3 +325,11 @@ class GeminiProxy(OpenAICompatibleProvider):
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
+
+if __name__ == "__main__":
+    client = GeminiProxy()
+    response = client.chat.completions.create(
+        model="gemini-2.0-flash-lite",
+        messages=[{"role": "user", "content": "Hello!"}]
+    )
+    print(response.choices[0].message.content)

@@ -21,8 +21,6 @@ from webscout.Provider.OPENAI.utils import (
     ChatCompletionMessage,
     ChoiceDelta,
     CompletionUsage,
-    format_prompt,
-    get_system_prompt,
     count_tokens
 )
 
@@ -250,6 +248,7 @@ class FreeGemini(OpenAICompatibleProvider):
     """
 
     AVAILABLE_MODELS = ["gemini-2.0-flash"]
+    required_auth = False
 
     def __init__(self, proxies: Optional[dict] = None):
         """

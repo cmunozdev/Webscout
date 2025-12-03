@@ -6,7 +6,7 @@ from typing import Any, Dict, Optional, Generator, List, Union
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
 from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider, AsyncProvider
+from webscout.AIbase import Provider
 from webscout import exceptions
 
 class ChatHub(Provider):

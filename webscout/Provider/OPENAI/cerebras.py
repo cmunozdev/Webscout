@@ -1,9 +1,10 @@
-import requests
 import json
 import time
 import uuid
-import collections
 from typing import List, Dict, Optional, Union, Generator, Any
+
+from curl_cffi.requests import Session
+from curl_cffi import CurlError
 
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
 from webscout.Provider.OPENAI.utils import (
@@ -17,7 +18,7 @@ except ImportError:
     pass
 
 class Completions(BaseCompletions):
-    def __init__(self, client: 'DeepInfra'):
+    def __init__(self, client: 'Cerebras'):
         self._client = client
 
     def create(
@@ -25,10 +26,10 @@ class Completions(BaseCompletions):
         *,
         model: str,
         messages: List[Dict[str, str]],
-        max_tokens: Optional[int] = 2049,
+        max_tokens: Optional[int] = 40000,
         stream: bool = False,
-        temperature: Optional[float] = None,
-        top_p: Optional[float] = None,
+        temperature: Optional[float] = 0.7,
+        top_p: Optional[float] = 0.8,
         timeout: Optional[int] = None,
         proxies: Optional[Dict[str, str]] = None,
         **kwargs: Any
@@ -62,7 +63,8 @@ class Completions(BaseCompletions):
                 json=payload,
                 stream=True,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies
+                proxies=proxies,
+                impersonate="chrome120"
             )
             response.raise_for_status()
             prompt_tokens = 0
@@ -132,8 +134,8 @@ class Completions(BaseCompletions):
             }
             yield chunk
         except Exception as e:
-            print(f"Error during DeepInfra stream request: {e}")
-            raise IOError(f"DeepInfra request failed: {e}") from e
+            print(f"Error during Cerebras stream request: {e}")
+            raise IOError(f"Cerebras request failed: {e}") from e
 
     def _create_non_stream(
         self, request_id: str, created_time: int, model: str, payload: Dict[str, Any],
@@ -145,7 +147,8 @@ class Completions(BaseCompletions):
                 headers=self._client.headers,
                 json=payload,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies
+                proxies=proxies,
+                impersonate="chrome120"
             )
             response.raise_for_status()
             data = response.json()
@@ -186,124 +189,69 @@ class Completions(BaseCompletions):
             )
             return completion
         except Exception as e:
-            print(f"Error during DeepInfra non-stream request: {e}")
-            raise IOError(f"DeepInfra request failed: {e}") from e
+            print(f"Error during Cerebras non-stream request: {e}")
+            raise IOError(f"Cerebras request failed: {e}") from e
 
 class Chat(BaseChat):
-    def __init__(self, client: 'DeepInfra'):
+    def __init__(self, client: 'Cerebras'):
         self.completions = Completions(client)
 
-class DeepInfra(OpenAICompatibleProvider):
-    required_auth = False
-    AVAILABLE_MODELS = [
-        "moonshotai/Kimi-K2-Thinking",
-        "MiniMaxAI/MiniMax-M2",
-        "moonshotai/Kimi-K2-Instruct",
-        "Qwen/Qwen3-Next-80B-A3B-Instruct",
-        "Qwen/Qwen3-Next-80B-A3B-Thinking",
-        "moonshotai/Kimi-K2-Instruct-0905",
-        "Qwen/Qwen3-Coder-30B-A3B-Instruct",
-        "deepseek-ai/DeepSeek-R1-0528-Turbo",
-        "Qwen/Qwen3-235B-A22B-Thinking-2507",
-        "deepseek-ai/DeepSeek-V3.1-Terminus",
-        "deepseek-ai/DeepSeek-V3.2-Exp",
-        "Qwen/Qwen3-Coder-480B-A35B-Instruct",
-        "Qwen/Qwen3-Coder-480B-A35B-Instruct-Turbo",
-        "Qwen/Qwen3-235B-A22B-Instruct-2507",
-        "Qwen/Qwen3-235B-A22B",
-        "Qwen/Qwen3-30B-A3B",
-        "Qwen/Qwen3-32B",
-        "Qwen/Qwen3-14B",
-        "deepseek-ai/DeepSeek-V3-0324-Turbo",
-        "deepseek-ai/DeepSeek-Prover-V2-671B",
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-Turbo",
-        "meta-llama/Llama-4-Maverick-17B-128E-Instruct-FP8",
-        "meta-llama/Llama-4-Scout-17B-16E-Instruct",
-        "deepseek-ai/DeepSeek-R1-0528",
-        "deepseek-ai/DeepSeek-V3-0324",
-        "mistralai/Mistral-Small-3.1-24B-Instruct-2503",
-        "microsoft/phi-4-reasoning-plus",
-        "Qwen/QwQ-32B",
-        "google/gemma-3-27b-it",
-        "google/gemma-3-12b-it",
-        "google/gemma-3-4b-it",
-        "microsoft/Phi-4-multimodal-instruct",
-        "deepseek-ai/DeepSeek-R1-Distill-Llama-70B",
-        "deepseek-ai/DeepSeek-V3",
-        "deepseek-ai/DeepSeek-V3.1",
-        "meta-llama/Llama-3.3-70B-Instruct-Turbo",
-        "meta-llama/Llama-3.3-70B-Instruct",
-        "microsoft/phi-4",
-        "Gryphe/MythoMax-L2-13b",
-        "NousResearch/Hermes-3-Llama-3.1-405B",
-        "NousResearch/Hermes-3-Llama-3.1-70B",
-        "NovaSky-AI/Sky-T1-32B-Preview",
-        "Qwen/Qwen2.5-72B-Instruct",
-        "Qwen/Qwen2.5-7B-Instruct",
-        "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "Sao10K/L3-8B-Lunaris-v1-Turbo",
-        "Sao10K/L3.1-70B-Euryale-v2.2",
-        "Sao10K/L3.3-70B-Euryale-v2.3",
-        "deepseek-ai/DeepSeek-R1",
-        "deepseek-ai/DeepSeek-R1-Distill-Qwen-32B",
-        "deepseek-ai/DeepSeek-R1-Turbo",
-        "google/gemini-2.0-flash-001",
-        "meta-llama/Llama-3.2-11B-Vision-Instruct",
-        "meta-llama/Llama-3.2-1B-Instruct",
-        "meta-llama/Llama-3.2-3B-Instruct",
-        "meta-llama/Llama-3.2-90B-Vision-Instruct",
-        "meta-llama/Meta-Llama-3-70B-Instruct",
-        "meta-llama/Meta-Llama-3-8B-Instruct",
-        "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        "meta-llama/Meta-Llama-3.1-8B-Instruct",
-        "meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
-        "microsoft/WizardLM-2-8x22B",
-        "mistralai/Devstral-Small-2505",
-        "mistralai/Devstral-Small-2507",
-        "mistralai/Mistral-7B-Instruct-v0.3",
-        "mistralai/Mistral-Nemo-Instruct-2407",
-        "mistralai/Mistral-Small-24B-Instruct-2501",
-        "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
-        "mistralai/Mixtral-8x7B-Instruct-v0.1",
-        "nvidia/Llama-3.1-Nemotron-70B-Instruct",
-        "zai-org/GLM-4.5-Air",
-        "zai-org/GLM-4.5",
-        "zai-org/GLM-4.5V",
-        "zai-org/GLM-4.6",
-        "openai/gpt-oss-120b",
-        "openai/gpt-oss-20b",
-        "allenai/olmOCR-7B-0725-FP8",
-    ]
+class Cerebras(OpenAICompatibleProvider):
+    required_auth = True
+    AVAILABLE_MODELS = []
+
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available models from Cerebras API."""
+        if not api_key:
+            raise Exception("API key required to fetch models")
+            
+        try:
+            # Use a temporary curl_cffi session for this class method
+            temp_session = Session()
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            
+            response = temp_session.get(
+                "https://api.cerebras.ai/v1/models",
+                headers=headers,
+                impersonate="chrome120"
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Failed to fetch models: HTTP {response.status_code}")
+                
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                return [model['id'] for model in data['data']]
+            raise Exception("Invalid response format from API")
+            
+        except (CurlError, Exception) as e:
+            raise Exception(f"Failed to fetch models: {str(e)}")
 
     def __init__(self, browser: str = "chrome", api_key: str = None):
+        if not api_key:
+            raise ValueError("API key is required for Cerebras")
         self.timeout = None
-        self.base_url = "https://api.deepinfra.com/v1/openai/chat/completions"
-        self.session = requests.Session()
+        self.base_url = "https://api.cerebras.ai/v1/chat/completions"
+        self.session = Session()
         agent = LitAgent()
         fingerprint = agent.generate_fingerprint(browser)
         self.headers = {
             "Accept": fingerprint["accept"],
-            "Accept-Encoding": "gzip, deflate, br, zstd",
             "Accept-Language": fingerprint["accept_language"],
             "Content-Type": "application/json",
-            "Cache-Control": "no-cache",
-            "Connection": "keep-alive",
-            "Origin": "https://deepinfra.com",
-            "Pragma": "no-cache",
-            "Referer": "https://deepinfra.com/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-site",
-            "X-Deepinfra-Source": "web-embed",
-            "Sec-CH-UA": fingerprint["sec_ch_ua"] or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
+            "User-Agent": fingerprint.get("user_agent", ""),
+            "Sec-CH-UA": fingerprint.get("sec_ch_ua", ""),
             "Sec-CH-UA-Mobile": "?0",
-            "Sec-CH-UA-Platform": f'"{fingerprint["platform"]}"',
-            "User-Agent": fingerprint["user_agent"],
+            "Sec-CH-UA-Platform": f'"{fingerprint.get("platform", "")}"',
+            "Authorization": f"Bearer {api_key}",
         }
-        if api_key is not None:
-            self.headers["Authorization"] = f"Bearer {api_key}"
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
+    
     @property
     def models(self):
         class _ModelList:
@@ -311,12 +259,14 @@ class DeepInfra(OpenAICompatibleProvider):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
 
+
 if __name__ == "__main__":
-    client = DeepInfra()
+    # Requires API key
+    client = Cerebras(api_key="csk-***************************")
     response = client.chat.completions.create(
-        model="deepseek-ai/DeepSeek-R1-0528",
+        model="qwen-3-235b-a22b-instruct-2507",
         messages=[{"role": "user", "content": "Hello, how are you?"}],
-        max_tokens=10000,
+        max_tokens=1000,
         stream=False
     )
     print(response.choices[0].message.content)

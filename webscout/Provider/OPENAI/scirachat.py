@@ -44,11 +44,14 @@ class Completions(BaseCompletions):
         # Prepare the payload for SciraChat API
         payload = {
             "id": self._client.chat_id,
-            "messages": messages,
+            "messages": self._client._transform_messages(messages),
             "model": self._client.convert_model_name(model),
-            "group": "chat",  # Always use chat mode (no web search)
-            "user_id": self._client.user_id,
-            "timezone": "Asia/Calcutta"
+            "group": "web",  # Use web mode for search functionality
+            "timezone": "Asia/Calcutta",
+            "isCustomInstructionsEnabled": True,
+            "searchProvider": "firecrawl",
+            "extremeSearchProvider": "exa",
+            "selectedConnectors": []
         }
         
         # Add optional parameters if provided
@@ -321,56 +324,12 @@ class SciraChat(OpenAICompatibleProvider):
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-    # Model mapping: actual model names to Scira API format
+    required_auth = False
     MODEL_MAPPING = {
-        "grok-3-mini": "scira-default",
-        "grok-3-mini-fast": "scira-x-fast-mini",
-        "grok-3-fast": "scira-x-fast",
-        "gpt-4.1-nano": "scira-nano",
-        "grok-3": "scira-grok-3",
-        "grok-4": "scira-grok-4",
-        "grok-2-vision-1212": "scira-vision",
-        "grok-2-latest": "scira-g2",
-        "gpt-4o-mini": "scira-4o-mini",
-        "o4-mini-2025-04-16": "scira-o4-mini",
-        "o3": "scira-o3",
-        "qwen/qwen3-32b": "scira-qwen-32b",
-        "qwen3-30b-a3b": "scira-qwen-30b",
-        "qwen3-4b": "scira-qwen-4b",
-        "qwen3-32b": "scira-qwen-32b",
-        "qwen3-4b-thinking": "scira-qwen-4b-thinking",
-        "deepseek-v3-0324": "scira-deepseek-v3",
-        "claude-3-5-haiku-20241022": "scira-haiku",
-        "mistral-small-latest": "scira-mistral",
-        "gemini-2.5-flash-lite-preview-06-17": "scira-google-lite",
-        "gemini-2.5-flash": "scira-google",
-        "gemini-2.5-pro": "scira-google-pro",
-        "claude-sonnet-4-20250514": "scira-anthropic",
-        "claude-sonnet-4-20250514-thinking": "scira-anthropic-thinking",
-        "claude-4-opus-20250514": "scira-opus",
-        "claude-4-opus-20250514-pro": "scira-opus-pro",
-        "llama-4-maverick": "scira-llama-4",
-        "meta-llama/llama-4-maverick-17b-128e-instruct": "scira-llama-4",
-        "kimi-k2-instruct": "scira-kimi-k2",
-        "scira-kimi-k2": "kimi-k2-instruct",
+        "scira-default": "scira-default",
     }
     # Reverse mapping: Scira format to actual model names
     SCIRA_TO_MODEL = {v: k for k, v in MODEL_MAPPING.items()}
-    # Add special cases for aliases and duplicate mappings
-    SCIRA_TO_MODEL["scira-anthropic-thinking"] = "claude-sonnet-4-20250514"
-    SCIRA_TO_MODEL["scira-opus-pro"] = "claude-4-opus-20250514"
-    SCIRA_TO_MODEL["scira-x-fast"] = "grok-3-fast"
-    SCIRA_TO_MODEL["scira-x-fast-mini"] = "grok-3-mini-fast"
-    SCIRA_TO_MODEL["scira-nano"] = "gpt-4.1-nano"
-    SCIRA_TO_MODEL["scira-qwen-32b"] = "qwen/qwen3-32b"
-    SCIRA_TO_MODEL["scira-qwen-30b"] = "qwen3-30b-a3b"
-    SCIRA_TO_MODEL["scira-qwen-4b"] = "qwen3-4b"
-    SCIRA_TO_MODEL["scira-qwen-4b-thinking"] = "qwen3-4b-thinking"
-    SCIRA_TO_MODEL["scira-deepseek-v3"] = "deepseek-v3-0324"
-    SCIRA_TO_MODEL["scira-grok-4"] = "grok-4"
-    SCIRA_TO_MODEL["scira-kimi-k2"] = "kimi-k2-instruct"
-    SCIRA_TO_MODEL["kimi-k2-instruct"] = "scira-kimi-k2"
-    MODEL_MAPPING["claude-4-opus-20250514-pro"] = "scira-opus-pro"
     # Available models list (actual model names + scira aliases)
     AVAILABLE_MODELS = list(MODEL_MAPPING.keys()) + list(SCIRA_TO_MODEL.keys())
     # Optional: pretty display names for UI (reverse mapping)
@@ -434,9 +393,21 @@ class SciraChat(OpenAICompatibleProvider):
         self.agent = LitAgent()
         self.fingerprint = self.agent.generate_fingerprint(browser)
         
-        # Use the fingerprint for headers
+        # Use the fingerprint for headers and add additional headers from curl
         self.headers = {
             **self.fingerprint,
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+            "content-type": "application/json",
+            "dnt": "1",
+            "priority": "u=1, i",
+            "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "sec-gpc": "1",
             "Origin": "https://scira.ai",
             "Referer": "https://scira.ai/",
         }
@@ -450,6 +421,25 @@ class SciraChat(OpenAICompatibleProvider):
         # Initialize the chat interface
         self.chat = Chat(self)
     
+    def _transform_messages(self, messages: List[Dict[str, str]]) -> List[Dict[str, Any]]:
+        """
+        Transform messages from OpenAI format to Scira API format.
+        
+        Args:
+            messages: List of messages in OpenAI format
+            
+        Returns:
+            List of messages in Scira format
+        """
+        transformed = []
+        for msg in messages:
+            transformed.append({
+                "role": msg["role"],
+                "parts": [{"type": "text", "text": msg.get("content", "")}],
+                "id": str(uuid.uuid4())[:16]  # Generate a short unique id
+            })
+        return transformed
+    
     def refresh_identity(self, browser: str = None):
         """
         Refreshes the browser identity fingerprint.
@@ -460,9 +450,23 @@ class SciraChat(OpenAICompatibleProvider):
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
         
-        # Update headers with new fingerprint
+        # Update headers with new fingerprint and keep additional headers
         self.headers.update({
             **self.fingerprint,
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+            "content-type": "application/json",
+            "dnt": "1",
+            "priority": "u=1, i",
+            "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "sec-gpc": "1",
+            "Origin": "https://scira.ai",
+            "Referer": "https://scira.ai/",
         })
         
         # Update session headers
@@ -521,7 +525,7 @@ class SciraChat(OpenAICompatibleProvider):
 if __name__ == "__main__":
     ai = SciraChat()
     response = ai.chat.completions.create(
-        model="grok-3-mini-fast-latest",
+        model="scira-default",
         messages=[
             {"role": "user", "content": "who are u?"}
         ],

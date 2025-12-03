@@ -241,7 +241,7 @@ class DeepAI(OpenAICompatibleProvider):
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-
+    required_auth = True
     AVAILABLE_MODELS = [
         "standard", 
         "genius", 

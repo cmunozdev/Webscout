@@ -4,31 +4,79 @@ Install the Google AI Python SDK
 $ pip install google-generativeai
 """
 
+import json
 import os
-import google.generativeai as genai
+from typing import Any, Dict, Optional, Generator, Union, List
 
-from google.generativeai.types import HarmCategory, HarmBlockThreshold
-import requests
+from curl_cffi.requests import Session
+from curl_cffi import CurlError
+
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
+from webscout.AIutel import AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
-
+from webscout import exceptions
+from webscout.litagent import LitAgent
 
 class GEMINIAPI(Provider):
     """
-    A class to interact with the Gemini API using the google-generativeai library.
+    A class to interact with the Gemini API using OpenAI-compatible endpoint with LitAgent user-agent.
     """
     required_auth = True
+
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available models from Gemini API.
+        
+        Args:
+            api_key (str, optional): Gemini API key
+            
+        Returns:
+            list: List of available model IDs
+        """
+        if not api_key:
+            return []
+        try:
+            # Use a temporary curl_cffi session for this class method
+            temp_session = Session()
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+            }
+            
+            response = temp_session.get(
+                "https://generativelanguage.googleapis.com/v1beta/openai/models",
+                headers=headers,
+                impersonate="chrome110"
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"API request failed with status {response.status_code}: {response.text}")
+                
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                return [model["id"] for model in data["data"] if "id" in model]
+            raise Exception("Invalid response format from API")
+            
+        except (CurlError, Exception) as e:
+            raise Exception(f"Failed to fetch models: {str(e)}")
+
+    @staticmethod
+    def _gemini_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
+        """Extracts content from Gemini stream JSON objects (OpenAI format)."""
+        if isinstance(chunk, dict):
+            return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+        return None
+
     def __init__(
         self,
-        api_key,
-        model_name: str = "gemini-1.5-flash-latest",
-        temperature: float = 1,
-        top_p: float = 0.95,
-        top_k: int = 64,
-        max_output_tokens: int = 8192,
+        api_key: str,
         is_conversation: bool = True,
+        max_tokens: int = 600,
+        temperature: float = 1,
+        presence_penalty: int = 0,
+        frequency_penalty: int = 0,
+        top_p: float = 1,
+        model: str = "gemini-1.5-flash",
         timeout: int = 30,
         intro: str = None,
         filepath: str = None,
@@ -36,45 +84,50 @@ class GEMINIAPI(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        system_instruction: str = "You are a helpful and informative AI assistant.",
-        safety_settings: dict = None,
+        base_url: str = "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+        system_prompt: str = "You are a helpful assistant.",
+        browser: str = "chrome"
     ):
-        """
-        Initializes the Gemini API with the given parameters.
+        """Initializes the Gemini API client."""
+        self.url = base_url
 
-        Args:
-            api_key (str, optional): Your Gemini API key. If None, it will use the environment variable "GEMINI_API_KEY". 
-                                      Defaults to None.
-            model_name (str, optional): The name of the Gemini model to use. 
-                                        Defaults to "gemini-1.5-flash-exp-0827".
-            temperature (float, optional): The temperature parameter for the model. Defaults to 1.
-            top_p (float, optional): The top_p parameter for the model. Defaults to 0.95.
-            top_k (int, optional): The top_k parameter for the model. Defaults to 64.
-            max_output_tokens (int, optional): The maximum number of output tokens. Defaults to 8192.
-            is_conversation (bool, optional): Flag for chatting conversationally. Defaults to True.
-            timeout (int, optional): Http request timeout. Defaults to 30.
-            intro (str, optional): Conversation introductory prompt. Defaults to None.
-            filepath (str, optional): Path to file containing conversation history. Defaults to None.
-            update_file (bool, optional): Add new prompts and responses to the file. Defaults to True.
-            proxies (dict, optional): Http request proxies. Defaults to {}.
-            history_offset (int, optional): Limit conversation history to this number of last texts. Defaults to 10250.
-            act (str|int, optional): Awesome prompt key or index. (Used as intro). Defaults to None.
-            system_instruction (str, optional): System instruction to guide the AI's behavior. 
-                                                Defaults to "You are a helpful and informative AI assistant.".
-        """
+        # Initialize LitAgent
+        self.agent = LitAgent()
+        self.fingerprint = self.agent.generate_fingerprint(browser)
         self.api_key = api_key
-        self.model_name = model_name
-        self.temperature = temperature
-        self.top_p = top_p
-        self.top_k = top_k
-        self.max_output_tokens = max_output_tokens
-        self.system_instruction = system_instruction
-        self.safety_settings = safety_settings if safety_settings else {}
-        self.session = requests.Session()  # Not directly used for Gemini API calls, but can be used for other requests
+        # Use the fingerprint for headers
+        self.headers = {
+            "Accept": self.fingerprint["accept"],
+            "Accept-Language": self.fingerprint["accept_language"],
+            "User-Agent": self.fingerprint.get("user_agent", ""),
+        }
+        if self.api_key:
+            self.headers["Authorization"] = f"Bearer {self.api_key}"
+
+        # Initialize curl_cffi Session
+        self.session = Session()
+        # Update curl_cffi session headers and proxies
+        self.session.headers.update(self.headers)
+        self.session.proxies = proxies  # Assign proxies directly
+        self.system_prompt = system_prompt
         self.is_conversation = is_conversation
-        self.max_tokens_to_sample = max_output_tokens
+        self.max_tokens_to_sample = max_tokens
         self.timeout = timeout
         self.last_response = {}
+        self.model = model
+        self.temperature = temperature
+        self.presence_penalty = presence_penalty
+        self.frequency_penalty = frequency_penalty
+        self.top_p = top_p
+
+        # Fetch available models
+        try:
+            self.available_models = self.get_models(self.api_key)
+        except Exception:
+            self.available_models = []
+
+        if self.available_models and self.model not in self.available_models:
+            raise ValueError(f"Invalid model: {self.model}. Choose from: {self.available_models}")
 
         self.__available_optimizers = (
             method
@@ -88,33 +141,32 @@ class GEMINIAPI(Provider):
             if act
             else intro or Conversation.intro
         )
+
         self.conversation = Conversation(
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
-        self.session.proxies = proxies
 
-        # Configure the Gemini API
-        genai.configure(api_key=self.api_key)
+    def refresh_identity(self, browser: str = None):
+        """
+        Refreshes the browser identity fingerprint.
 
-        # Create the model with generation config
-        self.generation_config = {
-            "temperature": self.temperature,
-            "top_p": self.top_p,
-            "top_k": self.top_k,
-            "max_output_tokens": self.max_output_tokens,
-            "response_mime_type": "text/plain",
-        }
+        Args:
+            browser: Specific browser to use for the new fingerprint
+        """
+        browser = browser or self.fingerprint.get("browser_type", "chrome")
+        self.fingerprint = self.agent.generate_fingerprint(browser)
 
-        self.model = genai.GenerativeModel(
-            model_name=self.model_name,
-            generation_config=self.generation_config,
-            safety_settings=self.safety_settings,
-            system_instruction=self.system_instruction,
-        )
+        # Update headers with new fingerprint (only relevant ones)
+        self.headers.update({
+            "Accept": self.fingerprint["accept"],
+            "Accept-Language": self.fingerprint["accept_language"],
+        })
 
-        # Start the chat session
-        self.chat_session = self.model.start_chat()
+        # Update session headers
+        self.session.headers.update(self.headers)
+
+        return self.fingerprint
 
     def ask(
         self,
@@ -123,23 +175,7 @@ class GEMINIAPI(Provider):
         raw: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> dict:
-        """Chat with AI
-
-        Args:
-            prompt (str): Prompt to be send.
-            stream (bool, optional): Not used for Gemini API. Defaults to False.
-            raw (bool, optional): Not used for Gemini API. Defaults to False.
-            optimizer (str, optional): Prompt optimizer name - `[code, shell_command]`. Defaults to None.
-            conversationally (bool, optional): Chat conversationally when using optimizer. Defaults to False.
-        Returns:
-           dict : {}
-        ```json
-        {
-           "text" : "How may I assist you today?"
-        }
-        ```
-        """
+    ) -> Union[Dict[str, Any], Generator]:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -147,62 +183,128 @@ class GEMINIAPI(Provider):
                     conversation_prompt if conversationally else prompt
                 )
             else:
-                raise Exception(
-                    f"Optimizer is not one of {self.__available_optimizers}"
+                raise exceptions.FailedToGenerateResponseError(f"Optimizer is not one of {self.__available_optimizers}")
+
+        # Payload construction
+        payload = {
+            "model": self.model,
+            "messages": [
+                {"role": "system", "content": self.system_prompt},
+                {"role": "user", "content": conversation_prompt},
+            ],
+            "stream": stream,
+            "temperature": self.temperature,
+            "top_p": self.top_p,
+            "presence_penalty": self.presence_penalty,
+            "frequency_penalty": self.frequency_penalty,
+        }
+
+        def for_stream():
+            streaming_text = ""
+            try:
+                # Use curl_cffi session post with impersonate
+                response = self.session.post(
+                    self.url,
+                    data=json.dumps(payload),
+                    stream=True,
+                    timeout=self.timeout,
+                    impersonate="chrome110"
+                )
+                response.raise_for_status()
+
+                # Use sanitize_stream
+                processed_stream = sanitize_stream(
+                    data=response.iter_content(chunk_size=None),
+                    intro_value="data:",
+                    to_json=True,
+                    skip_markers=["[DONE]"],
+                    content_extractor=self._gemini_extractor,
+                    yield_raw_on_error=False,
+                    raw=raw
                 )
 
-        # Send the message to the chat session and get the response
-        response = self.chat_session.send_message(conversation_prompt)
-        self.last_response.update(dict(text=response.text))
-        self.conversation.update_chat_history(
-            prompt, self.get_message(self.last_response)
-        )
-        return self.last_response 
+                for content_chunk in processed_stream:
+                    if raw:
+                        yield content_chunk
+                    else:
+                        if content_chunk and isinstance(content_chunk, str):
+                            streaming_text += content_chunk
+                            resp = dict(text=content_chunk)
+                            yield resp if not raw else content_chunk
+
+            except CurlError as e:
+                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
+            except Exception as e:
+                raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)}") from e
+            finally:
+                if streaming_text:
+                    self.last_response = {"text": streaming_text}
+                    self.conversation.update_chat_history(prompt, streaming_text)
+
+        def for_non_stream():
+            try:
+                # Use curl_cffi session post with impersonate for non-streaming
+                response = self.session.post(
+                    self.url,
+                    data=json.dumps(payload),
+                    timeout=self.timeout,
+                    impersonate="chrome110"
+                )
+                response.raise_for_status()
+
+                response_text = response.text
+
+                # Use sanitize_stream to parse the non-streaming JSON response
+                processed_stream = sanitize_stream(
+                    data=response_text,
+                    to_json=True,
+                    intro_value=None,
+                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
+                    yield_raw_on_error=False,
+                    raw=raw
+                )
+                # Extract the single result
+                content = next(processed_stream, None)
+                if raw:
+                    return content
+                content = content if isinstance(content, str) else ""
+
+                self.last_response = {"text": content}
+                self.conversation.update_chat_history(prompt, content)
+                return self.last_response if not raw else content
+
+            except CurlError as e:
+                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e
+            except Exception as e:
+                err_text = getattr(e, 'response', None) and getattr(e.response, 'text', '')
+                raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {e} - {err_text}") from e
+
+        return for_stream() if stream else for_non_stream()
 
     def chat(
         self,
         prompt: str,
-        stream: bool = False,  # Streaming not supported by the current google-generativeai library
+        stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> str:
-        """Generate response `str`
-
-        Args:
-            prompt (str): Prompt to be send.
-            stream (bool, optional): Not used for Gemini API. Defaults to False.
-            optimizer (str, optional): Prompt optimizer name - `[code, shell_command]`. Defaults to None.
-            conversationally (bool, optional): Chat conversationally when using optimizer. Defaults to False.
-        Returns:
-            str: Response generated
-        """
-        return self.get_message(
-            self.ask(
-                prompt,
-                optimizer=optimizer,
-                conversationally=conversationally,
+    ) -> Union[str, Generator[str, None, None]]:
+        def for_stream_chat():
+            gen = self.ask(
+                prompt, stream=True, raw=False,
+                optimizer=optimizer, conversationally=conversationally
             )
-        )
+            for response_dict in gen:
+                yield self.get_message(response_dict)
+
+        def for_non_stream_chat():
+            response_data = self.ask(
+                prompt, stream=False, raw=False,
+                optimizer=optimizer, conversationally=conversationally
+            )
+            return self.get_message(response_data)
+
+        return for_stream_chat() if stream else for_non_stream_chat()
 
     def get_message(self, response: dict) -> str:
-        """Retrieves message only from response
-
-        Args:
-            response (dict): Response generated by `self.ask`
-
-        Returns:
-            str: Message extracted
-        """
         assert isinstance(response, dict), "Response should be of dict data-type only"
         return response["text"]
-if __name__ == "__main__":
-    safety_settings = {
-        HarmCategory.HARM_CATEGORY_HATE_SPEECH: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_HARASSMENT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT: HarmBlockThreshold.BLOCK_NONE,
-        HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT: HarmBlockThreshold.BLOCK_NONE,
-    }
-    ai = GEMINIAPI(api_key="" , safety_settings=safety_settings)
-    res = ai.chat(input(">>> "))
-    for r in res:
-        print(r, end="", flush=True)

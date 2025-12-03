@@ -35,3 +35,25 @@ class Mojeek(BaseSearchEngine[TextResult]):
         if page > 1:
             payload["s"] = f"{(page - 1) * 10 + 1}"
         return payload
+
+    def run(self, *args, **kwargs) -> list[TextResult]:
+        """Run text search on Mojeek.
+        
+        Args:
+            keywords: Search query.
+            region: Region code.
+            safesearch: Safe search level.
+            max_results: Maximum number of results (ignored for now).
+            
+        Returns:
+            List of TextResult objects.
+        """
+        keywords = args[0] if args else kwargs.get("keywords")
+        region = args[1] if len(args) > 1 else kwargs.get("region", "us-en")
+        safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
+        max_results = args[3] if len(args) > 3 else kwargs.get("max_results")
+        
+        results = self.search(query=keywords, region=region, safesearch=safesearch)
+        if results and max_results:
+            results = results[:max_results]
+        return results or []

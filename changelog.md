@@ -2,29 +2,68 @@
 
 All notable changes to this project will be documented in this file.
 
-## [2025.12.02] - 2025-12-02
+## [2025.12.03] - 2025-12-03
 
 ### ✨ Added
- - **feat**: webscout/search/engines/__init__.py - Updated auto-discovery logic to register all search engine classes with `name` and `category` attributes, not just BaseSearchEngine subclasses
- - **feat**: webscout/server/routes.py - Enhanced `/search` endpoint to support all available search engines and additional search types (answers, maps, translate, weather, videos)
- - **feat**: webscout/server/routes.py - Added new query parameters to `/search` endpoint: `place`, `street`, `city`, `county`, `state`, `country`, `postalcode`, `latitude`, `longitude`, `radius`, `from_`, `to`, `language`
- - **feat**: added all engines to cli.py 
- - **feat**: cli.py - Added CLI commands for Bing search (text, images, news, suggestions)
- - **feat**: cli.py - Added CLI commands for Yahoo search (text, images, videos, news, answers, maps, translate, suggestions, weather)
+- **feat**: webscout/search/engines/__init__.py - Updated auto-discovery logic to register all search engine classes with `name` and `category` attributes, not just BaseSearchEngine subclasses
+- **feat**: webscout/server/routes.py - Added new `/search/provider` endpoint that returns details about each search provider including name, supported categories, and parameters
+- **feat**: webscout/models.py - Enhanced LLM models class with `providers()` and `provider()` methods that return detailed provider information including models, parameters, and metadata
+- **feat**: webscout/models.py - Added TTI (Text-to-Image) models support with `_TTIModels` class including detailed provider information methods
+- **feat**: added all engines to cli.py
+- **feat**: cli.py - Added CLI commands for Bing search (text, images, news, suggestions)
+- **feat**: cli.py - Added CLI commands for Yahoo search (text, images, videos, news, answers, maps, translate, suggestions, weather)
+- **feat**: Algion.py - Implemented dynamic model loading from API without hardcoded defaults, ensuring AVAILABLE_MODELS is only populated if API fetch succeeds
+- **feat**: Cerebras.py - Modified AVAILABLE_MODELS to use dynamic loading without defaults, requiring API key for model fetching
+- **feat**: OPENAI/algion.py - Added OpenAI-compatible Algion provider with dynamic model loading
+- **feat**: OPENAI/cerebras.py - Added OpenAI-compatible Cerebras provider with dynamic model loading
+- **feat**: OPENAI/elmo.py - Added OpenAI-compatible Elmo provider
+- **feat**: conversation.py - Added logging import for debug messages in file operations
+- **feat**: conversation.py - Added __trim_chat_history private method for history length management
+
+### 🐛 Fixed
+- **fix**: webscout/server/routes.py - Fixed search engine method checking bug where it was looking for `hasattr(searcher, type)` instead of `hasattr(searcher, "run")`, preventing DuckDuckGo and other engines from working
+- **fix**: webscout/server/routes.py - Fixed FastAPI UI documentation issue where search engines were listed multiple times by using `set()` to get unique engine names
+- **fix**: webscout/search/engines/brave.py - Added `run` method to Brave search engine class for compatibility with search endpoint
+- **fix**: webscout/search/engines/mojeek.py - Added `run` method to Mojeek search engine class for compatibility with search endpoint
+- **fix**: webscout/search/engines/yandex.py - Added `run` method to Yandex search engine class for compatibility with search endpoint
+- **fix**: webscout/search/engines/wikipedia.py - Added `run` method to Wikipedia search engine class for compatibility with search endpoint
+- **fix**: webscout/models.py - Fixed `_LLMModels.summary()` method which was missing its return statement, causing it to return `None` instead of the expected dictionary with provider and model counts
 
 ### 🔧 Maintenance
- - **refactor**: Added `name` and `category` attributes to all DuckDuckGo search engine classes (text, images, videos, news, suggestions, answers, maps, translate, weather)
- - **refactor**: Added `name` and `category` attributes to Bing search engine classes (text, images, news, suggestions)
- - **refactor**: Added `name` and `category` attributes to Yep search engine classes (text, images, suggestions)
- - **refactor**: Updated webscout/search/engines/bing/__init__.py to import and expose Bing search engine classes
- - **refactor**: Updated `/search` endpoint description to reflect support for all available search engines and search types
- - **refactor**: prompt_manager.py - Removed unused imports, redundant code, and cleaned up class for clarity and minimalism
- - **chore**: prompt_manager.py - Minor optimizations and code style improvements
- - **refactor**: cli.py - Cleaned up incomplete command stubs and fixed inconsistencies in option decorators
- - **removed**: cli.py - Removed unused imports and broken command implementations
+- **refactor**: Added dynamic model fetching to OPENAI and GEMINIAPI providers similar to Algion provider, with get_models() classmethod that fetches available models from API
+- **refactor**: Updated models.py to prioritize get_models() method over AVAILABLE_MODELS for dynamic model loading in provider discovery
+- **refactor**: Added `name` and `category` attributes to all DuckDuckGo search engine classes (text, images, videos, news, suggestions, answers, maps, translate, weather)
+- **refactor**: Added `name` and `category` attributes to Bing search engine classes (text, images, news, suggestions)
+- **refactor**: Added `name` and `category` attributes to Yep search engine classes (text, images, suggestions)
+- **refactor**: Updated webscout/search/engines/bing/__init__.py to import and expose Bing search engine classes
+- **refactor**: Updated `/search` endpoint description to reflect support for all available search engines and search types
+- **refactor**: prompt_manager.py - Removed unused imports, redundant code, and cleaned up class for clarity and minimalism
+- **chore**: prompt_manager.py - Minor optimizations and code style improvements
+- **refactor**: cli.py - Cleaned up incomplete command stubs and fixed inconsistencies in option decorators
+- **removed**: cli.py - Removed unused imports and broken command implementations
+- **cleanup**: Removed unused `schemas.py` file from server.
+- **refactor**: Removed all imports and references to `HealthCheckResponse` and `ErrorResponse` from `routes.py` and `__init__.py`.
+- **refactor**: Cleaned up unused imports (secrets, etc.) in `routes.py`.
+- **refactor**: Updated `__init__.py` to only export actively used symbols and remove legacy schema references.
+- **refactor**: Ensured all server modules only contain necessary code and imports, improving maintainability and clarity.
+- **refactor**: conversation.py - Simplified Conversation class to use string-based chat history instead of message objects, removing tool handling, metadata, timestamps, and complex validation
+- **refactor**: conversation.py - Updated history format to use "User : %(user)s\nLLM :%(llm)s" pattern for consistency
+- **refactor**: conversation.py - Removed all tool-related methods (handle_tool_response, _parse_function_call, execute_function, get_tools_description, update_chat_history_with_tool)
+- **refactor**: conversation.py - Streamlined file loading and history management to use simple string concatenation
+- **refactor**: yep.py - Removed tool parameter and tool handling logic from YEPCHAT provider
+- **refactor**: yep.py - Simplified ask method to directly update chat history without tool processing
+- **refactor**: TeachAnything.py - No changes needed as it didn't use tool functionality
 
-### 📝 Documentation
- - **docs**: Updated changelog for prompt_manager.py maintenance changes
+### 🚮 Removed
+- **removed**: conversation.py - Removed Fn class, Message dataclass, FunctionCall, ToolDefinition, FunctionCallData TypedDicts
+- **removed**: conversation.py - Removed add_message, validate_message, _append_to_file, _compress_history methods
+- **removed**: conversation.py - Removed tool_history_format and related attributes
+- **removed**: yep.py - Removed tool-related imports and examples from docstrings
+- **removed**: AsyncProvider - Completely removed AsyncProvider class and all imports from provider files (Cohere.py, Groq.py, Koboldai.py, julius.py, HeckAI.py, ChatHub.py)
+- **removed**: AsyncGROQ - Removed AsyncGROQ class from Groq.py that inherited from AsyncProvider
+- **removed**: webscout/server/routes.py - Removed monitoring endpoints (`/monitor/requests`, `/monitor/stats`, `/monitor/health`) and related code from server
+- **removed**: webscout/server/simple_logger.py - Removed unused monitoring methods (`get_recent_requests`, `get_stats`) from SimpleRequestLogger class
+
 
 ## [2025.12.01] - 2025-12-01
 ### ✨ Added

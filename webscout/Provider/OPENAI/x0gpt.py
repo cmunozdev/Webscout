@@ -1,9 +1,11 @@
 import time
 import uuid
-import requests
 import re
 import json
 from typing import List, Dict, Optional, Union, Generator, Any
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+from curl_cffi.const import CurlHttpVersion
 
 # Import base classes and utility structures
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
@@ -12,8 +14,11 @@ from webscout.Provider.OPENAI.utils import (
     ChatCompletionMessage, CompletionUsage, count_tokens
 )
 
-# Import LitAgent
-from webscout.litagent import LitAgent
+# Attempt to import LitAgent, fallback if not available
+try:
+    from webscout.litagent import LitAgent
+except ImportError:
+    print("Warning: LitAgent not found. Some functionality may be limited.")
 
 # --- X0GPT Client ---
 
@@ -76,19 +81,25 @@ class Completions(BaseCompletions):
                 json=payload,
                 stream=True,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies or getattr(self._client, "proxies", None)
+                proxies=proxies or getattr(self._client, "proxies", None),
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1
             )
 
             # Handle non-200 responses
-            if not response.ok:
+            if response.status_code != 200:
                 raise IOError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
 
-            # Use count_tokens for prompt tokens
-            prompt_tokens = count_tokens([msg.get("content", "") for msg in payload.get("messages", [])])
+            # Track token usage across chunks
+            prompt_tokens = 0
             completion_tokens = 0
             total_tokens = 0
+
+            # Estimate prompt tokens based on message length
+            for msg in payload.get("messages", []):
+                prompt_tokens += count_tokens(msg.get("content", ""))
 
             for line in response.iter_lines():
                 if line:
@@ -99,10 +110,10 @@ class Completions(BaseCompletions):
                     if match:
                         content = match.group(1)
 
-                        # Format the content (replace escaped newlines)
+                        # Format the content (replace escaped newlines and unicode escapes)
                         content = self._client.format_text(content)
 
-                        # Update token counts using count_tokens
+                        # Update token counts
                         completion_tokens += count_tokens(content)
                         total_tokens = prompt_tokens + completion_tokens
 
@@ -130,15 +141,23 @@ class Completions(BaseCompletions):
                             system_fingerprint=None
                         )
 
-                        # Set usage directly on the chunk object
-                        chunk.usage = {
+                        # Convert chunk to dict using Pydantic's API
+                        if hasattr(chunk, "model_dump"):
+                            chunk_dict = chunk.model_dump(exclude_none=True)
+                        else:
+                            chunk_dict = chunk.dict(exclude_none=True)
+
+                        # Add usage information to match OpenAI format
+                        usage_dict = {
                             "prompt_tokens": prompt_tokens,
                             "completion_tokens": completion_tokens,
                             "total_tokens": total_tokens,
                             "estimated_cost": None
                         }
 
-                        # Return the chunk object with usage information
+                        chunk_dict["usage"] = usage_dict
+
+                        # Return the chunk object for internal processing
                         yield chunk
 
             # Final chunk with finish_reason="stop"
@@ -163,8 +182,11 @@ class Completions(BaseCompletions):
                 system_fingerprint=None
             )
 
-            # Set usage directly on the chunk object
-            chunk.usage = {
+            if hasattr(chunk, "model_dump"):
+                chunk_dict = chunk.model_dump(exclude_none=True)
+            else:
+                chunk_dict = chunk.dict(exclude_none=True)
+            chunk_dict["usage"] = {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
@@ -181,26 +203,30 @@ class Completions(BaseCompletions):
         self, request_id: str, created_time: int, model: str, payload: Dict[str, Any], timeout: Optional[int] = None, proxies: Optional[Dict[str, str]] = None
     ) -> ChatCompletion:
         try:
+            # For non-streaming, we still use streaming internally to collect the full response
             response = self._client.session.post(
                 self._client.api_endpoint,
                 headers=self._client.headers,
                 json=payload,
                 stream=True,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies or getattr(self._client, "proxies", None)
+                proxies=proxies or getattr(self._client, "proxies", None),
+                impersonate="chrome120",
+                http_version=CurlHttpVersion.V1_1
             )
 
             # Handle non-200 responses
-            if not response.ok:
+            if response.status_code != 200:
                 raise IOError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
 
             # Collect the full response
             full_text = ""
-            for line in response.iter_lines(decode_unicode=True):
+            for line in response.iter_lines():
                 if line:
-                    match = re.search(r'0:"(.*?)"', line)
+                    decoded_line = line.decode('utf-8').strip()
+                    match = re.search(r'0:"(.*?)"', decoded_line)
                     if match:
                         content = match.group(1)
                         full_text += content
@@ -208,8 +234,11 @@ class Completions(BaseCompletions):
             # Format the text (replace escaped newlines)
             full_text = self._client.format_text(full_text)
 
-            # Use count_tokens for accurate token counts
-            prompt_tokens = count_tokens([msg.get("content", "") for msg in payload.get("messages", [])])
+            # Estimate token counts
+            prompt_tokens = 0
+            for msg in payload.get("messages", []):
+                prompt_tokens += count_tokens(msg.get("content", ""))
+
             completion_tokens = count_tokens(full_text)
             total_tokens = prompt_tokens + completion_tokens
 
@@ -263,22 +292,24 @@ class X0GPT(OpenAICompatibleProvider):
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-
+    required_auth = False
     AVAILABLE_MODELS = ["X0GPT"]
 
     def __init__(
         self,
+        timeout: Optional[int] = None,
         browser: str = "chrome"
     ):
         """
         Initialize the X0GPT client.
 
         Args:
+            timeout: Request timeout in seconds (None for no timeout)
             browser: Browser to emulate in user agent
         """
-        self.timeout = None
+        self.timeout = timeout
         self.api_endpoint = "https://x0-gpt.devwtf.in/api/stream/reply"
-        self.session = requests.Session()
+        self.session = Session()
 
         # Initialize LitAgent for user agent generation
         agent = LitAgent()
@@ -289,17 +320,16 @@ class X0GPT(OpenAICompatibleProvider):
             "method": "POST",
             "path": "/api/stream/reply",
             "scheme": "https",
-            "accept": self.fingerprint["accept"],
+            "accept": "*/*",
             "accept-encoding": "gzip, deflate, br, zstd",
-            "accept-language": self.fingerprint["accept_language"],
+            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
             "content-type": "application/json",
             "dnt": "1",
             "origin": "https://x0-gpt.devwtf.in",
-            "priority": "u=1, i",
             "referer": "https://x0-gpt.devwtf.in/chat",
-            "sec-ch-ua": self.fingerprint["sec_ch_ua"] or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
+            "sec-ch-ua": '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
             "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": f'"{self.fingerprint["platform"]}"',
+            "sec-ch-ua-platform": '"Windows"',
             "user-agent": self.fingerprint["user_agent"]
         }
 
@@ -307,13 +337,6 @@ class X0GPT(OpenAICompatibleProvider):
 
         # Initialize the chat interface
         self.chat = Chat(self)
-
-    @property
-    def models(self):
-        class _ModelList:
-            def list(inner_self):
-                return X0GPT.AVAILABLE_MODELS
-        return _ModelList()
 
     def format_text(self, text: str) -> str:
         """
@@ -325,29 +348,11 @@ class X0GPT(OpenAICompatibleProvider):
         Returns:
             Formatted text
         """
-        # Use a more comprehensive approach to handle all escape sequences
         try:
-            # First handle double backslashes to avoid issues
-            text = text.replace('\\\\', '\\')
-
-            # Handle common escape sequences
-            text = text.replace('\\n', '\n')
-            text = text.replace('\\r', '\r')
-            text = text.replace('\\t', '\t')
-            text = text.replace('\\"', '"')
-            text = text.replace("\\'", "'")
-
-            # Handle any remaining escape sequences using JSON decoding
-            # This is a fallback in case there are other escape sequences
-            try:
-                # Add quotes to make it a valid JSON string
-                json_str = f'"{text}"'
-                # Use json module to decode all escape sequences
-                decoded = json.loads(json_str)
-                return decoded
-            except json.JSONDecodeError:
-                # If JSON decoding fails, return the text with the replacements we've already done
-                return text
+            # Handle unicode escaping and quote unescaping
+            text = text.encode().decode('unicode_escape')
+            text = text.replace('\\\\', '\\').replace('\\"', '"')
+            return text
         except Exception as e:
             # If any error occurs, return the original text
             print(f"Warning: Error formatting text: {e}")
@@ -366,14 +371,21 @@ class X0GPT(OpenAICompatibleProvider):
         # X0GPT doesn't actually use model names, but we'll keep this for compatibility
         return model
 
+    @property
+    def models(self):
+        class _ModelList:
+            def list(inner_self):
+                return X0GPT.AVAILABLE_MODELS
+        return _ModelList()
+
 if __name__ == "__main__":
-    from rich import print
+    # Test the provider
     client = X0GPT()
     response = client.chat.completions.create(
         model="X0GPT",
-        messages=[{"role": "user", "content": "Hello!"}],
-        stream=True
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello! How are you today?"}
+        ]
     )
-
-    for chunk in response:
-        print(chunk, end='', flush=True)
+    print(response.choices[0].message.content)

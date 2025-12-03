@@ -7,6 +7,8 @@ from .base import YepBase
 
 
 class YepSuggestions(YepBase):
+    name = "yep"
+    category = "suggestions"
     def run(self, *args, **kwargs) -> List[str]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "all")

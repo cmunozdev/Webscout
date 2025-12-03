@@ -201,6 +201,7 @@ class Netwrck(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
+    required_auth = False
 
     AVAILABLE_MODELS = [
         "thedrummer/valkyrie-49b-v1",

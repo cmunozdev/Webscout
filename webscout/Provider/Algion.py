@@ -24,24 +24,45 @@ class Algion(Provider):
         >>> response = ai.chat("Hello, how are you?")
         >>> print(response)
     """
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available models from Algion API.
+        
+        Args:
+            api_key (str, optional): Algion API key. If not provided, uses default free key.
+            
+        Returns:
+            list: List of available model IDs
+        """
+        api_key = api_key or "123123"
+            
+        try:
+            # Use a temporary curl_cffi session for this class method
+            temp_session = Session()
+            headers = {
+                "Content-Type": "application/json",
+                "Authorization": f"Bearer {api_key}",
+            }
+            
+            response = temp_session.get(
+                "https://api.algion.dev/v1/models",
+                headers=headers,
+                impersonate="chrome110"
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"Failed to fetch models: HTTP {response.status_code}")
+                
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                return [model["id"] for model in data["data"]]
+            raise Exception("Invalid response format from API")
+            
+        except (CurlError, Exception) as e:
+            raise Exception(f"Failed to fetch models: {str(e)}")
+
     required_auth = False
-    AVAILABLE_MODELS = [
-        "gpt-5.1",
-        "gpt-5",
-        "gpt-5-mini",
-        "gpt-4.1",
-        "gpt-4-0125-preview",
-        "gpt-4o",
-        "gpt-4o-mini",
-        "gpt-4",
-        "gpt-3.5-turbo",
-        "claude-sonnet-4",
-        "claude-haiku-4.5",
-        "claude-sonnet-4.5",
-        "grok-code-fast-1",
-        "gemini-3-pro-preview",
-        "gemini-2.5-pro",
-    ]
+
 
     @staticmethod
     def _algion_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
@@ -360,6 +381,11 @@ class Algion(Provider):
         """
         assert isinstance(response, dict), "Response should be of dict data-type only"
         return response["text"]
+
+try:
+    Algion.AVAILABLE_MODELS = Algion.get_models()
+except Exception:
+    pass
 
 if __name__ == "__main__":
     from rich import print

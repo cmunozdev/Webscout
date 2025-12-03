@@ -1,7 +1,3 @@
-# -*- coding: utf-8 -*-
-#########################################
-# Code Modified to use curl_cffi
-#########################################
 import asyncio
 import json
 import os
@@ -13,32 +9,22 @@ from enum import Enum
 from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union
 
-# Use curl_cffi for requests
-# Import trio before curl_cffi to prevent eventlet socket monkey-patching conflicts
-# See: https://github.com/python-trio/trio/issues/3015
 try:
-    import trio  # type: ignore
+    import trio # type: ignore
 except ImportError:
-    pass  # trio is optional, ignore if not available
+    pass
 from curl_cffi import CurlError
 from curl_cffi.requests import AsyncSession
 
-# For image models using validation. Adjust based on organization internal pydantic.
-# Updated import for Pydantic V2
 from pydantic import BaseModel, field_validator
 
-# Import common request exceptions (curl_cffi often wraps these)
 from requests.exceptions import HTTPError, RequestException, Timeout
 
-# Rich is retained for logging within image methods.
 from rich.console import Console
 
 console = Console()
 
-#########################################
-# New Enums and functions for endpoints,
-# headers, models, file upload and images.
-#########################################
+
 
 class Endpoint(Enum):
     """
@@ -69,8 +55,6 @@ class Headers(Enum):
         "Host": "gemini.google.com",
         "Origin": "https://gemini.google.com",
         "Referer": "https://gemini.google.com/",
-        # User-Agent will be handled by curl_cffi impersonate
-        # "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
         "X-Same-Domain": "1",
     }
     ROTATE_COOKIES = {
@@ -87,7 +71,6 @@ class Model(Enum):
         model_header (dict): Additional headers required for the model.
         advanced_only (bool): Whether the model is available only for advanced users.
     """
-    # Only the specified models
     UNSPECIFIED = ("unspecified", {}, False)
     G_2_5_FLASH = (
         "gemini-2.5-flash",
@@ -160,7 +143,6 @@ async def upload_file(
         RequestException: For other network-related errors.
         FileNotFoundError: If the file path does not exist.
     """
-    # Handle file input
     if not isinstance(file, bytes):
         file_path = Path(file)
         if not file_path.is_file():
@@ -170,37 +152,32 @@ async def upload_file(
     else:
         file_content = file
 
-    # Prepare proxy dictionary for curl_cffi
     proxies_dict = None
     if isinstance(proxy, str):
-        proxies_dict = {"http": proxy, "https": proxy} # curl_cffi uses http/https keys
+        proxies_dict = {"http": proxy, "https": proxy}
     elif isinstance(proxy, dict):
-        proxies_dict = proxy # Assume it's already in the correct format
+        proxies_dict = proxy
 
     try:
-        # Use AsyncSession from curl_cffi
         async with AsyncSession(
             proxies=proxies_dict,
             impersonate=impersonate,
-            headers=Headers.UPLOAD.value # Pass headers directly
-            # follow_redirects is handled automatically by curl_cffi
+            headers=Headers.UPLOAD.value
         ) as client:
             response = await client.post(
                 url=Endpoint.UPLOAD.value,
                 files={"file": file_content},
             )
-            response.raise_for_status() # Raises HTTPError for bad responses
+            response.raise_for_status()
             return response.text
     except HTTPError as e:
         console.log(f"[red]HTTP error during file upload: {e.response.status_code} {e}[/red]")
-        raise # Re-raise HTTPError
+        raise
     except (RequestException, CurlError) as e:
         console.log(f"[red]Network error during file upload: {e}[/red]")
-        raise # Re-raise other request errors
+        raise
 
-#########################################
-# Cookie loading and Chatbot classes
-#########################################
+
 
 def load_cookies(cookie_path: str) -> Tuple[str, str]:
     """
@@ -216,9 +193,8 @@ def load_cookies(cookie_path: str) -> Tuple[str, str]:
         Exception: If the file is not found, invalid, or required cookies are missing.
     """
     try:
-        with open(cookie_path, 'r', encoding='utf-8') as file: # Added encoding
+        with open(cookie_path, 'r', encoding='utf-8') as file:
             cookies = json.load(file)
-        # Handle potential variations in cookie names (case-insensitivity)
         session_auth1 = next((item['value'] for item in cookies if item['name'].upper() == '__SECURE-1PSID'), None)
         session_auth2 = next((item['value'] for item in cookies if item['name'].upper() == '__SECURE-1PSIDTS'), None)
 
@@ -232,7 +208,7 @@ def load_cookies(cookie_path: str) -> Tuple[str, str]:
         raise Exception("Invalid JSON format in the cookie file.")
     except StopIteration as e:
         raise Exception(f"{e} Check the cookie file format and content.")
-    except Exception as e: # Catch other potential errors
+    except Exception as e: 
         raise Exception(f"An unexpected error occurred while loading cookies: {e}")
 
 
@@ -252,13 +228,11 @@ class Chatbot:
     def __init__(
         self,
         cookie_path: str,
-        proxy: Optional[Union[str, Dict[str, str]]] = None, # Allow string or dict proxy
+        proxy: Optional[Union[str, Dict[str, str]]] = None, 
         timeout: int = 20,
         model: Model = Model.UNSPECIFIED,
-        impersonate: str = "chrome110" # Added impersonate
+        impersonate: str = "chrome110"
     ):
-        # Use asyncio.run() for cleaner async execution in sync context
-        # Handle potential RuntimeError if an event loop is already running
         try:
             self.loop = asyncio.get_running_loop()
         except RuntimeError:
@@ -267,7 +241,7 @@ class Chatbot:
 
         self.secure_1psid, self.secure_1psidts = load_cookies(cookie_path)
         self.async_chatbot = self.loop.run_until_complete(
-            AsyncChatbot.create(self.secure_1psid, self.secure_1psidts, proxy, timeout, model, impersonate) # Pass impersonate
+            AsyncChatbot.create(self.secure_1psid, self.secure_1psidts, proxy, timeout, model, impersonate)
         )
 
     def save_conversation(self, file_path: str, conversation_name: str):
@@ -285,8 +259,7 @@ class Chatbot:
             self.async_chatbot.load_conversation(file_path, conversation_name)
         )
 
-    def ask(self, message: str, image: Optional[Union[bytes, str, Path]] = None) -> dict: # Added image param
-        # Pass image to async ask method
+    def ask(self, message: str, image: Optional[Union[bytes, str, Path]] = None) -> dict:
         return self.loop.run_until_complete(self.async_chatbot.ask(message, image=image))
 
 class AsyncChatbot:
@@ -319,38 +292,37 @@ class AsyncChatbot:
         "conversation_id",
         "response_id",
         "choice_id",
-        "proxy", # Store the original proxy config
-        "proxies_dict", # Store the curl_cffi-compatible proxy dict
+        "proxy", 
+        "proxies_dict", 
         "secure_1psidts",
         "secure_1psid",
         "session",
         "timeout",
         "model",
-        "impersonate", # Store impersonate setting
+        "impersonate", 
     ]
 
     def __init__(
         self,
         secure_1psid: str,
         secure_1psidts: str,
-        proxy: Optional[Union[str, Dict[str, str]]] = None, # Allow string or dict proxy
+        proxy: Optional[Union[str, Dict[str, str]]] = None, 
         timeout: int = 20,
         model: Model = Model.UNSPECIFIED,
-        impersonate: str = "chrome110", # Added impersonate
+        impersonate: str = "chrome110", 
     ):
         headers = Headers.GEMINI.value.copy()
         if model != Model.UNSPECIFIED:
             headers.update(model.model_header)
-        self._reqid = int("".join(random.choices(string.digits, k=7))) # Increased length for less collision chance
-        self.proxy = proxy # Store original proxy setting
-        self.impersonate = impersonate # Store impersonate setting
+        self._reqid = int("".join(random.choices(string.digits, k=7))) 
+        self.proxy = proxy 
+        self.impersonate = impersonate 
 
-        # Prepare proxy dictionary for curl_cffi
         self.proxies_dict = None
         if isinstance(proxy, str):
-            self.proxies_dict = {"http": proxy, "https": proxy} # curl_cffi uses http/https keys
+            self.proxies_dict = {"http": proxy, "https": proxy} 
         elif isinstance(proxy, dict):
-            self.proxies_dict = proxy # Assume it's already in the correct format
+            self.proxies_dict = proxy 
 
         self.conversation_id = ""
         self.response_id = ""
@@ -358,48 +330,42 @@ class AsyncChatbot:
         self.secure_1psid = secure_1psid
         self.secure_1psidts = secure_1psidts
 
-        # Initialize curl_cffi AsyncSession
         self.session = AsyncSession(
             headers=headers,
             cookies={"__Secure-1PSID": secure_1psid, "__Secure-1PSIDTS": secure_1psidts},
             proxies=self.proxies_dict,
             timeout=timeout,
             impersonate=self.impersonate
-            # verify and http2 are handled automatically by curl_cffi
         )
-        # No need to set proxies/headers/cookies again, done in constructor
 
-        self.timeout = timeout # Store timeout for potential direct use in requests
+        self.timeout = timeout 
         self.model = model
-        self.SNlM0e = None # Initialize SNlM0e
+        self.SNlM0e = None 
 
     @classmethod
     async def create(
         cls,
         secure_1psid: str,
         secure_1psidts: str,
-        proxy: Optional[Union[str, Dict[str, str]]] = None, # Allow string or dict proxy
+        proxy: Optional[Union[str, Dict[str, str]]] = None, 
         timeout: int = 20,
         model: Model = Model.UNSPECIFIED,
-        impersonate: str = "chrome110", # Added impersonate
+        impersonate: str = "chrome110", 
     ) -> "AsyncChatbot":
         """
         Factory method to create and initialize an AsyncChatbot instance.
         Fetches the necessary SNlM0e value asynchronously.
         """
-        instance = cls(secure_1psid, secure_1psidts, proxy, timeout, model, impersonate) # Pass impersonate
+        instance = cls(secure_1psid, secure_1psidts, proxy, timeout, model, impersonate) 
         try:
             instance.SNlM0e = await instance.__get_snlm0e()
         except Exception as e:
-             # Log the error and re-raise or handle appropriately
              console.log(f"[red]Error during AsyncChatbot initialization (__get_snlm0e): {e}[/red]", style="bold red")
-             # Optionally close the session if initialization fails critically
-             await instance.session.close() # Use close() for AsyncSession
-             raise # Re-raise the exception to signal failure
+             await instance.session.close() 
+             raise 
         return instance
 
     async def save_conversation(self, file_path: str, conversation_name: str) -> None:
-        # Logic remains the same
         conversations = await self.load_conversations(file_path)
         conversation_data = {
             "conversation_name": conversation_name,
@@ -408,21 +374,20 @@ class AsyncChatbot:
             "response_id": self.response_id,
             "choice_id": self.choice_id,
             "SNlM0e": self.SNlM0e,
-            "model_name": self.model.model_name, # Save the model used
-            "timestamp": datetime.now().isoformat(), # Add timestamp
+            "model_name": self.model.model_name, 
+            "timestamp": datetime.now().isoformat(), 
         }
 
         found = False
         for i, conv in enumerate(conversations):
             if conv.get("conversation_name") == conversation_name:
-                conversations[i] = conversation_data # Update existing
+                conversations[i] = conversation_data 
                 found = True
                 break
         if not found:
-            conversations.append(conversation_data) # Add new
+            conversations.append(conversation_data) 
 
         try:
-            # Ensure directory exists
             Path(file_path).parent.mkdir(parents=True, exist_ok=True)
             with open(file_path, "w", encoding="utf-8") as f:
                 json.dump(conversations, f, indent=4, ensure_ascii=False)
@@ -431,7 +396,6 @@ class AsyncChatbot:
             raise
 
     async def load_conversations(self, file_path: str) -> List[Dict]:
-        # Logic remains the same
         if not os.path.isfile(file_path):
             return []
         try:
@@ -442,7 +406,6 @@ class AsyncChatbot:
             return []
 
     async def load_conversation(self, file_path: str, conversation_name: str) -> bool:
-        # Logic remains the same, but update headers on the session
         conversations = await self.load_conversations(file_path)
         for conversation in conversations:
             if conversation.get("conversation_name") == conversation_name:
@@ -455,7 +418,6 @@ class AsyncChatbot:
                     if "model_name" in conversation:
                          try:
                               self.model = Model.from_name(conversation["model_name"])
-                              # Update headers in the session if model changed
                               self.session.headers.update(self.model.model_header)
                          except ValueError as e:
                               console.log(f"[yellow]Warning: Model '{conversation['model_name']}' from saved conversation not found. Using current model '{self.model.model_name}'. Error: {e}[/yellow]")
@@ -474,19 +436,15 @@ class AsyncChatbot:
             raise ValueError("__Secure-1PSID cookie is required.")
 
         try:
-            # Use the session's get method
             resp = await self.session.get(
                 Endpoint.INIT.value,
-                timeout=self.timeout # Timeout is already set in session, but can override
-                # follow_redirects is handled automatically by curl_cffi
+                timeout=self.timeout 
             )
-            resp.raise_for_status() # Raise HTTPError for bad responses (4xx or 5xx)
+            resp.raise_for_status() 
 
-            # Check for authentication issues
             if "Sign in to continue" in resp.text or "accounts.google.com" in str(resp.url):
                 raise PermissionError("Authentication failed. Cookies might be invalid or expired. Please update them.")
 
-            # Regex to find the SNlM0e value
             snlm0e_match = re.search(r'["\']SNlM0e["\']\s*:\s*["\'](.*?)["\']', resp.text)
             if not snlm0e_match:
                 error_message = "SNlM0e value not found in response."
@@ -496,22 +454,19 @@ class AsyncChatbot:
                     error_message += f" Response status: {resp.status_code}. Check cookie validity and network."
                 raise ValueError(error_message)
 
-            # Try to refresh PSIDTS if needed
             if not self.secure_1psidts and "PSIDTS" not in self.session.cookies:
                 try:
-                    # Attempt to rotate cookies to get a fresh PSIDTS
                     await self.__rotate_cookies()
                 except Exception as e:
                     console.log(f"[yellow]Warning: Could not refresh PSIDTS cookie: {e}[/yellow]")
-                    # Continue anyway as some accounts don't need PSIDTS
 
             return snlm0e_match.group(1)
 
-        except Timeout as e: # Catch requests.exceptions.Timeout
+        except Timeout as e: 
             raise TimeoutError(f"Request timed out while fetching SNlM0e: {e}") from e
-        except (RequestException, CurlError) as e: # Catch general request errors and Curl specific errors
+        except (RequestException, CurlError) as e: 
             raise ConnectionError(f"Network error while fetching SNlM0e: {e}") from e
-        except HTTPError as e: # Catch requests.exceptions.HTTPError
+        except HTTPError as e: 
             if e.response.status_code == 401 or e.response.status_code == 403:
                 raise PermissionError(f"Authentication failed (status {e.response.status_code}). Check cookies. {e}") from e
             else:
@@ -559,18 +514,15 @@ class AsyncChatbot:
             "rt": "c",
         }
 
-        # Handle image upload if provided
         image_upload_id = None
         if image:
             try:
-                # Pass proxy and impersonate settings to upload_file
                 image_upload_id = await upload_file(image, proxy=self.proxies_dict, impersonate=self.impersonate)
                 console.log(f"Image uploaded successfully. ID: {image_upload_id}")
             except Exception as e:
                 console.log(f"[red]Error uploading image: {e}[/red]")
                 return {"content": f"Error uploading image: {e}", "error": True}
 
-        # Prepare message structure
         if image_upload_id:
             message_struct = [
                 [message],
@@ -584,14 +536,12 @@ class AsyncChatbot:
                 [self.conversation_id, self.response_id, self.choice_id],
             ]
 
-        # Prepare request data
         data = {
             "f.req": json.dumps([None, json.dumps(message_struct, ensure_ascii=False)], ensure_ascii=False),
             "at": self.SNlM0e,
         }
 
         try:
-            # Send request
             resp = await self.session.post(
                 Endpoint.GENERATE.value,
                 params=params,
@@ -600,12 +550,10 @@ class AsyncChatbot:
             )
             resp.raise_for_status()
 
-            # Process response
             lines = resp.text.splitlines()
             if len(lines) < 3:
                 raise ValueError(f"Unexpected response format. Status: {resp.status_code}. Content: {resp.text[:200]}...")
 
-            # Find the line with the response data
             chat_data_line = None
             for line in lines:
                 if line.startswith(")]}'"):
@@ -620,10 +568,8 @@ class AsyncChatbot:
                 if chat_data_line.startswith(")]}'"):
                     chat_data_line = chat_data_line[4:].strip()
 
-            # Parse the response JSON
             response_json = json.loads(chat_data_line)
 
-            # Find the main response body
             body = None
             body_index = 0
 
@@ -641,22 +587,17 @@ class AsyncChatbot:
             if not body:
                 return {"content": "Failed to parse response body. No valid data found.", "error": True}
 
-            # Extract data from the response
             try:
-                # Extract main content
                 content = ""
                 if len(body) > 4 and len(body[4]) > 0 and len(body[4][0]) > 1:
                     content = body[4][0][1][0] if len(body[4][0][1]) > 0 else ""
 
-                # Extract conversation metadata
                 conversation_id = body[1][0] if len(body) > 1 and len(body[1]) > 0 else self.conversation_id
                 response_id = body[1][1] if len(body) > 1 and len(body[1]) > 1 else self.response_id
 
-                # Extract additional data
                 factualityQueries = body[3] if len(body) > 3 else None
                 textQuery = body[2][0] if len(body) > 2 and body[2] else ""
 
-                # Extract choices
                 choices = []
                 if len(body) > 4:
                     for candidate in body[4]:
@@ -665,10 +606,8 @@ class AsyncChatbot:
 
                 choice_id = choices[0]["id"] if choices else self.choice_id
 
-                # Extract images - multiple possible formats
                 images = []
 
-                # Format 1: Regular web images
                 if len(body) > 4 and len(body[4]) > 0 and len(body[4][0]) > 4 and body[4][0][4]:
                     for img_data in body[4][0][4]:
                         try:
@@ -680,13 +619,10 @@ class AsyncChatbot:
                             console.log("[yellow]Warning: Could not parse image data structure (format 1).[/yellow]")
                             continue
 
-                # Format 2: Generated images in standard location
                 generated_images = []
                 if len(body) > 4 and len(body[4]) > 0 and len(body[4][0]) > 12 and body[4][0][12]:
                     try:
-                        # Path 1: Check for images in [12][7][0]
                         if body[4][0][12][7] and body[4][0][12][7][0]:
-                            # This is the standard path for generated images
                             for img_index, img_data in enumerate(body[4][0][12][7][0]):
                                 try:
                                     img_url = img_data[0][3][3]
@@ -696,9 +632,7 @@ class AsyncChatbot:
                                 except (IndexError, TypeError):
                                     continue
 
-                            # If we found images, but they might be in a different part of the response
                             if not generated_images:
-                                # Look for image generation data in other response parts
                                 for part_index, part in enumerate(response_json):
                                     if part_index <= body_index:
                                         continue
@@ -719,18 +653,14 @@ class AsyncChatbot:
                     except (IndexError, TypeError):
                         pass
 
-                # Format 3: Alternative location for generated images
                 if len(generated_images) == 0 and len(body) > 4 and len(body[4]) > 0:
                     try:
-                        # Try to find images in candidate[4] structure
                         candidate = body[4][0]
                         if len(candidate) > 22 and candidate[22]:
-                            # Look for URLs in the candidate[22] field
                             import re
                             content = candidate[22][0] if isinstance(candidate[22], list) and len(candidate[22]) > 0 else str(candidate[22])
                             urls = re.findall(r'https?://[^\s]+', content)
                             for i, url in enumerate(urls):
-                                # Clean up URL if it ends with punctuation
                                 if url[-1] in ['.', ',', ')', ']', '}', '"', "'"]:
                                     url = url[:-1]
                                 generated_images.append({
@@ -741,36 +671,27 @@ class AsyncChatbot:
                     except (IndexError, TypeError) as e:
                         console.log(f"[yellow]Warning: Could not parse alternative image structure: {e}[/yellow]")
 
-                # Format 4: Look for image URLs in the text content
                 if len(images) == 0 and len(generated_images) == 0 and content:
                     try:
                         import re
-                        # Look for image URLs in the content - try multiple patterns
 
-                        # Pattern 1: Standard image URLs
                         urls = re.findall(r'(https?://[^\s]+\.(jpg|jpeg|png|gif|webp))', content.lower())
 
-                        # Pattern 2: Google image URLs (which might not have extensions)
                         google_urls = re.findall(r'(https?://lh\d+\.googleusercontent\.com/[^\s]+)', content)
 
-                        # Pattern 3: General URLs that might be images
                         general_urls = re.findall(r'(https?://[^\s]+)', content)
 
-                        # Combine all found URLs
                         all_urls = []
                         if urls:
                             all_urls.extend([url_tuple[0] for url_tuple in urls])
                         if google_urls:
                             all_urls.extend(google_urls)
 
-                        # Add general URLs only if we didn't find any specific image URLs
                         if not all_urls and general_urls:
                             all_urls = general_urls
 
-                        # Process all found URLs
                         if all_urls:
                             for i, url in enumerate(all_urls):
-                                # Clean up URL if it ends with punctuation
                                 if url[-1] in ['.', ',', ')', ']', '}', '"', "'"]:
                                     url = url[:-1]
                                 images.append({
@@ -782,10 +703,8 @@ class AsyncChatbot:
                     except Exception as e:
                         console.log(f"[yellow]Warning: Error extracting URLs from content: {e}[/yellow]")
 
-                # Combine all images
                 all_images = images + generated_images
 
-                # Prepare results
                 results = {
                     "content": content,
                     "conversation_id": conversation_id,
@@ -797,7 +716,6 @@ class AsyncChatbot:
                     "error": False,
                 }
 
-                # Update state
                 self.conversation_id = conversation_id
                 self.response_id = response_id
                 self.choice_id = choice_id
@@ -826,9 +744,7 @@ class AsyncChatbot:
             return {"content": f"An unexpected error occurred: {e}", "error": True}
 
 
-#########################################
-# New Image classes
-#########################################
+
 
 class Image(BaseModel):
     """
@@ -883,13 +799,11 @@ class Image(BaseModel):
             RequestException/CurlError for other network errors.
             IOError if file writing fails.
         """
-        # Generate filename from URL if not provided
         if not filename:
             try:
                 from urllib.parse import unquote, urlparse
                 parsed_url = urlparse(self.url)
                 base_filename = os.path.basename(unquote(parsed_url.path))
-                # Remove invalid characters for filenames
                 safe_filename = re.sub(r'[<>:"/\\|?*]', '_', base_filename)
                 if safe_filename and len(safe_filename) > 0:
                     filename = safe_filename
@@ -898,7 +812,6 @@ class Image(BaseModel):
             except Exception:
                 filename = f"image_{random.randint(1000, 9999)}.jpg"
 
-        # Validate filename length
         try:
             _ = Path(filename)
             max_len = 255
@@ -916,7 +829,6 @@ class Image(BaseModel):
             if verbose:
                 console.log(f"[yellow]Using fallback filename: {filename}[/yellow]")
 
-        # Prepare proxy dictionary for curl_cffi
         proxies_dict = None
         if isinstance(self.proxy, str):
             proxies_dict = {"http": self.proxy, "https": self.proxy}
@@ -924,13 +836,11 @@ class Image(BaseModel):
             proxies_dict = self.proxy
 
         try:
-            # Use AsyncSession from curl_cffi
             async with AsyncSession(
                 cookies=cookies,
                 proxies=proxies_dict,
                 impersonate=self.impersonate
                 
-                # follow_redirects is handled automatically by curl_cffi
             ) as client:
                 if verbose:
                     console.log(f"Attempting to download image from: {self.url}")
@@ -938,17 +848,14 @@ class Image(BaseModel):
                 response = await client.get(self.url)
                 response.raise_for_status()
 
-                # Check content type
                 content_type = response.headers.get("content-type", "").lower()
                 if "image" not in content_type and verbose:
                     console.log(f"[yellow]Warning: Content type is '{content_type}', not an image. Saving anyway.[/yellow]")
 
-                # Create directory and save file
                 dest_path = Path(path)
                 dest_path.mkdir(parents=True, exist_ok=True)
                 dest = dest_path / filename
 
-                # Write image data to file
                 dest.write_bytes(response.content)
 
                 if verbose:
@@ -988,7 +895,6 @@ class GeneratedImage(Image):
     """
     cookies: Dict[str, str]
 
-    # Updated validator for Pydantic V2
     @field_validator("cookies")
     @classmethod
     def validate_cookies(cls, v: Dict[str, str]) -> Dict[str, str]:
@@ -1014,5 +920,5 @@ class GeneratedImage(Image):
              url_part = self.url.split('/')[-1][:10]
              kwargs["filename"] = f"{datetime.now().strftime('%Y%m%d%H%M%S')}_{url_part}{ext}"
 
-        # Pass the required cookies and other args (like impersonate) to the parent save method
         return await super().save(cookies=self.cookies, **kwargs)
+

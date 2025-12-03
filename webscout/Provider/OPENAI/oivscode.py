@@ -1,5 +1,6 @@
 import random
 import secrets
+from regex import F
 import requests
 import json
 import time
@@ -213,44 +214,17 @@ class Chat(BaseChat):
         self.completions = Completions(client)
 
 class oivscode(OpenAICompatibleProvider):
-    
-    AVAILABLE_MODELS = [
-        "*",
-        "Qwen/Qwen2.5-72B-Instruct-Turbo",
-        "Qwen/Qwen2.5-Coder-32B-Instruct",
-        "claude-3-5-sonnet-20240620",
-        "claude-3-5-sonnet-20241022",
-        "claude-3-7-sonnet-20250219",
-        "custom/blackbox-base",
-        "custom/blackbox-pro",
-        "custom/blackbox-pro-designer",
-        "custom/blackbox-pro-plus",
-        "deepseek-r1",
-        "deepseek-v3",
-        "deepseek/deepseek-chat",
-        "gemini-2.5-pro-preview-03-25",
-        "gpt-4o-mini",
-        "grok-3-beta",
-        "image-gen",
-        "llama-4-maverick-17b-128e-instruct-fp8",
-        "o1",
-        "o3-mini",
-        "o4-mini",
-        "transcribe",
-        "anthropic/claude-sonnet-4"
-    ]
-
+    required_auth = False
     def __init__(self, timeout: Optional[int] = None):
         self.timeout = timeout
         self.api_endpoints = [
-            "https://oi-vscode-server.onrender.com/v1/chat/completions",
-            "https://oi-vscode-server-2.onrender.com/v1/chat/completions",
             "https://oi-vscode-server-5.onrender.com/v1/chat/completions",
-            "https://oi-vscode-server-0501.onrender.com/v1/chat/completions"
+            "https://oi-vscode-server-0501.onrender.com/v1/chat/completions",
         ]
         self.api_endpoint = random.choice(self.api_endpoints)
         self.base_url = self.api_endpoint
         self.session = requests.Session()
+        self.client_id = str(uuid.uuid4())
         self.headers = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9,en-GB;q=0.8,en-IN;q=0.7",
@@ -264,17 +238,56 @@ class oivscode(OpenAICompatibleProvider):
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-site",
+            "ClientId": self.client_id,
         }
         self.userid = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(21))
         self.headers["userid"] = self.userid
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
+        self.AVAILABLE_MODELS = list(set(m for models in self.fetch_available_models().values() for m in models if m))
+
+    def fetch_available_models(self):
+        endpoints = self.api_endpoints.copy()
+        random.shuffle(endpoints)
+        results = {}
+        errors = []
+        for endpoint in endpoints:
+            models_url = endpoint.replace('/v1/chat/completions', '/v1/models')
+            try:
+                response = self.session.get(models_url, timeout=self.timeout)
+                if response.ok:
+                    data = response.json()
+                    if isinstance(data, dict) and "data" in data:
+                        models = [m["id"] if isinstance(m, dict) and "id" in m else m for m in data["data"]]
+                    elif isinstance(data, list):
+                        models = data
+                    else:
+                        models = list(data.keys()) if isinstance(data, dict) else []
+                    results[models_url] = models
+                else:
+                    errors.append(f"Failed to fetch models from {models_url}: {response.status_code} {response.text}")
+            except Exception as e:
+                errors.append(f"Error fetching from {models_url}: {e}")
+        if results:
+            for url, models in results.items():
+                print(f"Models from {url}:")
+                if models:
+                    for m in sorted(models):
+                        print(f"  {m}")
+                else:
+                    print("  No models found.")
+            return results
+        else:
+            print("No models found from any endpoint.")
+            for err in errors:
+                print(err)
+            return {}
 
     @property
     def models(self):
         class _ModelList:
             def list(inner_self):
-                return type(self).AVAILABLE_MODELS
+                return self.AVAILABLE_MODELS
         return _ModelList()
 
 if __name__ == "__main__":
@@ -287,4 +300,4 @@ if __name__ == "__main__":
         max_tokens=50,
         stream=False
     )
-    print(response)
+    print(response.choices[0].message.content)

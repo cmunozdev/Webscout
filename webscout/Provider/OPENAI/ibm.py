@@ -270,6 +270,7 @@ class IBM(OpenAICompatibleProvider):
     OpenAI-compatible client for IBM Granite Playground API.
     Provides a familiar interface for interacting with IBM's Granite models.
     """
+    required_auth = False  # No API key required for IBM Granite Playground
     AVAILABLE_MODELS = [
         "granite-chat",
         # "granite-thinking",

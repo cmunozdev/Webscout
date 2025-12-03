@@ -24,8 +24,8 @@ for finder, modname, _ispkg in pkgutil.iter_modules(package.__path__, package_na
     try:
         module = importlib.import_module(modname)
         for _, cls in inspect.getmembers(module, inspect.isclass):
-            # Must subclass BaseSearchEngine (but not the base itself)
-            if not issubclass(cls, BaseSearchEngine) or cls is BaseSearchEngine:
+            # Must have name and category attributes
+            if not hasattr(cls, "name") or not hasattr(cls, "category"):
                 continue
 
             # Skip any class whose name starts with "Base"
@@ -38,9 +38,8 @@ for finder, modname, _ispkg in pkgutil.iter_modules(package.__path__, package_na
                 continue
 
             # Register the engine
-            if hasattr(cls, "name") and hasattr(cls, "category"):
-                ENGINES[cls.category][cls.name] = cls
-                logger.debug("Registered engine: %s (%s)", cls.name, cls.category)
+            ENGINES[cls.category][cls.name] = cls
+            logger.debug("Registered engine: %s (%s)", cls.name, cls.category)
     except Exception as ex:
         logger.warning("Failed to import module %s: %r", modname, ex)
 

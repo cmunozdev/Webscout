@@ -17,6 +17,50 @@ class OPENAI(Provider):
     A class to interact with the OpenAI API with LitAgent user-agent.
     """
     required_auth = True
+
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available models from OpenAI API.
+        
+        Args:
+            api_key (str, optional): OpenAI API key
+            
+        Returns:
+            list: List of available model IDs
+        """
+        if not api_key:
+            return []
+        try:
+            # Use a temporary curl_cffi session for this class method
+            temp_session = Session()
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+            }
+            
+            response = temp_session.get(
+                "https://api.openai.com/v1/models",
+                headers=headers,
+                impersonate="chrome110"
+            )
+            
+            if response.status_code != 200:
+                raise Exception(f"API request failed with status {response.status_code}: {response.text}")
+                
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                return [model["id"] for model in data["data"] if "id" in model]
+            raise Exception("Invalid response format from API")
+            
+        except (CurlError, Exception) as e:
+            raise Exception(f"Failed to fetch models: {str(e)}")
+
+    @staticmethod
+    def _openai_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
+        """Extracts content from OpenAI stream JSON objects."""
+        if isinstance(chunk, dict):
+            return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+        return None
+
     def __init__(
         self,
         api_key: str,
@@ -69,6 +113,15 @@ class OPENAI(Provider):
         self.presence_penalty = presence_penalty
         self.frequency_penalty = frequency_penalty
         self.top_p = top_p
+
+        # Fetch available models
+        try:
+            self.available_models = self.get_models(self.api_key)
+        except Exception:
+            self.available_models = []
+
+        if self.available_models and self.model not in self.available_models:
+            raise ValueError(f"Invalid model: {self.model}. Choose from: {self.available_models}")
 
         self.__available_optimizers = (
             method
@@ -159,7 +212,7 @@ class OPENAI(Provider):
                     intro_value="data:",
                     to_json=True,
                     skip_markers=["[DONE]"],
-                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("delta", {}).get("content") if isinstance(chunk, dict) else None,
+                    content_extractor=self._openai_extractor,
                     yield_raw_on_error=False,
                     raw=raw
                 )

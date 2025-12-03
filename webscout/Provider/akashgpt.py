@@ -29,12 +29,9 @@ class AkashGPT(Provider):
     """
     required_auth = True
     AVAILABLE_MODELS = [
-        "Qwen3-Next-80B-A3B-Instruct",
+        "Qwen/Qwen3-30B-A3B",
         "DeepSeek-V3.1",
-        "openai-gpt-oss-120b",
-        "Qwen3-235B-A22B-Instruct-2507-FP8"
-        "meta-llama-Llama-4-Maverick-17B-128E-Instruct-FP8"
-        "Meta-Llama-3-3-70B-Instruct"
+        "Meta-Llama-3-3-70B-Instruct",
     ]
 
     def __init__(

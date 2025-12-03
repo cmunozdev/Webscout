@@ -35,16 +35,6 @@ class SimpleRequestLogger:
         logger.info(f"Request {request_id}: model={model}, ip={ip_address}")
         return True
 
-    async def get_recent_requests(self, limit: int = 10) -> Dict[str, Any]:
-        """Returns empty list of recent requests."""
-        logger.info("get_recent_requests called, but no database is configured.")
-        return {"requests": [], "count": 0}
-
-    async def get_stats(self) -> Dict[str, Any]:
-        """Returns empty stats."""
-        logger.info("get_stats called, but no database is configured.")
-        return {"error": "No database configured.", "available": False}
-
 # Global instance
 request_logger = SimpleRequestLogger()
 

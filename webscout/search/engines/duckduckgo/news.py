@@ -8,6 +8,8 @@ from .base import DuckDuckGoBase
 
 
 class DuckDuckGoNews(DuckDuckGoBase):
+    name = "duckduckgo"
+    category = "news"
     def run(self, *args, **kwargs) -> list[NewsResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "wt-wt")

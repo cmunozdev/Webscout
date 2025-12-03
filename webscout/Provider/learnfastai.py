@@ -305,6 +305,6 @@ if __name__ == "__main__":
     # Ensure curl_cffi is installed
     from rich import print
     ai = LearnFast()
-    response = ai.chat(input(">>> "), stream=True, raw=False)
+    response = ai.chat("Hello, how are you?", stream=True, raw=False)
     for chunk in response:
         print(chunk, end='', flush=True)

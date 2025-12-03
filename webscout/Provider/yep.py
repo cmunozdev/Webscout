@@ -8,7 +8,7 @@ from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_st
 from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent
-from webscout.conversation import Conversation, Fn
+from webscout.conversation import Conversation
 
 T = TypeVar('T')
 
@@ -39,7 +39,6 @@ class YEPCHAT(Provider):
         temperature: float = 0.6,
         top_p: float = 0.7,
         browser: str = "chrome",
-        tools: Optional[List[Fn]] = None
     ):
         """
         Initializes the YEPCHAT provider with the specified parameters.
@@ -51,11 +50,6 @@ class YEPCHAT(Provider):
 
             >>> ai.chat("Tell me a joke", stream=True)
             Initiates a chat with the Yep API using the provided prompt.
-            
-            >>> weather_tool = Fn(name="get_weather", description="Get the current weather", parameters={"location": "string"})
-            >>> ai = YEPCHAT(tools=[weather_tool])
-            >>> ai.chat("What's the weather in New York?")
-            Uses the weather tool to provide weather information.
         """
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(
@@ -109,7 +103,7 @@ class YEPCHAT(Provider):
             else intro or Conversation.intro
         )
         self.conversation = Conversation(
-            is_conversation, self.max_tokens_to_sample, filepath, update_file, tools=tools
+            is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
         # Set consistent headers and proxies for the curl_cffi session
@@ -154,7 +148,6 @@ class YEPCHAT(Provider):
     ) -> Union[Dict[str, Any], Generator]:
         """
         Sends a prompt to the Yep API and returns the response.
-        Now supports tool calling functionality.
 
         Examples:
             >>> ai = YEPCHAT()
@@ -163,11 +156,6 @@ class YEPCHAT(Provider):
 
             >>> ai.ask("Tell me a joke", stream=True)
             Streams the response from the Yep API.
-            
-            >>> weather_tool = Fn(name="get_weather", description="Get the current weather", parameters={"location": "string"})
-            >>> ai = YEPCHAT(tools=[weather_tool])
-            >>> ai.ask("What's the weather in New York?")
-            Will use the weather tool to provide response.
         """
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -226,17 +214,7 @@ class YEPCHAT(Provider):
                             streaming_text += content_chunk
                             yield dict(text=content_chunk)
                 if not raw:
-                    response_data = self.conversation.handle_tool_response(streaming_text)
-                    if response_data["is_tool_call"]:
-                        if response_data["success"]:
-                            for tool_call in response_data.get("tool_calls", []):
-                                tool_name = tool_call.get("name", "unknown_tool")
-                                result = response_data["result"]
-                                self.conversation.update_chat_history_with_tool(prompt, tool_name, result)
-                        else:
-                            self.conversation.update_chat_history(prompt, f"Error executing tool call: {response_data['result']}")
-                    else:
-                        self.conversation.update_chat_history(prompt, streaming_text)
+                    self.conversation.update_chat_history(prompt, streaming_text)
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}")
             except Exception as e:
@@ -262,19 +240,8 @@ class YEPCHAT(Provider):
                 response_data = response.json()
                 if 'choices' in response_data and len(response_data['choices']) > 0:
                     content = response_data['choices'][0].get('message', {}).get('content', '')
-                    tool_response = self.conversation.handle_tool_response(content)
-                    if tool_response["is_tool_call"]:
-                        if tool_response["success"]:
-                            if "tool_calls" in tool_response and len(tool_response["tool_calls"]) > 0:
-                                tool_call = tool_response["tool_calls"][0]
-                                tool_name = tool_call.get("name", "unknown_tool")
-                                tool_result = tool_response["result"]
-                                self.conversation.update_chat_history_with_tool(prompt, tool_name, tool_result)
-                                return {"text": tool_result, "is_tool_call": True, "tool_name": tool_name}
-                        return {"text": tool_response["result"], "is_tool_call": True, "error": True}
-                    else:
-                        self.conversation.update_chat_history(prompt, content)
-                        return {"text": content}
+                    self.conversation.update_chat_history(prompt, content)
+                    return {"text": content}
                 else:
                     raise exceptions.FailedToGenerateResponseError("No response content found")
             except CurlError as e:

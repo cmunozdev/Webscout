@@ -9,6 +9,9 @@ from .base import DuckDuckGoBase
 class DuckDuckGoAnswers(DuckDuckGoBase):
     """DuckDuckGo instant answers."""
     
+    name = "duckduckgo"
+    category = "answers"
+    
     def run(self, *args, **kwargs) -> list[dict[str, str]]:
         """Get instant answers from DuckDuckGo.
         

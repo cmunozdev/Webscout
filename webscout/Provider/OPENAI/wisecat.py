@@ -1,13 +1,14 @@
 import time
 import uuid
-import requests
 import re
 import json
 from typing import List, Dict, Optional, Union, Generator, Any
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from .utils import (
+from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage, count_tokens
 )
@@ -16,19 +17,7 @@ from .utils import (
 try:
     from webscout.litagent import LitAgent
 except ImportError:
-    # Define a dummy LitAgent if webscout is not installed or accessible
-    class LitAgent:
-        def generate_fingerprint(self, browser: str = "chrome") -> Dict[str, Any]:
-            # Return minimal default headers if LitAgent is unavailable
-            print("Warning: LitAgent not found. Using default minimal headers.")
-            return {
-                "accept": "*/*",
-                "accept_language": "en-US,en;q=0.9",
-                "platform": "Windows",
-                "sec_ch_ua": '"Not/A)Brand";v="99", "Google Chrome";v="127", "Chromium";v="127"',
-                "user_agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-                "browser_type": browser,
-            }
+    print("Warning: LitAgent not found. Some functionality may be limited.")
 
 # --- WiseCat Client ---
 
@@ -88,11 +77,12 @@ class Completions(BaseCompletions):
                 headers=self._client.headers,
                 json=payload,
                 stream=True,
-                timeout=self._client.timeout
+                timeout=self._client.timeout,
+                impersonate="chrome120"
             )
 
             # Handle non-200 responses
-            if not response.ok:
+            if response.status_code != 200:
                 raise IOError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
@@ -115,7 +105,7 @@ class Completions(BaseCompletions):
                     if match:
                         content = match.group(1)
 
-                        # Format the content (replace escaped newlines)
+                        # Format the content (replace escaped newlines and unicode escapes)
                         content = self._client.format_text(content)
 
                         # Update token counts
@@ -214,20 +204,22 @@ class Completions(BaseCompletions):
                 headers=self._client.headers,
                 json=payload,
                 stream=True,
-                timeout=self._client.timeout
+                timeout=self._client.timeout,
+                impersonate="chrome120"
             )
 
             # Handle non-200 responses
-            if not response.ok:
+            if response.status_code != 200:
                 raise IOError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
 
             # Collect the full response
             full_text = ""
-            for line in response.iter_lines(decode_unicode=True):
+            for line in response.iter_lines():
                 if line:
-                    match = re.search(r'0:"(.*?)"', line)
+                    decoded_line = line.decode('utf-8').strip()
+                    match = re.search(r'0:"(.*?)"', decoded_line)
                     if match:
                         content = match.group(1)
                         full_text += content
@@ -293,7 +285,7 @@ class WiseCat(OpenAICompatibleProvider):
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-
+    required_auth = False
     _base_models = ["chat-model-small", "chat-model-large", "chat-model-reasoning"]
     # Create AVAILABLE_MODELS as a list with the format "WiseCat/model"
     AVAILABLE_MODELS = [f"WiseCat/{model}" for model in _base_models]
@@ -314,7 +306,7 @@ class WiseCat(OpenAICompatibleProvider):
         """
         self.timeout = timeout
         self.api_endpoint = "https://wise-cat-groq.vercel.app/api/chat"
-        self.session = requests.Session()
+        self.session = Session()
 
         # Initialize LitAgent for user agent generation
         agent = LitAgent()
@@ -338,29 +330,16 @@ class WiseCat(OpenAICompatibleProvider):
         Returns:
             Formatted text
         """
-        # Use a more comprehensive approach to handle all escape sequences
         try:
-            # First handle double backslashes to avoid issues
-            text = text.replace('\\\\', '\\')
-
-            # Handle common escape sequences
-            text = text.replace('\\n', '\n')
-            text = text.replace('\\r', '\r')
-            text = text.replace('\\t', '\t')
-            text = text.replace('\\"', '"')
-            text = text.replace("\\'", "'")
-
-            # Handle any remaining escape sequences using JSON decoding
-            # This is a fallback in case there are other escape sequences
-            try:
-                # Add quotes to make it a valid JSON string
-                json_str = f'"{text}"'
-                # Use json module to decode all escape sequences
-                decoded = json.loads(json_str)
-                return decoded
-            except json.JSONDecodeError:
-                # If JSON decoding fails, return the text with the replacements we've already done
-                return text
+            # Handle unicode escaping and quote unescaping
+            text = text.encode().decode('unicode_escape')
+            text = text.replace('\\\\', '\\').replace('\\"', '"')
+            
+            # Remove timing information
+            text = re.sub(r'\(\d+\.?\d*s\)', '', text)
+            text = re.sub(r'\(\d+\.?\d*ms\)', '', text)
+            
+            return text
         except Exception as e:
             # If any error occurs, return the original text
             print(f"Warning: Error formatting text: {e}")
@@ -385,3 +364,15 @@ class WiseCat(OpenAICompatibleProvider):
             def list(inner_self):
                 return WiseCat.AVAILABLE_MODELS
         return _ModelList()
+
+if __name__ == "__main__":
+    # Test the provider
+    client = WiseCat()
+    response = client.chat.completions.create(
+        model="chat-model-small",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello! How are you today?"}
+        ]
+    )
+    print(response.choices[0].message.content)

@@ -1,12 +1,14 @@
 import time
 import uuid
-import requests
 import json
+import random
 from typing import List, Dict, Optional, Union, Generator, Any
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from .utils import (
+from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage, count_tokens
 )
@@ -42,24 +44,30 @@ class Completions(BaseCompletions):
         """
         # Extract system message if present for systemPrompt parameter
         system_prompt = self._client.system_prompt
+        filtered_messages = []
+        
         for msg in messages:
             if msg["role"] == "system":
                 system_prompt = msg["content"]
-                break
+            else:
+                filtered_messages.append(msg)
 
         # Prepare the payload for Venice API
         payload = {
             "requestId": str(uuid.uuid4())[:7],
             "modelId": self._client.convert_model_name(model),
-            "prompt": messages,
+            "prompt": filtered_messages,
             "systemPrompt": system_prompt,
             "conversationType": "text",
             "temperature": temperature if temperature is not None else self._client.temperature,
             "webEnabled": True,
             "topP": top_p if top_p is not None else self._client.top_p,
-            "includeVeniceSystemPrompt": False,
+            "includeVeniceSystemPrompt": True,
             "isCharacter": False,
-            "clientProcessingTime": 2000
+            "userId": "user_anon_" + str(random.randint(1000000000, 9999999999)),
+            "isDefault": True,
+            "textToSpeech": {"voiceId": "af_sky", "speed": 1},
+            "clientProcessingTime": random.randint(10, 50)
         }
 
         # Add optional parameters if provided
@@ -88,7 +96,8 @@ class Completions(BaseCompletions):
                 json=payload,
                 stream=True,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies or getattr(self._client, "proxies", None)
+                proxies=proxies or getattr(self._client, "proxies", None),
+                impersonate="edge101"
             )
 
             # Handle non-200 responses
@@ -223,7 +232,8 @@ class Completions(BaseCompletions):
                 json=payload,
                 stream=True,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies or getattr(self._client, "proxies", None)
+                proxies=proxies or getattr(self._client, "proxies", None),
+                impersonate="edge101"
             )
 
             # Handle non-200 responses
@@ -312,10 +322,10 @@ class Venice(OpenAICompatibleProvider):
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-
+    required_auth = False 
     AVAILABLE_MODELS = [
         "mistral-31-24b",
-        "llama-3.2-3b-akash",
+        "dolphin-3.0-mistral-24b",
         "dolphin-3.0-mistral-24b-1dot1"
     ]
 
@@ -337,8 +347,8 @@ class Venice(OpenAICompatibleProvider):
         self.temperature = 0.8  # Default temperature
         self.top_p = 0.9  # Default top_p
         self.system_prompt = "You are a helpful AI assistant."  # Default system prompt
-        self.api_endpoint = "https://venice.ai/api/inference/chat"
-        self.session = requests.Session()
+        self.api_endpoint = "https://outerface.venice.ai/api/inference/chat"
+        self.session = Session()
 
         # Initialize LitAgent for user agent generation
         agent = LitAgent()
@@ -347,17 +357,20 @@ class Venice(OpenAICompatibleProvider):
         # Headers for the request
         self.headers = {
             "User-Agent": self.fingerprint["user_agent"],
-            "accept": self.fingerprint["accept"],
-            "accept-language": self.fingerprint["accept_language"],
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9",
             "content-type": "application/json",
             "origin": "https://venice.ai",
-            "referer": "https://venice.ai/chat/",
-            "sec-ch-ua": self.fingerprint["sec_ch_ua"] or '"Google Chrome";v="133", "Chromium";v="133", "Not?A_Brand";v="24"',
+            "referer": "https://venice.ai/",
+            "sec-ch-ua": '"Microsoft Edge";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
             "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": f'"{self.fingerprint["platform"]}"',
+            "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
-            "sec-fetch-site": "same-origin"
+            "sec-fetch-site": "same-site",
+            "priority": "u=1, i",
+            "sec-gpc": "1",
+            "x-venice-version": "interface@20250424.065523+50bac27"
         }
 
         self.session.headers.update(self.headers)
@@ -432,3 +445,15 @@ class Venice(OpenAICompatibleProvider):
     def models(cls):
         """Return the list of available models for Venice."""
         return cls.AVAILABLE_MODELS
+
+if __name__ == "__main__":
+    # Test the provider
+    client = Venice()
+    response = client.chat.completions.create(
+        model="mistral-31-24b",
+        messages=[
+            {"role": "system", "content": "You are a helpful assistant."},
+            {"role": "user", "content": "Hello! How are you today?"}
+        ]
+    )
+    print(response.choices[0].message.content)

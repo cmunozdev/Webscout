@@ -9,6 +9,8 @@ from .base import BingBase
 
 
 class BingSuggestionsSearch(BingBase):
+    name = "bing"
+    category = "suggestions"
     def run(self, *args, **kwargs) -> List[str]:
         query = args[0] if args else kwargs.get("query")
         region = args[1] if len(args) > 1 else kwargs.get("region", "en-US")

@@ -3,6 +3,14 @@ import pkgutil
 from typing import Dict, List, Any, Union
 from webscout.AIbase import Provider, TTSProvider
 
+# Import TTI base class
+try:
+    from webscout.Provider.TTI.base import BaseImages
+    TTI_AVAILABLE = True
+except ImportError:
+    TTI_AVAILABLE = False
+    BaseImages = None
+
 class _LLMModels:
     """
     A class for managing LLM provider models in the webscout package.
@@ -50,6 +58,28 @@ class _LLMModels:
                 for provider, models in provider_models.items()
             }
         }
+        
+    def providers(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Gets detailed information about all LLM providers including models, parameters, and metadata.
+        
+        Returns:
+            Dictionary mapping provider names to detailed provider information
+        """
+        return self._get_provider_details()
+    
+    def provider(self, provider_name: str) -> Dict[str, Any]:
+        """
+        Gets detailed information about a specific LLM provider.
+        
+        Args:
+            provider_name: The name of the provider
+            
+        Returns:
+            Dictionary with detailed provider information
+        """
+        all_providers = self._get_provider_details()
+        return all_providers.get(provider_name, {})
     
     def _get_provider_models(self) -> Dict[str, List[str]]:
         """
@@ -67,16 +97,92 @@ class _LLMModels:
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
                     if isinstance(attr, type) and issubclass(attr, Provider) and attr != Provider:
-                        if hasattr(attr, 'AVAILABLE_MODELS'):
+                        if hasattr(attr, 'get_models'):
+                            try:
+                                models = attr.get_models()
+                                if isinstance(models, set):
+                                    models = list(models)
+                                provider_models[attr_name] = models
+                            except Exception:
+                                provider_models[attr_name] = []
+                        elif hasattr(attr, 'AVAILABLE_MODELS'):
                             # Convert any sets to lists to ensure serializability
                             models = attr.AVAILABLE_MODELS
                             if isinstance(models, set):
                                 models = list(models)
                             provider_models[attr_name] = models
+                        else:
+                            provider_models[attr_name] = []
             except Exception:
                 pass
         
         return provider_models
+    
+    def _get_provider_details(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Internal method to get detailed information about all LLM providers.
+        
+        Returns:
+            Dictionary mapping provider names to detailed provider information
+        """
+        provider_details = {}
+        provider_package = importlib.import_module("webscout.Provider")
+        
+        for _, module_name, _ in pkgutil.iter_modules(provider_package.__path__):
+            try:
+                module = importlib.import_module(f"webscout.Provider.{module_name}")
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if isinstance(attr, type) and issubclass(attr, Provider) and attr != Provider:
+                        # Get available models
+                        models = []
+                        if hasattr(attr, 'get_models'):
+                            try:
+                                available_models = attr.get_models()
+                                if isinstance(available_models, set):
+                                    models = list(available_models)
+                                elif isinstance(available_models, (list, tuple)):
+                                    models = list(available_models)
+                                else:
+                                    models = [str(available_models)] if available_models else []
+                            except Exception:
+                                models = []
+                        elif hasattr(attr, 'AVAILABLE_MODELS'):
+                            available_models = attr.AVAILABLE_MODELS
+                            if isinstance(available_models, set):
+                                models = list(available_models)
+                            elif isinstance(available_models, (list, tuple)):
+                                models = list(available_models)
+                            else:
+                                models = [str(available_models)]
+                        
+                        # Sort models
+                        models = sorted(models)
+                        
+                        # Get supported parameters (common OpenAI-compatible parameters)
+                        supported_params = [
+                            "model", "messages", "max_tokens", "temperature", "top_p", 
+                            "presence_penalty", "frequency_penalty", "stop", "stream", "user"
+                        ]
+                        
+                        # Get additional metadata
+                        metadata = {}
+                        if hasattr(attr, '__doc__') and attr.__doc__:
+                            metadata['description'] = attr.__doc__.strip().split('\n')[0]
+                        
+                        provider_details[attr_name] = {
+                            "name": attr_name,
+                            "class": attr.__name__,
+                            "module": module_name,
+                            "models": models,
+                            "parameters": supported_params,
+                            "model_count": len(models),
+                            "metadata": metadata
+                        }
+            except Exception:
+                pass
+        
+        return provider_details
 
 class _TTSModels:
     """
@@ -167,15 +273,188 @@ class _TTSModels:
         
         return provider_voices
 
+class _TTIModels:
+    """
+    A class for managing TTI (Text-to-Image) provider models in the webscout package.
+    """
+    
+    def list(self) -> Dict[str, List[str]]:
+        """
+        Gets all available models from each TTI provider that has an AVAILABLE_MODELS attribute.
+        
+        Returns:
+            Dictionary mapping TTI provider names to their available models
+        """
+        return self._get_tti_models()
+    
+    def get(self, provider_name: str) -> List[str]:
+        """
+        Gets all available models for a specific TTI provider.
+        
+        Args:
+            provider_name: The name of the TTI provider
+            
+        Returns:
+            List of available models for the provider
+        """
+        all_models = self._get_tti_models()
+        return all_models.get(provider_name, [])
+    
+    def providers(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Gets detailed information about all TTI providers including models, parameters, and metadata.
+        
+        Returns:
+            Dictionary mapping provider names to detailed provider information
+        """
+        return self._get_tti_provider_details()
+    
+    def provider(self, provider_name: str) -> Dict[str, Any]:
+        """
+        Gets detailed information about a specific TTI provider.
+        
+        Args:
+            provider_name: The name of the TTI provider
+            
+        Returns:
+            Dictionary with detailed provider information
+        """
+        all_providers = self._get_tti_provider_details()
+        return all_providers.get(provider_name, {})
+    
+    def summary(self) -> Dict[str, int]:
+        """
+        Returns a summary of available TTI providers and models.
+        
+        Returns:
+            Dictionary with provider and model counts
+        """
+        provider_models = self._get_tti_models()
+        total_providers = len(provider_models)
+        total_models = sum(len(models) if isinstance(models, (list, tuple, set)) 
+                          else 1 for models in provider_models.values())
+        
+        return {
+            "providers": total_providers,
+            "models": total_models,
+            "provider_model_counts": {
+                provider: len(models) if isinstance(models, (list, tuple, set)) else 1
+                for provider, models in provider_models.items()
+            }
+        }
+    
+    def _get_tti_models(self) -> Dict[str, List[str]]:
+        """
+        Internal method to get all available models from each TTI provider.
+        
+        Returns:
+            Dictionary mapping TTI provider names to their available models
+        """
+        if not TTI_AVAILABLE:
+            return {}
+            
+        provider_models = {}
+        tti_package = importlib.import_module("webscout.Provider.TTI")
+        
+        for _, module_name, _ in pkgutil.iter_modules(tti_package.__path__):
+            try:
+                module = importlib.import_module(f"webscout.Provider.TTI.{module_name}")
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if (isinstance(attr, type) and BaseImages and 
+                        issubclass(attr, BaseImages) and attr != BaseImages):
+                        if hasattr(attr, 'AVAILABLE_MODELS'):
+                            # Convert any sets to lists to ensure serializability
+                            models = attr.AVAILABLE_MODELS
+                            if isinstance(models, set):
+                                models = list(models)
+                            provider_models[attr_name] = models
+            except Exception:
+                pass
+        
+        return provider_models
+    
+    def _get_tti_provider_details(self) -> Dict[str, Dict[str, Any]]:
+        """
+        Internal method to get detailed information about all TTI providers.
+        
+        Returns:
+            Dictionary mapping provider names to detailed provider information
+        """
+        if not TTI_AVAILABLE:
+            return {}
+            
+        provider_details = {}
+        tti_package = importlib.import_module("webscout.Provider.TTI")
+        
+        for _, module_name, _ in pkgutil.iter_modules(tti_package.__path__):
+            try:
+                module = importlib.import_module(f"webscout.Provider.TTI.{module_name}")
+                for attr_name in dir(module):
+                    attr = getattr(module, attr_name)
+                    if (isinstance(attr, type) and BaseImages and 
+                        issubclass(attr, BaseImages) and attr != BaseImages):
+                        # Get available models
+                        models = []
+                        if hasattr(attr, 'get_models'):
+                            try:
+                                available_models = attr.get_models()
+                                if isinstance(available_models, set):
+                                    models = list(available_models)
+                                elif isinstance(available_models, (list, tuple)):
+                                    models = list(available_models)
+                                else:
+                                    models = [str(available_models)] if available_models else []
+                            except Exception:
+                                models = []
+                        elif hasattr(attr, 'AVAILABLE_MODELS'):
+                            available_models = attr.AVAILABLE_MODELS
+                            if isinstance(available_models, set):
+                                models = list(available_models)
+                            elif isinstance(available_models, (list, tuple)):
+                                models = list(available_models)
+                            else:
+                                models = [str(available_models)]
+                        
+                        # Sort models
+                        models = sorted(models)
+                        
+                        # Get supported parameters (common TTI parameters)
+                        supported_params = [
+                            "prompt", "model", "n", "size", "response_format", "user", 
+                            "style", "aspect_ratio", "timeout", "image_format", "seed"
+                        ]
+                        
+                        # Get additional metadata
+                        metadata = {}
+                        if hasattr(attr, '__doc__') and attr.__doc__:
+                            metadata['description'] = attr.__doc__.strip().split('\n')[0]
+                        
+                        provider_details[attr_name] = {
+                            "name": attr_name,
+                            "class": attr.__name__,
+                            "module": module_name,
+                            "models": models,
+                            "parameters": supported_params,
+                            "model_count": len(models),
+                            "metadata": metadata
+                        }
+            except Exception:
+                pass
+        
+        return provider_details
+
 # Create singleton instances
 llm = _LLMModels()
 tts = _TTSModels()
+tti = _TTIModels()
 
 # Container class for all model types
 class Models:
     def __init__(self):
         self.llm = llm
         self.tts = tts
+        self.tti = tti
 
 # Create a singleton instance
 model = Models()

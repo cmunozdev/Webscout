@@ -5,8 +5,8 @@ import json
 from typing import List, Dict, Optional, Union, Generator, Any
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from .utils import (
+from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage, get_last_user_message, get_system_prompt, format_prompt # Import format_prompt
 )
@@ -258,6 +258,7 @@ class LLMChatCo(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
+    required_auth = False  # No API key required for LLMChatCo
     AVAILABLE_MODELS = [
         "gemini-flash-2.0",        # Default model
         "llama-4-scout",
@@ -335,3 +336,13 @@ class LLMChatCo(OpenAICompatibleProvider):
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
+
+if __name__ == "__main__":
+    # Example usage
+    client = LLMChatCo()
+    response = client.chat.completions.create(
+        model="gemini-flash-2.0",
+        messages=[{"role": "user", "content": "Hello, how are you?"}],
+        stream=False
+    )
+    print(response.choices[0].message.content)

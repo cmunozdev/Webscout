@@ -54,3 +54,25 @@ class Wikipedia(BaseSearchEngine[TextResult]):
             results.append(result)
         
         return results
+
+    def run(self, *args, **kwargs) -> list[TextResult]:
+        """Run text search on Wikipedia.
+        
+        Args:
+            keywords: Search query.
+            region: Region code.
+            safesearch: Safe search level (ignored).
+            max_results: Maximum number of results.
+            
+        Returns:
+            List of TextResult objects.
+        """
+        keywords = args[0] if args else kwargs.get("keywords")
+        region = args[1] if len(args) > 1 else kwargs.get("region", "en-us")
+        safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
+        max_results = args[3] if len(args) > 3 else kwargs.get("max_results")
+        
+        results = self.search(query=keywords, region=region, safesearch=safesearch)
+        if results and max_results:
+            results = results[:max_results]
+        return results or []

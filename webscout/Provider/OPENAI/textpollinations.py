@@ -5,8 +5,8 @@ import json
 from typing import List, Dict, Optional, Union, Generator, Any
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from .utils import (
+from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage, ToolCall, ToolFunction, count_tokens
 )
@@ -274,6 +274,7 @@ class TextPollinations(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
+    required_auth = False
 
     AVAILABLE_MODELS = [
         "deepseek",
@@ -283,7 +284,6 @@ class TextPollinations(OpenAICompatibleProvider):
         "openai",
         "openai-audio",
         "openai-fast",
-        "openai-large",
         "openai-reasoning",
         "qwen-coder",
         "roblox-rp",
@@ -339,3 +339,12 @@ class TextPollinations(OpenAICompatibleProvider):
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
+
+if __name__ == "__main__":
+    # Example usage
+    client = TextPollinations()
+    response = client.chat.completions.create(
+        model="openai-large",
+        messages=[{"role": "user", "content": "Hello!"}]
+    ) 
+    print(response.choices[0].message.content)

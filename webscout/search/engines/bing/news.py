@@ -12,6 +12,8 @@ from webscout.search.results import NewsResult
 
 
 class BingNewsSearch(BingBase):
+    name = "bing"
+    category = "news"
     def run(self, *args, **kwargs) -> List[NewsResult]:
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "us")

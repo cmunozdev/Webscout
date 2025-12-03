@@ -312,7 +312,7 @@ class K2Think(OpenAICompatibleProvider):
     """
 
     AVAILABLE_MODELS = ["MBZUAI-IFM/K2-Think"]
-
+    required_auth = False  # No API key required for K2Think
     def __init__(
         self,
         browser: str = "chrome",

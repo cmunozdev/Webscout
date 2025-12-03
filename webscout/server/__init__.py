@@ -1,8 +1,5 @@
 # webscout/server/__init__.py
 
-from .schemas import (
-    HealthCheckResponse
-)
 # Import server functions lazily to avoid module execution issues
 def create_app():
     from .server import create_app as _create_app
@@ -36,7 +33,6 @@ def initialize_tti_provider_map():
     return _init_tti_provider_map()
 
 __all__ = [
-    "HealthCheckResponse",
     "create_app",
     "run_api",
     "start_server",

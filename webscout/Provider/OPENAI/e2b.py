@@ -1245,6 +1245,9 @@ class E2B(OpenAICompatibleProvider):
     """
     MODEL_PROMPT = MODEL_PROMPT # Use the globally defined dict
     AVAILABLE_MODELS = list(MODEL_PROMPT.keys())
+
+    required_auth = False
+
     MODEL_NAME_NORMALIZATION = {
         'claude-3.5-sonnet-20241022': 'claude-3.5-sonnet',
         'gemini-1.5-pro': 'gemini-1.5-pro-002',

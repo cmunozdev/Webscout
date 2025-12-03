@@ -4,7 +4,6 @@ API routes for the Webscout server.
 
 import time
 import uuid
-import secrets
 import sys
 from datetime import datetime, timezone
 from typing import Any
@@ -20,14 +19,12 @@ from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
+
 from webscout.Litlogger import Logger, LogLevel, LogFormat, ConsoleHandler
+
 from .config import AppConfig
 from .request_models import (
-    ChatCompletionRequest, ImageGenerationRequest, ModelListResponse,
-    ErrorResponse
-)
-from .schemas import (
-    HealthCheckResponse
+    ChatCompletionRequest, ImageGenerationRequest, ModelListResponse
 )
 from .exceptions import APIError
 from .providers import (
@@ -39,8 +36,7 @@ from .request_processing import (
     handle_streaming_response, handle_non_streaming_response
 )
 from .simple_logger import request_logger
-from ..search import DuckDuckGoSearch, YepSearch
-from ..search import BingSearch
+from webscout.search.engines import ENGINES
 
 # Setup logger
 logger = Logger(
@@ -137,7 +133,6 @@ class Api:
         self._register_model_routes()
         self._register_chat_routes()
         self._register_websearch_routes()
-        self._register_monitoring_routes()
 
     def _register_model_routes(self):
         """Register model listing routes."""        
@@ -165,7 +160,55 @@ class Api:
             return {
                 "object": "list",
                 "data": models
-            }        
+            }
+
+        @self.app.get(
+            "/v1/providers",
+            tags=["Chat Completions"],
+            description="Get details about available chat completion providers including supported models and parameters."
+        )
+        async def list_providers():
+            """Get information about all available chat completion providers."""
+            providers = {}
+            
+            # Extract unique provider names (exclude model mappings)
+            provider_names = set()
+            for key, provider_class in AppConfig.provider_map.items():
+                if "/" not in key:  # Provider name, not model mapping
+                    provider_names.add(key)
+            
+            for provider_name in sorted(provider_names):
+                provider_class = AppConfig.provider_map[provider_name]
+                
+                # Get available models for this provider
+                models = []
+                for key, cls in AppConfig.provider_map.items():
+                    if key.startswith(f"{provider_name}/"):
+                        model_name = key.split("/", 1)[1]
+                        models.append(model_name)
+                
+                # Sort models
+                models = sorted(models)
+                
+                # Get supported parameters (common OpenAI-compatible parameters)
+                supported_params = [
+                    "model", "messages", "max_tokens", "temperature", "top_p", 
+                    "presence_penalty", "frequency_penalty", "stop", "stream", "user"
+                ]
+                
+                providers[provider_name] = {
+                    "name": provider_name,
+                    "class": provider_class.__name__,
+                    "models": models,
+                    "parameters": supported_params,
+                    "model_count": len(models)
+                }
+            
+            return {
+                "providers": providers,
+                "total_providers": len(providers)
+            }
+        
         @self.app.get(
             "/v1/TTI/models",
             response_model=ModelListResponse,
@@ -190,6 +233,53 @@ class Api:
             return {
                 "object": "list",
                 "data": models
+            }
+
+        @self.app.get(
+            "/v1/TTI/providers",
+            tags=["Image Generation"],
+            description="Get details about available text-to-image (TTI) providers including supported models and parameters."
+        )
+        async def list_tti_providers():
+            """Get information about all available TTI providers."""
+            providers = {}
+            
+            # Extract unique provider names (exclude model mappings)
+            provider_names = set()
+            for key, provider_class in AppConfig.tti_provider_map.items():
+                if "/" not in key:  # Provider name, not model mapping
+                    provider_names.add(key)
+            
+            for provider_name in sorted(provider_names):
+                provider_class = AppConfig.tti_provider_map[provider_name]
+                
+                # Get available models for this provider
+                models = []
+                for key, cls in AppConfig.tti_provider_map.items():
+                    if key.startswith(f"{provider_name}/"):
+                        model_name = key.split("/", 1)[1]
+                        models.append(model_name)
+                
+                # Sort models
+                models = sorted(models)
+                
+                # Get supported parameters (common TTI parameters)
+                supported_params = [
+                    "prompt", "model", "n", "size", "response_format", "user", 
+                    "style", "aspect_ratio", "timeout", "image_format", "seed"
+                ]
+                
+                providers[provider_name] = {
+                    "name": provider_name,
+                    "class": provider_class.__name__,
+                    "models": models,
+                    "parameters": supported_params,
+                    "model_count": len(models)
+                }
+            
+            return {
+                "providers": providers,
+                "total_providers": len(providers)
             }
 
     def _register_chat_routes(self):
@@ -388,60 +478,68 @@ class Api:
         @self.app.get(
             "/search",
             tags=["Web search"],
-            description="Unified web search endpoint supporting Yep, DuckDuckGo, and Bing with text, news, images, and suggestions search types."
+            description="Unified web search endpoint supporting all available search engines with various search types including text, news, images, suggestions, answers, maps, translate, and weather."
         )
         async def websearch(
             q: str = Query(..., description="Search query"),
-            engine: str = Query("duckduckgo", description="Search engine: yep, duckduckgo, bing"),
+            engine: str = Query("duckduckgo", description=f"Search engine: {', '.join(sorted(set(name for cat in ENGINES.values() for name in cat)))}"),
             max_results: int = Query(10, description="Maximum number of results"),
             region: str = Query("all", description="Region code (optional)"),
             safesearch: str = Query("moderate", description="Safe search: on, moderate, off"),
-            type: str = Query("text", description="Search type: text, news, images, suggestions"),
+            type: str = Query("text", description="Search type: text, news, images, videos, suggestions, answers, maps, translate, weather"),
+            place: str = Query(None, description="Place for maps search"),
+            street: str = Query(None, description="Street for maps search"),
+            city: str = Query(None, description="City for maps search"),
+            county: str = Query(None, description="County for maps search"),
+            state: str = Query(None, description="State for maps search"),
+            country: str = Query(None, description="Country for maps search"),
+            postalcode: str = Query(None, description="Postal code for maps search"),
+            latitude: str = Query(None, description="Latitude for maps search"),
+            longitude: str = Query(None, description="Longitude for maps search"),
+            radius: int = Query(0, description="Radius for maps search"),
+            from_: str = Query(None, description="Source language for translate"),
+            to: str = Query("en", description="Target language for translate"),
+            language: str = Query("en", description="Language for weather"),
         ):
             """Unified web search endpoint."""
             github_footer = "If you believe this is a bug, please pull an issue at https://github.com/pyscout/Webscout."
             try:
-                if engine == "yep":
-                    ys = YepSearch()
-                    if type == "text":
-                        results = ys.text(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
-                        return {"engine": "yep", "type": "text", "results": results}
-                    elif type == "images":
-                        results = ys.images(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
-                        return {"engine": "yep", "type": "images", "results": results}
-                    elif type == "suggestions":
-                        results = ys.suggestions(q, region=region)
-                        return {"engine": "yep", "type": "suggestions", "results": results}
-                    else:
-                        return {"error": "Yep only supports text, images, and suggestions in this API.", "footer": github_footer}
-                elif engine == "duckduckgo":
-                    ddg = DuckDuckGoSearch()
-                    if type == "text":
-                        results = ddg.text(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
-                        return {"engine": "duckduckgo", "type": "text", "results": results}
-                    elif type == "suggestions":
-                        results = ddg.suggestions(keywords=q, region=region)
-                        return {"engine": "duckduckgo", "type": "suggestions", "results": results}
-                    else:
-                        return {"error": "DuckDuckGo only supports text and suggestions in this API.", "footer": github_footer}
-                elif engine == "bing":
-                    bs = BingSearch()
-                    if type == "text":
-                        results = bs.text(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
-                        return {"engine": "bing", "type": "text", "results": [r.__dict__ for r in results]}
-                    elif type == "news":
-                        results = bs.news(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
-                        return {"engine": "bing", "type": "news", "results": [r.__dict__ for r in results]}
-                    elif type == "images":
-                        results = bs.images(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
-                        return {"engine": "bing", "type": "images", "results": [r.__dict__ for r in results]}
-                    elif type == "suggestions":
-                        results = bs.suggestions(q, region=region)
-                        return {"engine": "bing", "type": "suggestions", "results": results}
-                    else:
-                        return {"error": "Bing only supports text, news, images, and suggestions in this API.", "footer": github_footer}
-                else:
-                    return {"error": "Unknown engine. Use one of: yep, duckduckgo, bing.", "footer": github_footer}
+                # Dynamically support all engines in ENGINES
+                found = False
+                for category, engines in ENGINES.items():
+                    if engine in engines:
+                        found = True
+                        engine_cls = engines[engine]
+                        searcher = engine_cls()
+                        # Try to call the appropriate method based on 'type'
+                        if hasattr(searcher, "run"):
+                            method = getattr(searcher, "run")
+                            # Some engines may require different params
+                            try:
+                                if type in ("text", "images", "news", "videos"):
+                                    results = method(keywords=q, region=region, safesearch=safesearch, max_results=max_results)
+                                elif type == "suggestions":
+                                    results = method(q, region=region)
+                                elif type == "answers":
+                                    results = method(keywords=q)
+                                elif type == "maps":
+                                    results = method(keywords=q, place=place, street=street, city=city, county=county, state=state, country=country, postalcode=postalcode, latitude=latitude, longitude=longitude, radius=radius, max_results=max_results)
+                                elif type == "translate":
+                                    results = method(keywords=q, from_=from_, to=to)
+                                elif type == "weather":
+                                    results = method(location=q, language=language)
+                                else:
+                                    return {"error": f"{engine} does not support type '{type}'.", "footer": github_footer}
+                                # Try to serialize results if needed
+                                if isinstance(results, list) and results and hasattr(results[0], "__dict__"):
+                                    results = [r.__dict__ for r in results]
+                                return {"engine": engine, "type": type, "results": results}
+                            except Exception as ex:
+                                return {"error": f"Error running {engine}.{type}: {ex}", "footer": github_footer}
+                        else:
+                            return {"error": f"{engine} does not support type '{type}'.", "footer": github_footer}
+                if not found:
+                    return {"error": f"Unknown engine. Use one of: {', '.join(sorted(set(name for cat in ENGINES.values() for name in cat)))}.", "footer": github_footer}
             except Exception as e:
                 # Special handling for rate limit errors
                 msg = str(e)
@@ -457,51 +555,56 @@ class Api:
                     "footer": github_footer
                 }
 
-    def _register_monitoring_routes(self):
-        """Register monitoring and analytics routes."""
-
         @self.app.get(
-            "/monitor/requests",
-            tags=["Monitoring"],
-            description="Get recent API requests"
+            "/search/provider",
+            tags=["Web search"],
+            description="Get details about available search providers including supported categories and parameters."
         )
-        async def get_recent_requests(limit: int = Query(10, description="Number of recent requests to fetch")):
-            """Get recent API requests for monitoring."""
-            try:
-                return await request_logger.get_recent_requests(limit)
-            except Exception as e:
-                return {"error": f"Failed to fetch requests: {str(e)}"}
-
-        @self.app.get(
-            "/monitor/stats",
-            tags=["Monitoring"], 
-            description="Get API usage statistics"
-        )
-        async def get_api_stats():
-            """Get API usage statistics."""
-            try:
-                return await request_logger.get_stats()
-            except Exception as e:
-                return {"error": f"Failed to fetch stats: {str(e)}"}
-
-        @self.app.get(
-            "/monitor/health",
-            tags=["Monitoring"],
-            description="Health check"
-        )
-        async def enhanced_health_check():
-            """Enhanced health check."""
-            try:
-                return {
-                    "status": "healthy",
-                    "auth_required": AppConfig.auth_required,
-                    "rate_limit_enabled": AppConfig.rate_limit_enabled,
-                    "request_logging_enabled": AppConfig.request_logging_enabled,
-                    "timestamp": datetime.now(timezone.utc).isoformat()
+        async def get_search_providers():
+            """Get information about all available search providers."""
+            providers = {}
+            
+            # Collect all unique engine names
+            all_engines = set()
+            for category_engines in ENGINES.values():
+                all_engines.update(category_engines.keys())
+            
+            for engine_name in sorted(all_engines):
+                # Find all categories this engine supports
+                categories = []
+                for category, engines in ENGINES.items():
+                    if engine_name in engines:
+                        categories.append(category)
+                
+                # Get supported parameters based on categories
+                supported_params = ["q"]  # query is always supported
+                
+                if "text" in categories or "images" in categories or "news" in categories or "videos" in categories:
+                    supported_params.extend(["max_results", "region", "safesearch"])
+                
+                if "suggestions" in categories:
+                    supported_params.extend(["region"])
+                
+                if "maps" in categories:
+                    supported_params.extend(["place", "street", "city", "county", "state", "country", "postalcode", "latitude", "longitude", "radius", "max_results"])
+                
+                if "translate" in categories:
+                    supported_params.extend(["from_", "to"])
+                
+                if "weather" in categories:
+                    supported_params.extend(["language"])
+                
+                # Remove duplicates
+                supported_params = list(set(supported_params))
+                
+                providers[engine_name] = {
+                    "name": engine_name,
+                    "categories": sorted(categories),
+                    "supported_types": sorted(categories),  # types are the same as categories
+                    "parameters": sorted(supported_params)
                 }
-            except Exception as e:
-                return {
-                    "status": "unhealthy",
-                    "error": str(e),
-                    "timestamp": datetime.now(timezone.utc).isoformat()
-                }
+            
+            return {
+                "providers": providers,
+                "total_providers": len(providers)
+            }

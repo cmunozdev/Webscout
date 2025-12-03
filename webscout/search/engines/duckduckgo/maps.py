@@ -8,6 +8,8 @@ from .base import DuckDuckGoBase
 
 
 class DuckDuckGoMaps(DuckDuckGoBase):
+    name = "duckduckgo"
+    category = "maps"
     def _calculate_distance(self, lat_t: Decimal, lon_l: Decimal, lat_b: Decimal, lon_r: Decimal) -> float:
         """Calculate the Euclidean distance between top-left and bottom-right corners of bounding box."""
         # Convert to float for math operations

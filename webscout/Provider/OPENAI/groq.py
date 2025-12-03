@@ -236,6 +236,7 @@ class Chat(BaseChat):
         self.completions = Completions(client)
 
 class Groq(OpenAICompatibleProvider):
+    required_auth = True
     AVAILABLE_MODELS = [
         "distil-whisper-large-v3-en",
         "gemma2-9b-it",
@@ -268,6 +269,9 @@ class Groq(OpenAICompatibleProvider):
         self.timeout = timeout
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         self.api_key = api_key
+        
+        # Update available models from API
+        self.update_available_models(api_key)
         
         # Initialize curl_cffi Session
         self.session = Session()
@@ -355,6 +359,17 @@ class Groq(OpenAICompatibleProvider):
         except (CurlError, Exception):
             # Fallback to default models list if fetching fails
             return cls.AVAILABLE_MODELS
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from Groq API"""
+        try:
+            models = cls.get_models(api_key)
+            if models and len(models) > 0:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            # Fallback to default models list if fetching fails
+            pass
 
     @property
     def models(self):

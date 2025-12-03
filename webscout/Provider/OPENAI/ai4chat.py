@@ -243,7 +243,7 @@ class AI4Chat(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
-
+    required_auth = False
     AVAILABLE_MODELS = ["default"]
 
     def __init__(

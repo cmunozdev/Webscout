@@ -3,15 +3,7 @@ from curl_cffi import CurlError
 import json
 import time
 import uuid
-import re
-import urllib.parse
-import os
-import pickle
-import tempfile
 from typing import List, Dict, Optional, Union, Generator, Any
-
-from webscout.Extra.tempmail import get_random_email
-from webscout.litagent import LitAgent
 
 # Import base classes and utilities from OPENAI provider stack
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
@@ -19,12 +11,6 @@ from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage
 )
-
-# Attempt to import LitAgent for browser fingerprinting
-try:
-    from webscout.litagent import LitAgent
-except ImportError:  # pragma: no cover - LitAgent optional
-    LitAgent = None
 
 
 class Completions(BaseCompletions):
@@ -44,6 +30,7 @@ class Completions(BaseCompletions):
         top_p: Optional[float] = None,
         timeout: Optional[int] = None,
         proxies: Optional[Dict[str, str]] = None,
+        online_search: Optional[bool] = None,
         **kwargs: Any
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
         """Create a chat completion using TwoAI."""
@@ -57,6 +44,8 @@ class Completions(BaseCompletions):
             payload["temperature"] = temperature
         if top_p is not None:
             payload["top_p"] = top_p
+        if online_search is not None:
+            payload["extra_body"] = {"online_search": online_search}
 
         payload.update(kwargs)
 
@@ -209,239 +198,33 @@ class Chat(BaseChat):
 
 class TwoAI(OpenAICompatibleProvider):
     """OpenAI-compatible client for the TwoAI API."""
-
+    required_auth = True
     AVAILABLE_MODELS = ["sutra-v2", "sutra-r0"]
-    
-    # Class-level cache for API keys
-    _api_key_cache = None
-    _cache_file = os.path.join(tempfile.gettempdir(), "webscout_twoai_openai_cache.pkl")
 
-    @classmethod
-    def _load_cached_api_key(cls) -> Optional[str]:
-        """Load cached API key from file."""
-        try:
-            if os.path.exists(cls._cache_file):
-                with open(cls._cache_file, 'rb') as f:
-                    cache_data = pickle.load(f)
-                    # Check if cache is not too old (24 hours)
-                    if time.time() - cache_data.get('timestamp', 0) < 86400:
-                        return cache_data.get('api_key')
-        except Exception:
-            # If cache is corrupted or unreadable, ignore and regenerate
-            pass
-        return None
-
-    @classmethod
-    def _save_cached_api_key(cls, api_key: str):
-        """Save API key to cache file."""
-        try:
-            cache_data = {
-                'api_key': api_key,
-                'timestamp': time.time()
-            }
-            with open(cls._cache_file, 'wb') as f:
-                pickle.dump(cache_data, f)
-        except Exception:
-            # If caching fails, continue without caching
-            pass
-
-    @classmethod
-    def _validate_api_key(cls, api_key: str) -> bool:
-        """Validate if an API key is still working."""
-        try:
-            session = Session()
-            headers = {
-                'User-Agent': LitAgent().random(),
-                'Accept': 'application/json',
-                'Content-Type': 'application/json',
-                'Authorization': f'Bearer {api_key}',
-            }
-            
-            # Test with a simple request
-            test_payload = {
-                "messages": [{"role": "user", "content": "test"}],
-                "model": "sutra-v2",
-                "max_tokens": 1,
-                "stream": False
-            }
-            
-            response = session.post(
-                "https://api.two.ai/v2/chat/completions",
-                headers=headers,
-                json=test_payload,
-                timeout=10,
-                impersonate="chrome120"
-            )
-            
-            # If we get a 200 or 400 (bad request but auth worked), key is valid
-            # If we get 401/403, key is invalid
-            return response.status_code not in [401, 403]
-        except Exception:
-            # If validation fails, assume key is invalid
-            return False
-
-    @classmethod
-    def get_cached_api_key(cls) -> str:
-        """Get a cached API key or generate a new one if needed."""
-        # First check class-level cache
-        if cls._api_key_cache:
-            if cls._validate_api_key(cls._api_key_cache):
-                return cls._api_key_cache
-            else:
-                cls._api_key_cache = None
-
-        # Then check file cache
-        cached_key = cls._load_cached_api_key()
-        if cached_key and cls._validate_api_key(cached_key):
-            cls._api_key_cache = cached_key
-            return cached_key
-
-        # Generate new key if no valid cached key
-        new_key = cls.generate_api_key()
-        cls._api_key_cache = new_key
-        cls._save_cached_api_key(new_key)
-        return new_key
-
-    @staticmethod
-    def generate_api_key() -> str:
-        """
-        Generate a new Two AI API key using a temporary email.
-        """
-        email, provider = get_random_email("tempmailio")
-        loops_url = "https://app.loops.so/api/newsletter-form/cm7i4o92h057auy1o74cxbhxo"
-
-        session = Session()
-        session.headers.update({
-            'User-Agent': LitAgent().random(),
-            'Content-Type': 'application/x-www-form-urlencoded',
-            'Origin': 'https://www.two.ai',
-            'Referer': 'https://app.loops.so/',
-        })
-
-        form_data = {
-            'email': email,
-            'userGroup': 'Via Framer',
-            'mailingLists': 'cm8ay9cic00x70kjv0bd34k66'
-        }
-
-        encoded_data = urllib.parse.urlencode(form_data)
-        response = session.post(loops_url, data=encoded_data, impersonate="chrome120")
-
-        if response.status_code != 200:
-            raise RuntimeError(f"Failed to register for Two AI: {response.status_code} - {response.text}")
-
-        max_attempts = 15
-        attempt = 0
-        api_key = None
-        wait_time = 2
-
-        while attempt < max_attempts and not api_key:
-            messages = provider.get_messages()
-            for message in messages:
-                subject = message.get('subject', '')
-                sender = ''
-                if 'from' in message:
-                    if isinstance(message['from'], dict):
-                        sender = message['from'].get('address', '')
-                    else:
-                        sender = str(message['from'])
-                elif 'sender' in message:
-                    if isinstance(message['sender'], dict):
-                        sender = message['sender'].get('address', '')
-                    else:
-                        sender = str(message['sender'])
-                subject_match = any(keyword in subject.lower() for keyword in
-                                    ['welcome', 'confirm', 'verify', 'api', 'key', 'sutra', 'two.ai', 'loops'])
-                sender_match = any(keyword in sender.lower() for keyword in
-                                   ['two.ai', 'sutra', 'loops.so', 'loops', 'no-reply', 'noreply'])
-                is_confirmation = subject_match or sender_match
-
-                content = None
-                if 'body' in message:
-                    content = message['body']
-                elif 'content' in message and 'text' in message['content']:
-                    content = message['content']['text']
-                elif 'html' in message:
-                    content = message['html']
-                elif 'text' in message:
-                    content = message['text']
-                if not content:
-                    continue
-
-                # Robust API key extraction with multiple regex patterns
-                patterns = [
-                    r'sutra_[A-Za-z0-9]{60,70}',
-                    r'sutra_[A-Za-z0-9]{30,}',
-                    r'sutra_\S+',
-                ]
-                api_key_match = None
-                for pat in patterns:
-                    api_key_match = re.search(pat, content)
-                    if api_key_match:
-                        break
-                # Also try to extract from labeled section
-                if not api_key_match:
-                    key_section_match = re.search(r'🔑 SUTRA API Key\s*([^\s]+)', content)
-                    if key_section_match:
-                        api_key_match = re.search(r'sutra_[A-Za-z0-9]+', key_section_match.group(1))
-                if api_key_match:
-                    api_key = api_key_match.group(0)
-                    break
-            if not api_key:
-                attempt += 1
-                time.sleep(wait_time)
-        if not api_key:
-            raise RuntimeError("Failed to get API key from confirmation email")
-        return api_key
-
-    def __init__(self, browser: str = "chrome", proxies: Optional[Dict[str, str]] = None):
+    def __init__(self, api_key: str, browser: str = "chrome", proxies: Optional[Dict[str, str]] = None):
         super().__init__(proxies=proxies)
-        api_key = self.get_cached_api_key()
         self.timeout = 30
-        self.base_url = "https://api.two.ai/v2/chat/completions"
+        self.base_url = "https://chatsutra-server.account-2b0.workers.dev/v2/chat/completions"
         self.api_key = api_key
 
         headers: Dict[str, str] = {
-            "Content-Type": "application/json",
-            "Authorization": f"Bearer {api_key}",
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0',
+            'Accept': 'application/json',
+            'Accept-Encoding': 'gzip, deflate, br, zstd',
+            'Accept-Language': 'en-US,en;q=0.9,en-IN;q=0.8',
+            'Content-Type': 'application/json',
+            'Origin': 'https://chat.two.ai',
+            'Referer': 'https://chatsutra-server.account-2b0.workers.dev/',
+            'Sec-Ch-Ua': '"Chromium";v="140", "Not=A?Brand";v="24", "Microsoft Edge";v="140"',
+            'Sec-Ch-Ua-Mobile': '?0',
+            'Sec-Ch-Ua-Platform': '"Windows"',
+            'Sec-Fetch-Dest': 'empty',
+            'Sec-Fetch-Mode': 'cors',
+            'Sec-Fetch-Site': 'cross-site',
+            'Sec-Gpc': '1',
+            'Dnt': '1',
+            'X-Session-Token': api_key
         }
-
-        if LitAgent is not None:
-            try:
-                agent = LitAgent()
-                fingerprint = agent.generate_fingerprint(browser)
-                headers.update({
-                    "Accept": fingerprint["accept"],
-                    "Accept-Encoding": "gzip, deflate, br, zstd",
-                    "Accept-Language": fingerprint["accept_language"],
-                    "Cache-Control": "no-cache",
-                    "Connection": "keep-alive",
-                    "Origin": "https://chat.two.ai",
-                    "Pragma": "no-cache",
-                    "Referer": "https://chat.two.ai/",
-                    "Sec-Fetch-Dest": "empty",
-                    "Sec-Fetch-Mode": "cors",
-                    "Sec-Fetch-Site": "same-site",
-                    "Sec-CH-UA": fingerprint["sec_ch_ua"] or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
-                    "Sec-CH-UA-Mobile": "?0",
-                    "Sec-CH-UA-Platform": f'"{fingerprint["platform"]}"',
-                    "User-Agent": fingerprint["user_agent"],
-                })
-            except Exception:
-                # Fallback minimal headers if fingerprinting fails
-                headers.update({
-                    "Accept": "application/json",
-                    "Accept-Encoding": "gzip, deflate, br",
-                    "Accept-Language": "en-US,en;q=0.9",
-                    "User-Agent": "Mozilla/5.0",
-                })
-        else:
-            headers.update({
-                "Accept": "application/json",
-                "Accept-Encoding": "gzip, deflate, br",
-                "Accept-Language": "en-US,en;q=0.9",
-                "User-Agent": "Mozilla/5.0",
-            })
 
         self.headers = headers
         self.session.headers.update(headers)
@@ -456,7 +239,7 @@ class TwoAI(OpenAICompatibleProvider):
 
 if __name__ == "__main__":
     from rich import print
-    two_ai = TwoAI()
+    two_ai = TwoAI(api_key="api_key")
     resp = two_ai.chat.completions.create(
         model="sutra-v2",
         messages=[{"role": "user", "content": "Hello, how are you?"}],

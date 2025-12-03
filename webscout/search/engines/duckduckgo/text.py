@@ -13,6 +13,9 @@ from .base import DuckDuckGoBase
 class DuckDuckGoTextSearch(DuckDuckGoBase):
     """DuckDuckGo text/web search."""
     
+    name = "duckduckgo"
+    category = "text"
+    
     def run(self, *args, **kwargs) -> list[TextResult]:
         """Perform text search on DuckDuckGo.
         

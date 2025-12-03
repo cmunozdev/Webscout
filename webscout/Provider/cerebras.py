@@ -52,7 +52,7 @@ class Cerebras(Provider):
             list: List of available model IDs
         """
         if not api_key:
-            return cls.AVAILABLE_MODELS
+            raise Exception("API key required to fetch models")
             
         try:
             # Use a temporary curl_cffi session for this class method
@@ -69,27 +69,15 @@ class Cerebras(Provider):
             )
             
             if response.status_code != 200:
-                return cls.AVAILABLE_MODELS
+                raise Exception(f"Failed to fetch models: HTTP {response.status_code}")
                 
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model['id'] for model in data['data']]
-            return cls.AVAILABLE_MODELS
+            raise Exception("Invalid response format from API")
             
-        except Exception:
-            # Fallback to default models list if fetching fails
-            return cls.AVAILABLE_MODELS
-
-    @classmethod
-    def update_available_models(cls, api_key=None):
-        """Update the available models list from Cerebras API"""
-        try:
-            models = cls.get_models(api_key)
-            if models and len(models) > 0:
-                cls.AVAILABLE_MODELS = models
-        except Exception:
-            # Fallback to default models list if fetching fails
-            pass
+        except (curl_cffi.CurlError, Exception) as e:
+            raise Exception(f"Failed to fetch models: {str(e)}")
 
     def __init__(
         self,
@@ -136,9 +124,6 @@ class Cerebras(Provider):
         else:
             raise ValueError("Either api_key must be provided or cookie_path must be specified")
 
-        # Update available models from API
-        self.update_available_models(self.api_key)
-
         # Validate model choice after updating models
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(
@@ -167,56 +152,6 @@ class Cerebras(Provider):
 
         # Apply proxies to the session
         self.session.proxies = proxies
-
-    @classmethod
-    def get_models(cls, api_key: str = None):
-        """Fetch available models from Cerebras API.
-        
-        Args:
-            api_key (str, optional): Cerebras API key. If not provided, returns default models.
-            
-        Returns:
-            list: List of available model IDs
-        """
-        if not api_key:
-            return cls.AVAILABLE_MODELS
-            
-        try:
-            # Use a temporary curl_cffi session for this class method
-            temp_session = Session()
-            headers = {
-                "Content-Type": "application/json",
-                "Authorization": f"Bearer {api_key}",
-            }
-            
-            response = temp_session.get(
-                "https://api.cerebras.ai/v1/models",
-                headers=headers,
-                impersonate="chrome120"
-            )
-            
-            if response.status_code != 200:
-                return cls.AVAILABLE_MODELS
-                
-            data = response.json()
-            if "data" in data and isinstance(data["data"], list):
-                return [model['id'] for model in data['data']]
-            return cls.AVAILABLE_MODELS
-            
-        except Exception:
-            # Fallback to default models list if fetching fails
-            return cls.AVAILABLE_MODELS
-
-    @classmethod
-    def update_available_models(cls, api_key=None):
-        """Update the available models list from Cerebras API"""
-        try:
-            models = cls.get_models(api_key)
-            if models and len(models) > 0:
-                cls.AVAILABLE_MODELS = models
-        except Exception:
-            # Fallback to default models list if fetching fails
-            pass
 
     # Rest of the class implementation remains the same...
     @staticmethod
@@ -428,7 +363,6 @@ class Cerebras(Provider):
         # Updated to handle dict input from ask()
         assert isinstance(response, dict), "Response should be of dict data-type only for get_message"
         return response.get("text", "")
-
 
 if __name__ == "__main__":
     from rich import print

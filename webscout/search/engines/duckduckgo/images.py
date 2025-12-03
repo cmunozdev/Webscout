@@ -10,6 +10,9 @@ from .base import DuckDuckGoBase
 class DuckDuckGoImages(DuckDuckGoBase):
     """DuckDuckGo image search."""
     
+    name = "duckduckgo"
+    category = "images"
+    
     def run(self, *args, **kwargs) -> list[ImagesResult]:
         """Perform image search on DuckDuckGo.
         

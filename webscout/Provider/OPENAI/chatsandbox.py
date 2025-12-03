@@ -170,6 +170,7 @@ class Chat(BaseChat):
 
 class ChatSandbox(OpenAICompatibleProvider):
     AVAILABLE_MODELS = ["openai", "deepseek", "llama", "gemini", "mistral-large", "deepseek-r1", "deepseek-r1-full", "gemini-thinking", "openai-o1-mini", "llama", "mistral", "gemma-3"]
+    required_auth = False
     chat: Chat
     def __init__(self):
         self.chat = Chat(self)
