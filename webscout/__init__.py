@@ -7,6 +7,7 @@ from .AIauto import *
 from .Provider.TTI import *
 from .Provider.TTS import *
 from .Provider.AISEARCH import *
+from .Provider.STT import *
 from .Extra import *
 from .Litlogger import *
 from .optimizers import *

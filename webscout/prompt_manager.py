@@ -26,7 +26,7 @@ class AwesomePrompts:
 
     def __init__(
         self,
-        repo_url: str = "https://raw.githubusercontent.com/OE-LUCIFER/prompts/main/prompt.json",
+        repo_url: str = "https://raw.githubusercontent.com/OEvortex/prompts/main/prompt.json",
         local_path: Optional[str] = None,
         auto_update: bool = True,
         timeout: int = 10,

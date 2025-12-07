@@ -1,33 +1,135 @@
 # This file marks the directory as a Python package.
+# Static imports for all OPENAI provider modules
 
-import os
-import importlib
-from pathlib import Path
+# Base classes and utilities
+from webscout.Provider.OPENAI.base import (
+    OpenAICompatibleProvider,
+    BaseChat,
+    BaseCompletions,
+    Tool,
+    ToolDefinition,
+    FunctionParameters,
+    FunctionDefinition,
+)
 
-# Get current directory
-current_dir = Path(__file__).parent
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    Choice,
+    ChoiceDelta,
+    ChatCompletionMessage,
+    CompletionUsage,
+    ToolCall,
+    ToolFunction,
+    FunctionCall,
+    ToolCallType,
+    ModelData,
+    ModelList,
+    format_prompt,
+    get_system_prompt,
+    get_last_user_message,
+    count_tokens,
+)
 
-# List to store all exported names
-__all__ = []
+# Provider implementations
+from webscout.Provider.OPENAI.DeepAI import DeepAI
+from webscout.Provider.OPENAI.FreeGemini import FreeGemini
+from webscout.Provider.OPENAI.K2Think import K2Think
+from webscout.Provider.OPENAI.PI import PiAI
+from webscout.Provider.OPENAI.TogetherAI import TogetherAI
+from webscout.Provider.OPENAI.TwoAI import TwoAI
+from webscout.Provider.OPENAI.ai4chat import AI4Chat
+from webscout.Provider.OPENAI.akashgpt import AkashGPT
+from webscout.Provider.OPENAI.algion import Algion
+from webscout.Provider.OPENAI.cerebras import Cerebras
+from webscout.Provider.OPENAI.chatgpt import ChatGPT, ChatGPTReversed
+from webscout.Provider.OPENAI.chatgptclone import ChatGPTClone
+from webscout.Provider.OPENAI.chatsandbox import ChatSandbox
+from webscout.Provider.OPENAI.deepinfra import DeepInfra
+from webscout.Provider.OPENAI.e2b import E2B
+from webscout.Provider.OPENAI.elmo import Elmo
+from webscout.Provider.OPENAI.exaai import ExaAI
+from webscout.Provider.OPENAI.exachat import ExaChat
+from webscout.Provider.OPENAI.flowith import Flowith
+from webscout.Provider.OPENAI.groq import Groq
+from webscout.Provider.OPENAI.heckai import HeckAI
+from webscout.Provider.OPENAI.ibm import IBM
+from webscout.Provider.OPENAI.llmchatco import LLMChatCo
+from webscout.Provider.OPENAI.netwrck import Netwrck
+from webscout.Provider.OPENAI.oivscode import oivscode
+from webscout.Provider.OPENAI.scirachat import SciraChat
+from webscout.Provider.OPENAI.sonus import SonusAI
+from webscout.Provider.OPENAI.textpollinations import TextPollinations
+from webscout.Provider.OPENAI.toolbaz import Toolbaz
+from webscout.Provider.OPENAI.typefully import TypefullyAI
+from webscout.Provider.OPENAI.venice import Venice
+from webscout.Provider.OPENAI.wisecat import WiseCat
+from webscout.Provider.OPENAI.writecream import Writecream
+from webscout.Provider.OPENAI.x0gpt import X0GPT
+from webscout.Provider.OPENAI.yep import YEPCHAT
 
-# Auto-import all .py files (except __init__.py)
-for file_path in current_dir.glob("*.py"):
-    if file_path.name != "__init__.py":
-        module_name = file_path.stem
-        try:
-            module = importlib.import_module(f".{module_name}", package=__name__)
-            
-            # Import the main class (assumes class name matches filename)
-            class_name = module_name
-            if hasattr(module, class_name):
-                globals()[class_name] = getattr(module, class_name)
-                __all__.append(class_name)
-            else:
-                # If no matching class, import all public attributes
-                for attr_name in dir(module):
-                    if not attr_name.startswith('_'):
-                        globals()[attr_name] = getattr(module, attr_name)
-                        if attr_name not in __all__:
-                            __all__.append(attr_name)
-        except ImportError:
-            pass  # Skip files that can't be imported
+# List of all exported names
+__all__ = [
+    # Base classes and utilities
+    "OpenAICompatibleProvider",
+    "BaseChat",
+    "BaseCompletions",
+    "Tool",
+    "ToolDefinition",
+    "FunctionParameters",
+    "FunctionDefinition",
+    # Utils
+    "ChatCompletion",
+    "ChatCompletionChunk",
+    "Choice",
+    "ChoiceDelta",
+    "ChatCompletionMessage",
+    "CompletionUsage",
+    "ToolCall",
+    "ToolFunction",
+    "FunctionCall",
+    "ToolCallType",
+    "ModelData",
+    "ModelList",
+    "format_prompt",
+    "get_system_prompt",
+    "get_last_user_message",
+    "count_tokens",
+    # Provider implementations
+    "DeepAI",
+    "FreeGemini",
+    "K2Think",
+    "PiAI",
+    "TogetherAI",
+    "TwoAI",
+    "AI4Chat",
+    "AkashGPT",
+    "Algion",
+    "Cerebras",
+    "ChatGPT",
+    "ChatGPTReversed",
+    "ChatGPTClone",
+    "ChatSandbox",
+    "DeepInfra",
+    "E2B",
+    "Elmo",
+    "ExaAI",
+    "ExaChat",
+    "Flowith",
+    "Groq",
+    "HeckAI",
+    "IBM",
+    "LLMChatCo",
+    "Netwrck",
+    "oivscode",
+    "SciraChat",
+    "SonusAI",
+    "TextPollinations",
+    "Toolbaz",
+    "TypefullyAI",
+    "Venice",
+    "WiseCat",
+    "Writecream",
+    "X0GPT",
+    "YEPCHAT",
+]
