@@ -62,35 +62,7 @@ MODEL_PROMPT = {
             }
         }
     },
-    "claude-3.5-sonnet": {
-        "apiUrl": "https://fragments.e2b.dev/api/chat",
-        "id": "claude-3-5-sonnet-latest",
-        "name": "Claude 3.5 Sonnet",
-        "Knowledge": "2024-06",
-        "provider": "Anthropic",
-        "providerId": "anthropic",
-        "multiModal": True,
-        "templates": {
-            "system": {
-                "intro": "You are Claude, an advanced AI assistant created by Anthropic to be helpful, harmless, and honest. You're designed to excel at a wide range of tasks from creative writing to detailed analysis, while maintaining a thoughtful, balanced perspective. You can analyze images and documents to provide comprehensive insights.",
-                "principles": ["honesty", "ethics", "diligence", "helpfulness", "clarity", "thoughtfulness"],
-                "latex": {
-                    "inline": "\\(\\int_{a}^{b} f(x) \\, dx\\)",
-                    "block": "\\begin{align}\nF(x) &= \\int f(x) \\, dx\\\\\n\\frac{d}{dx}[F(x)] &= f(x)\n\\end{align}"
-                }
-            }
-        },
-        "requestConfig": {
-            "template": {
-                "txt": {
-                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
-                    "lib": [""],
-                    "file": "pages/ChatWithUsers.txt",
-                    "port": 3000
-                }
-            }
-        }
-    },
+
     "claude-3.5-haiku": {
         "apiUrl": "https://fragments.e2b.dev/api/chat",
         "id": "claude-3-5-haiku-latest",
@@ -758,35 +730,7 @@ MODEL_PROMPT = {
             }
         }
     },
-    "grok-beta": {
-        "apiUrl": "https://fragments.e2b.dev/api/chat",
-        "id": "grok-beta",
-        "name": "Grok (Beta)",
-        "Knowledge": "Unknown",
-        "provider": "xAI",
-        "providerId": "xai",
-        "multiModal": False,
-        "templates": {
-            "system": {
-                "intro": "You are Grok, an advanced AI assistant developed by xAI, designed to be informative, engaging, and witty. You combine deep technical knowledge with a conversational, sometimes humorous approach to problem-solving. You excel at providing clear explanations on complex topics while maintaining an accessible tone. Your responses are direct, insightful, and occasionally incorporate appropriate humor when relevant.",
-                "principles": ["informative", "engaging", "wit", "clarity", "helpfulness", "curiosity"],
-                "latex": {
-                    "inline": "\\(\\mathcal{L}(\\theta) = -\\mathbb{E}_{x\\sim p_{\\text{data}}}[\\log p_{\\theta}(x)]\\)",
-                    "block": "\\begin{align}\n\\mathcal{L}(\\theta) &= -\\mathbb{E}_{x\\sim p_{\\text{data}}}[\\log p_{\\theta}(x)] \\\\\n&= -\\int p_{\\text{data}}(x) \\log p_{\\theta}(x) dx \\\\\n&= H(p_{\\text{data}}, p_{\\theta})\n\\end{align}"
-                }
-            }
-        },
-        "requestConfig": {
-            "template": {
-                "txt": {
-                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
-                    "lib": [""],
-                    "file": "pages/ChatWithUsers.txt",
-                    "port": 3000
-                }
-            }
-        }
-    },
+
     "deepseek-chat": {
         "apiUrl": "https://fragments.e2b.dev/api/chat",
         "id": "deepseek-chat",
@@ -1077,6 +1021,557 @@ MODEL_PROMPT = {
             }
         }
     },
+    "gpt-5": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "gpt-5",
+        "name": "GPT-5",
+        "Knowledge": "2024-10",
+        "provider": "OpenAI",
+        "providerId": "openai",
+        "multiModal": True,
+        "templates": {
+            "system": {
+                "intro": "You are GPT-5, the latest and most advanced AI assistant from OpenAI. You represent a significant leap in AI capabilities with enhanced reasoning, creativity, and multimodal understanding. You excel at complex problem-solving, nuanced analysis, and providing comprehensive insights across all domains.",
+                "principles": ["excellence", "innovation", "accuracy", "helpfulness", "responsibility", "creativity"],
+                "latex": {
+                    "inline": "\\(E = mc^2\\)",
+                    "block": "\\begin{align}\n\\nabla \\cdot \\vec{E} &= \\frac{\\rho}{\\epsilon_0} \\\\\n\\nabla \\times \\vec{B} &= \\mu_0\\vec{J} + \\mu_0\\epsilon_0\\frac{\\partial\\vec{E}}{\\partial t}\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "gpt-5-mini": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "gpt-5-mini",
+        "name": "GPT-5 Mini",
+        "Knowledge": "2024-10",
+        "provider": "OpenAI",
+        "providerId": "openai",
+        "multiModal": True,
+        "templates": {
+            "system": {
+                "intro": "You are GPT-5 Mini, an efficient and capable AI assistant from OpenAI. You combine advanced capabilities with optimized performance, providing quick and accurate responses while maintaining high quality across various tasks.",
+                "principles": ["efficiency", "accuracy", "helpfulness", "clarity", "adaptability"],
+                "latex": {
+                    "inline": "\\(a^2 + b^2 = c^2\\)",
+                    "block": "\\begin{align}\nF &= ma \\\\\nE &= mc^2\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "gpt-5-nano": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "gpt-5-nano",
+        "name": "GPT-5 Nano",
+        "Knowledge": "2024-10",
+        "provider": "OpenAI",
+        "providerId": "openai",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are GPT-5 Nano, a lightweight yet capable AI assistant from OpenAI. You're optimized for speed and efficiency while delivering accurate and helpful responses for everyday tasks.",
+                "principles": ["speed", "efficiency", "accuracy", "helpfulness", "conciseness"],
+                "latex": {
+                    "inline": "\\(x + y = z\\)",
+                    "block": "\\begin{align}\ny &= mx + b\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "openai/gpt-oss-120b": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "openai/gpt-oss-120b",
+        "name": "GPT OSS 120B",
+        "Knowledge": "2024-06",
+        "provider": "OpenAI",
+        "providerId": "openai",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are GPT OSS 120B, a powerful open-source-style language model with 120 billion parameters. You excel at comprehensive analysis, detailed explanations, and complex problem-solving across various domains.",
+                "principles": ["thoroughness", "accuracy", "helpfulness", "clarity", "openness"],
+                "latex": {
+                    "inline": "\\(\\sum_{i=1}^{n} i = \\frac{n(n+1)}{2}\\)",
+                    "block": "\\begin{align}\n\\int_{a}^{b} f(x) \\, dx &= F(b) - F(a)\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "moonshotai/kimi-k2-instruct": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "moonshotai/kimi-k2-instruct",
+        "name": "Kimi K2 Instruct",
+        "Knowledge": "2024-08",
+        "provider": "MoonShot AI",
+        "providerId": "moonshot",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Kimi K2, an advanced AI assistant developed by MoonShot AI. You excel at following instructions precisely, providing detailed explanations, and handling complex reasoning tasks with accuracy and clarity.",
+                "principles": ["precision", "clarity", "helpfulness", "accuracy", "thoroughness"],
+                "latex": {
+                    "inline": "\\(f(x) = ax^2 + bx + c\\)",
+                    "block": "\\begin{align}\n\\frac{d}{dx}[f(x)] &= 2ax + b\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "qwen/qwen3-32b": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "qwen/qwen3-32b",
+        "name": "Qwen3 32B",
+        "Knowledge": "2024-09",
+        "provider": "Alibaba Cloud",
+        "providerId": "qwen",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Qwen3 32B, a powerful AI assistant developed by Alibaba Cloud. You excel at understanding complex queries, providing detailed explanations, and assisting with a wide range of tasks across multiple domains with accuracy and cultural awareness.",
+                "principles": ["accuracy", "helpfulness", "cultural awareness", "clarity", "adaptability"],
+                "latex": {
+                    "inline": "\\(\\pi r^2\\)",
+                    "block": "\\begin{align}\nA &= \\pi r^2 \\\\\nC &= 2\\pi r\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "llama-3.3-70b-versatile": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "llama-3.3-70b-versatile",
+        "name": "Llama 3.3 70B",
+        "Knowledge": "2024-12",
+        "provider": "Meta",
+        "providerId": "meta",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Llama 3.3 70B, a versatile and powerful AI assistant developed by Meta. You excel at a wide range of tasks from creative writing to technical analysis, providing helpful, accurate, and nuanced responses across diverse domains.",
+                "principles": ["versatility", "accuracy", "helpfulness", "creativity", "thoroughness"],
+                "latex": {
+                    "inline": "\\(e^{i\\pi} + 1 = 0\\)",
+                    "block": "\\begin{align}\ne^{ix} &= \\cos(x) + i\\sin(x)\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "accounts/fireworks/models/qwen3-coder-480b-a35b-instruct": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "accounts/fireworks/models/qwen3-coder-480b-a35b-instruct",
+        "name": "Qwen3 Coder 480B A35B Instruct",
+        "Knowledge": "2024-11",
+        "provider": "Fireworks",
+        "providerId": "fireworks",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Qwen3 Coder 480B, an exceptionally powerful AI assistant specialized in code generation and software development. With 480 billion parameters, you excel at understanding complex codebases, generating high-quality code, debugging, and providing detailed technical explanations.",
+                "principles": ["precision", "efficiency", "code quality", "best practices", "clarity"],
+                "latex": {
+                    "inline": "\\(O(n \\log n)\\)",
+                    "block": "\\begin{align}\nT(n) &= 2T(n/2) + O(n) \\\\\n&= O(n \\log n)\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "accounts/fireworks/models/qwen3-235b-a22b-thinking-2507": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "accounts/fireworks/models/qwen3-235b-a22b-thinking-2507",
+        "name": "Qwen3 235B-A22B-Thinking-2507",
+        "Knowledge": "2025-07",
+        "provider": "Fireworks",
+        "providerId": "fireworks",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Qwen3 235B Thinking, an advanced AI assistant specialized in deep reasoning and analytical thinking. You excel at breaking down complex problems, showing your thought process, and providing well-reasoned solutions with detailed explanations.",
+                "principles": ["deep reasoning", "analytical thinking", "thoroughness", "clarity", "accuracy"],
+                "latex": {
+                    "inline": "\\(\\nabla f(x)\\)",
+                    "block": "\\begin{align}\n\\nabla f(x) &= \\left(\\frac{\\partial f}{\\partial x_1}, \\ldots, \\frac{\\partial f}{\\partial x_n}\\right)\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "accounts/fireworks/models/qwen3-235b-a22b-instruct-2507": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "accounts/fireworks/models/qwen3-235b-a22b-instruct-2507",
+        "name": "Qwen3 235B A22B-Instruct-2507",
+        "Knowledge": "2025-07",
+        "provider": "Fireworks",
+        "providerId": "fireworks",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Qwen3 235B Instruct, a highly capable AI assistant with 235 billion parameters. You excel at following complex instructions, providing detailed and accurate responses, and handling sophisticated tasks across multiple domains with precision.",
+                "principles": ["precision", "instruction-following", "accuracy", "thoroughness", "clarity"],
+                "latex": {
+                    "inline": "\\(\\frac{dy}{dx}\\)",
+                    "block": "\\begin{align}\n\\frac{d}{dx}[u \\cdot v] &= u'v + uv'\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "accounts/fireworks/models/zai-org/glm-4p5": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "accounts/fireworks/models/zai-org/glm-4p5",
+        "name": "Z.ai GLM 4.5",
+        "Knowledge": "2024-10",
+        "provider": "Fireworks",
+        "providerId": "fireworks",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are GLM 4.5, an advanced AI assistant developed by Z.ai. You excel at understanding complex queries, generating creative content, and providing detailed analytical responses with a focus on accuracy and helpfulness.",
+                "principles": ["creativity", "accuracy", "helpfulness", "analytical thinking", "clarity"],
+                "latex": {
+                    "inline": "\\(\\lim_{x \\to \\infty} f(x)\\)",
+                    "block": "\\begin{align}\n\\lim_{x \\to 0} \\frac{\\sin x}{x} &= 1\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "accounts/fireworks/models/kimi-k2-instruct": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "accounts/fireworks/models/kimi-k2-instruct",
+        "name": "Kimi K2 Instruct",
+        "Knowledge": "2024-08",
+        "provider": "Fireworks",
+        "providerId": "fireworks",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Kimi K2, an advanced AI assistant designed for precise instruction following and detailed analysis. You excel at understanding complex requirements and providing accurate, well-structured responses.",
+                "principles": ["precision", "instruction-following", "clarity", "accuracy", "helpfulness"],
+                "latex": {
+                    "inline": "\\(\\vec{F} = m\\vec{a}\\)",
+                    "block": "\\begin{align}\n\\vec{F} &= m\\vec{a} \\\\\nW &= \\vec{F} \\cdot \\vec{d}\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "grok-4": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "grok-4",
+        "name": "Grok 4",
+        "Knowledge": "2025-01",
+        "provider": "xAI",
+        "providerId": "xai",
+        "multiModal": True,
+        "templates": {
+            "system": {
+                "intro": "You are Grok 4, the latest and most advanced AI assistant from xAI. You combine deep knowledge with wit and clarity, excelling at complex reasoning, creative problem-solving, and providing insightful, engaging responses. You can analyze images and provide comprehensive multimodal assistance.",
+                "principles": ["wit", "insight", "clarity", "accuracy", "engagement", "creativity"],
+                "latex": {
+                    "inline": "\\(\\hbar\\omega\\)",
+                    "block": "\\begin{align}\nE &= \\hbar\\omega \\\\\np &= \\hbar k\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "grok-3": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "grok-3",
+        "name": "Grok 3",
+        "Knowledge": "2024-12",
+        "provider": "xAI",
+        "providerId": "xai",
+        "multiModal": True,
+        "templates": {
+            "system": {
+                "intro": "You are Grok 3, an advanced AI assistant from xAI designed to be informative, witty, and engaging. You excel at providing clear explanations, creative insights, and practical solutions while maintaining an accessible and occasionally humorous tone.",
+                "principles": ["wit", "clarity", "engagement", "helpfulness", "accuracy", "creativity"],
+                "latex": {
+                    "inline": "\\(\\Delta x \\Delta p \\geq \\frac{\\hbar}{2}\\)",
+                    "block": "\\begin{align}\n\\Delta x \\Delta p &\\geq \\frac{\\hbar}{2}\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "grok-3-mini": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "grok-3-mini",
+        "name": "Grok 3 Mini",
+        "Knowledge": "2024-12",
+        "provider": "xAI",
+        "providerId": "xai",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Grok 3 Mini, an efficient AI assistant from xAI optimized for quick, accurate responses. You maintain Grok's characteristic wit and clarity while providing concise, helpful information.",
+                "principles": ["efficiency", "wit", "clarity", "accuracy", "conciseness"],
+                "latex": {
+                    "inline": "\\(v = u + at\\)",
+                    "block": "\\begin{align}\nv &= u + at \\\\\ns &= ut + \\frac{1}{2}at^2\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "grok-3-fast": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "grok-3-fast",
+        "name": "Grok 3 Fast",
+        "Knowledge": "2024-12",
+        "provider": "xAI",
+        "providerId": "xai",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Grok 3 Fast, a high-speed AI assistant from xAI optimized for rapid responses. You deliver quick, accurate answers while maintaining clarity and helpfulness.",
+                "principles": ["speed", "accuracy", "clarity", "efficiency", "helpfulness"],
+                "latex": {
+                    "inline": "\\(y = mx + c\\)",
+                    "block": "\\begin{align}\ny &= mx + c\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "grok-3-mini-fast": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "grok-3-mini-fast",
+        "name": "Grok 3 Mini Fast",
+        "Knowledge": "2024-12",
+        "provider": "xAI",
+        "providerId": "xai",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Grok 3 Mini Fast, xAI's fastest and most efficient AI assistant. You provide lightning-quick responses with accuracy and clarity, perfect for rapid information retrieval and quick answers.",
+                "principles": ["speed", "efficiency", "accuracy", "conciseness", "clarity"],
+                "latex": {
+                    "inline": "\\(a + b = c\\)",
+                    "block": "\\begin{align}\na + b &= c\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "grok-code-fast-1": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "grok-code-fast-1",
+        "name": "Grok Code Fast 1",
+        "Knowledge": "2024-12",
+        "provider": "xAI",
+        "providerId": "xai",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Grok Code Fast 1, xAI's specialized coding assistant optimized for rapid code generation and analysis. You excel at understanding programming problems, generating efficient code, and providing quick debugging assistance.",
+                "principles": ["speed", "code quality", "efficiency", "best practices", "clarity"],
+                "latex": {
+                    "inline": "\\(O(1)\\)",
+                    "block": "\\begin{align}\nT(n) &= O(n)\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
+    "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo": {
+        "apiUrl": "https://fragments.e2b.dev/api/chat",
+        "id": "meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        "name": "Llama 3.1 70B",
+        "Knowledge": "2024-07",
+        "provider": "Meta",
+        "providerId": "meta",
+        "multiModal": False,
+        "templates": {
+            "system": {
+                "intro": "You are Llama 3.1 70B Instruct Turbo, an advanced AI assistant developed by Meta. You excel at following complex instructions, providing detailed analysis, and generating high-quality responses across diverse domains with speed and accuracy.",
+                "principles": ["instruction-following", "accuracy", "speed", "helpfulness", "thoroughness"],
+                "latex": {
+                    "inline": "\\(\\nabla \\cdot \\vec{v} = 0\\)",
+                    "block": "\\begin{align}\n\\nabla \\cdot \\vec{v} &= 0 \\\\\n\\nabla \\times \\vec{v} &= \\vec{\\omega}\n\\end{align}"
+                }
+            }
+        },
+        "requestConfig": {
+            "template": {
+                "txt": {
+                    "name": "chat with users and start role-playing, Above of all: Follow the latest news from users",
+                    "lib": [""],
+                    "file": "pages/ChatWithUsers.txt",
+                    "port": 3000
+                }
+            }
+        }
+    },
 }
 
 class Completions(BaseCompletions):
@@ -1342,7 +1837,6 @@ class E2B(OpenAICompatibleProvider):
     required_auth = False
 
     MODEL_NAME_NORMALIZATION = {
-        'claude-3.5-sonnet-20241022': 'claude-3.5-sonnet',
         'gemini-1.5-pro': 'gemini-1.5-pro-002',
         'gpt4o-mini': 'gpt-4o-mini',
         'gpt4omini': 'gpt-4o-mini',
@@ -1579,7 +2073,7 @@ class E2B(OpenAICompatibleProvider):
                     print(f"{BOLD}Warning: Model name case mismatch. Using '{available_model}' for '{model}'.{RESET}")
                     return available_model
             # Default if no match found
-            default_model = "claude-3.5-sonnet"
+            default_model = "claude-3.7-sonnet"
             print(f"{BOLD}{RED}Warning: Model '{model}' not found. Using default '{default_model}'. Available: {', '.join(self.AVAILABLE_MODELS)}{RESET}")
             return default_model
 
