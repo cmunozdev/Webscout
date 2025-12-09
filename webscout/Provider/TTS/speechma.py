@@ -8,7 +8,7 @@ import tempfile
 from io import BytesIO
 from webscout import exceptions
 from webscout.litagent import LitAgent
-from webscout.Litlogger import Logger, LogLevel
+from litprinter import ic
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
@@ -247,7 +247,6 @@ class SpeechMaTTS(BaseTTSProvider):
         if proxies:
             self.session.proxies.update(proxies)
         self.timeout = timeout
-        self.logger = Logger(name="SpeechMaTTS", level=LogLevel.INFO)
         # Override defaults for SpeechMa
         self.default_voice = "emma"
         self.default_model = "gpt-4o-mini-tts"

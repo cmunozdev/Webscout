@@ -1,47 +1,111 @@
-"""__init__.py for engines package - auto-discovers and registers search engines."""
+"""Static imports for all search engine modules."""
 
 from __future__ import annotations
 
-import importlib
-import inspect
-import logging
-import pkgutil
-from collections import defaultdict
-from typing import Any
-
+from .brave import Brave
+from .mojeek import Mojeek
+from .wikipedia import Wikipedia
+from .yandex import Yandex
+from .bing import BingBase, BingTextSearch, BingImagesSearch, BingNewsSearch, BingSuggestionsSearch
+from .duckduckgo import (
+    DuckDuckGoBase,
+    DuckDuckGoTextSearch,
+    DuckDuckGoImages,
+    DuckDuckGoVideos,
+    DuckDuckGoNews,
+    DuckDuckGoAnswers,
+    DuckDuckGoSuggestions,
+    DuckDuckGoMaps,
+    DuckDuckGoTranslate,
+    DuckDuckGoWeather,
+)
+from .yep import YepBase, YepTextSearch, YepImages, YepSuggestions
+from .yahoo import (
+    YahooSearchEngine,
+    YahooText,
+    YahooImages,
+    YahooVideos,
+    YahooNews,
+    YahooSuggestions,
+)
 from ..base import BaseSearchEngine
 
-logger = logging.getLogger(__name__)
+# Engine categories mapping
+ENGINES = {
+    "text": {
+        "brave": Brave,
+        "mojeek": Mojeek,
+        "yandex": Yandex,
+        "bing": BingTextSearch,
+        "duckduckgo": DuckDuckGoTextSearch,
+        "yep": YepTextSearch,
+        "yahoo": YahooText,
+    },
+    "images": {
+        "bing": BingImagesSearch,
+        "duckduckgo": DuckDuckGoImages,
+        "yep": YepImages,
+        "yahoo": YahooImages,
+    },
+    "videos": {
+        "duckduckgo": DuckDuckGoVideos,
+        "yahoo": YahooVideos,
+    },
+    "news": {
+        "bing": BingNewsSearch,
+        "duckduckgo": DuckDuckGoNews,
+        "yahoo": YahooNews,
+    },
+    "suggestions": {
+        "bing": BingSuggestionsSearch,
+        "duckduckgo": DuckDuckGoSuggestions,
+        "yep": YepSuggestions,
+        "yahoo": YahooSuggestions,
+    },
+    "answers": {
+        "duckduckgo": DuckDuckGoAnswers,
+    },
+    "maps": {
+        "duckduckgo": DuckDuckGoMaps,
+    },
+    "translate": {
+        "duckduckgo": DuckDuckGoTranslate,
+    },
+    "weather": {
+        "duckduckgo": DuckDuckGoWeather,
+    },
+}
 
-# ENGINES[category][name] = class
-ENGINES: dict[str, dict[str, type[BaseSearchEngine[Any]]]] = defaultdict(dict)
-
-package_name = __name__
-package = importlib.import_module(package_name)
-
-# Auto-discover all search engine classes
-for finder, modname, _ispkg in pkgutil.iter_modules(package.__path__, package_name + "."):
-    try:
-        module = importlib.import_module(modname)
-        for _, cls in inspect.getmembers(module, inspect.isclass):
-            # Must have name and category attributes
-            if not hasattr(cls, "name") or not hasattr(cls, "category"):
-                continue
-
-            # Skip any class whose name starts with "Base"
-            if cls.__name__.startswith("Base"):
-                continue
-
-            # Skip disabled engines
-            if getattr(cls, "disabled", False):
-                logger.info("Skipping disabled engine: %s", cls.name)
-                continue
-
-            # Register the engine
-            ENGINES[cls.category][cls.name] = cls
-            logger.debug("Registered engine: %s (%s)", cls.name, cls.category)
-    except Exception as ex:
-        logger.warning("Failed to import module %s: %r", modname, ex)
-
-
-__all__ = ["ENGINES"]
+__all__ = [
+    "Brave",
+    "Mojeek",
+    "Wikipedia",
+    "Yandex",
+    "BingBase",
+    "BingTextSearch",
+    "BingImagesSearch",
+    "BingNewsSearch",
+    "BingSuggestionsSearch",
+    "DuckDuckGoBase",
+    "DuckDuckGoTextSearch",
+    "DuckDuckGoImages",
+    "DuckDuckGoVideos",
+    "DuckDuckGoNews",
+    "DuckDuckGoAnswers",
+    "DuckDuckGoSuggestions",
+    "DuckDuckGoMaps",
+    "DuckDuckGoTranslate",
+    "DuckDuckGoWeather",
+    "YepBase",
+    "YepTextSearch",
+    "YepImages",
+    "YepSuggestions",
+    "YahooSearchEngine",
+    "YahooText",
+    "YahooImages",
+    "YahooVideos",
+    "YahooNews",
+    "YahooSuggestions",
+    "BaseSearchEngine",
+    "ENGINES",
+]

@@ -17,7 +17,7 @@ from rich.theme import Theme
 from rich.live import Live
 from rich.box import ROUNDED
 from .autocoder_utiles import get_intro_prompt
-# Initialize LitLogger with custom format and colors
+# Initialize logger with custom format and colors
 default_path = tempfile.mkdtemp(prefix="webscout_autocoder")
 
 # Custom theme for consistent styling

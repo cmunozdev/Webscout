@@ -1,7 +1,3 @@
-# This file marks the directory as a Python package.
-# Static imports for all AISEARCH provider modules
-
-# Provider implementations
 from webscout.Provider.AISEARCH.PERPLEXED_search import PERPLEXED
 from webscout.Provider.AISEARCH.Perplexity import Perplexity
 from webscout.Provider.AISEARCH.genspark_search import Genspark

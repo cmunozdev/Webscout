@@ -6,18 +6,10 @@ import sys
 import inspect
 from typing import Any, Dict, Tuple
 from starlette.status import HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
+from litprinter import ic
 
-from webscout.Litlogger import Logger, LogLevel, LogFormat, ConsoleHandler
 from .config import AppConfig
 from .exceptions import APIError
-
-# Setup logger
-logger = Logger(
-    name="webscout.api",
-    level=LogLevel.INFO,
-    handlers=[ConsoleHandler(stream=sys.stdout)],
-    fmt=LogFormat.DEFAULT
-)
 
 # Cache for provider instances to avoid reinitialization on every request
 provider_instances: Dict[str, Any] = {}
@@ -26,7 +18,7 @@ tti_provider_instances: Dict[str, Any] = {}
 
 def initialize_provider_map() -> None:
     """Initialize the provider map by discovering available providers."""
-    logger.info("Initializing provider map...")
+    ic.configureOutput(prefix='INFO| '); ic("Initializing provider map...")
 
     try:
         from webscout.Provider.OPENAI.base import OpenAICompatibleProvider
@@ -41,23 +33,25 @@ def initialize_provider_map() -> None:
                 and issubclass(obj, OpenAICompatibleProvider)
                 and obj.__name__ != "OpenAICompatibleProvider"
             ):
-                provider_name = obj.__name__
-                AppConfig.provider_map[provider_name] = obj
-                provider_count += 1
+                # Only include providers that don't require authentication
+                if hasattr(obj, 'required_auth') and getattr(obj, 'required_auth', True) == False:
+                    provider_name = obj.__name__
+                    AppConfig.provider_map[provider_name] = obj
+                    provider_count += 1
 
-                # Register available models for this provider
-                if hasattr(obj, "AVAILABLE_MODELS") and isinstance(
-                    obj.AVAILABLE_MODELS, (list, tuple, set)
-                ):
-                    for model in obj.AVAILABLE_MODELS:
-                        if model and isinstance(model, str):
-                            model_key = f"{provider_name}/{model}"
-                            AppConfig.provider_map[model_key] = obj
-                            model_count += 1
+                    # Register available models for this provider
+                    if hasattr(obj, "AVAILABLE_MODELS") and isinstance(
+                        obj.AVAILABLE_MODELS, (list, tuple, set)
+                    ):
+                        for model in obj.AVAILABLE_MODELS:
+                            if model and isinstance(model, str):
+                                model_key = f"{provider_name}/{model}"
+                                AppConfig.provider_map[model_key] = obj
+                                model_count += 1
 
         # Fallback to ChatGPT if no providers found
         if not AppConfig.provider_map:
-            logger.warning("No providers found, using ChatGPT fallback")
+            ic.configureOutput(prefix='WARNING| '); ic("No providers found, using ChatGPT fallback")
             try:
                 from webscout.Provider.OPENAI.chatgpt import ChatGPT
                 fallback_models = ["gpt-4", "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]
@@ -72,19 +66,19 @@ def initialize_provider_map() -> None:
                 provider_count = 1
                 model_count = len(fallback_models)
             except ImportError as e:
-                logger.error(f"Failed to import ChatGPT fallback: {e}")
+                ic.configureOutput(prefix='ERROR| '); ic(f"Failed to import ChatGPT fallback: {e}")
                 raise APIError("No providers available", HTTP_500_INTERNAL_SERVER_ERROR)
 
-        logger.info(f"Initialized {provider_count} providers with {model_count} models")
+        ic.configureOutput(prefix='INFO| '); ic(f"Initialized {provider_count} providers with {model_count} models")
 
     except Exception as e:
-        logger.error(f"Failed to initialize provider map: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize provider map: {e}")
         raise APIError(f"Provider initialization failed: {e}", HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def initialize_tti_provider_map() -> None:
     """Initialize the TTI provider map by discovering available TTI providers."""
-    logger.info("Initializing TTI provider map...")
+    ic.configureOutput(prefix='INFO| '); ic("Initializing TTI provider map...")
 
     try:
         from webscout.Provider.TTI.base import TTICompatibleProvider
@@ -116,7 +110,7 @@ def initialize_tti_provider_map() -> None:
 
         # Fallback to PollinationsAI if no TTI providers found
         if not AppConfig.tti_provider_map:
-            logger.warning("No TTI providers found, using PollinationsAI fallback")
+            ic.configureOutput(prefix='WARNING| '); ic("No TTI providers found, using PollinationsAI fallback")
             try:
                 from webscout.Provider.TTI.pollinations import PollinationsAI
                 fallback_models = ["flux", "turbo", "gptimage"]
@@ -131,13 +125,13 @@ def initialize_tti_provider_map() -> None:
                 provider_count = 1
                 model_count = len(fallback_models)
             except ImportError as e:
-                logger.error(f"Failed to import PollinationsAI fallback: {e}")
+                ic.configureOutput(prefix='ERROR| '); ic(f"Failed to import PollinationsAI fallback: {e}")
                 raise APIError("No TTI providers available", HTTP_500_INTERNAL_SERVER_ERROR)
 
-        logger.info(f"Initialized {provider_count} TTI providers with {model_count} models")
+        ic.configureOutput(prefix='INFO| '); ic(f"Initialized {provider_count} TTI providers with {model_count} models")
 
     except Exception as e:
-        logger.error(f"Failed to initialize TTI provider map: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize TTI provider map: {e}")
         raise APIError(f"TTI Provider initialization failed: {e}", HTTP_500_INTERNAL_SERVER_ERROR)
 
 

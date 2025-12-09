@@ -203,13 +203,14 @@ class Completions(BaseCompletions):
         prompt_tokens: Optional[int] = None
     ) -> ChatCompletion:
         
+        from webscout.Provider.OPENAI.utils import count_tokens
+        
         # Collect streaming response into a single response
         full_content = ""
         # prompt_tokens = len(prompt.split()) if prompt else 0  # replaced
 
         # Use provided prompt_tokens if available
         if prompt_tokens is None:
-            from webscout.Provider.OPENAI.utils import count_tokens
             prompt_tokens = count_tokens(prompt)
 
         for chunk in self._create_stream(

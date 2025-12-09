@@ -7,8 +7,9 @@ Classes:
     Conversation: Main conversation manager class.
 """
 import os
-import logging
 from typing import Optional
+
+from litprinter import ic
 
 
 class Conversation:
@@ -59,12 +60,12 @@ class Conversation:
             os.path.isfile(filepath) if exists else True
         ), f"File '{filepath}' does not exist"
         if not os.path.isfile(filepath):
-            logging.debug(f"Creating new chat-history file - '{filepath}'")
+            ic(f"Creating new chat-history file - '{filepath}'")
             with open(filepath, "w") as fh:  # Try creating new file
                 # lets add intro here
                 fh.write(self.intro)
         else:
-            logging.debug(f"Loading conversation from '{filepath}'")
+            ic(f"Loading conversation from '{filepath}'")
             with open(filepath) as fh:
                 file_contents = fh.readlines()
                 if file_contents:

@@ -4,20 +4,11 @@ Configuration management for the Webscout API server.
 
 import os
 from typing import List, Dict, Optional, Any
-from webscout.Litlogger import Logger, LogLevel, LogFormat, ConsoleHandler
-import sys
+from litprinter import ic
 
 # Configuration constants
 DEFAULT_PORT = 8000
 DEFAULT_HOST = "0.0.0.0"
-
-# Setup logger
-logger = Logger(
-    name="webscout.api",
-    level=LogLevel.INFO,
-    handlers=[ConsoleHandler(stream=sys.stdout)],
-    fmt=LogFormat.DEFAULT
-)
 
 
 class ServerConfig:
@@ -42,7 +33,7 @@ class ServerConfig:
         for key, value in kwargs.items():
             if hasattr(self, key) and value is not None:
                 setattr(self, key, value)
-                logger.info(f"Config updated: {key} = {value}")
+                ic.configureOutput(prefix='INFO| '); ic(f"Config updated: {key} = {value}")
 
     def validate(self) -> None:
         """Validate configuration settings."""
@@ -51,7 +42,7 @@ class ServerConfig:
 
         if self.default_provider not in self.provider_map and self.provider_map:
             available_providers = list(set(v.__name__ for v in self.provider_map.values()))
-            logger.warning(f"Default provider '{self.default_provider}' not found. Available: {available_providers}")
+            ic.configureOutput(prefix='WARNING| '); ic(f"Default provider '{self.default_provider}' not found. Available: {available_providers}")
 
 
 class AppConfig:

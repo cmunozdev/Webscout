@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+from litprinter import ic
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from functools import cached_property
@@ -20,7 +20,6 @@ except ImportError:
 from .http_client import HttpClient
 from .results import BooksResult, ImagesResult, NewsResult, TextResult, VideosResult
 
-logger = logging.getLogger(__name__)
 T = TypeVar("T")
 
 
@@ -76,14 +75,14 @@ class BaseSearchEngine(ABC, Generic[T]):
             response = self.http_client.request(method, url, **kwargs)  # type: ignore
             return response.text
         except Exception as ex:
-            logger.error("Error in %s request: %r", self.name, ex)
+            ic.configureOutput(prefix='ERROR| '); ic(f"Error in {self.name} request: {ex}")
             return None
 
     @cached_property
     def parser(self) -> Any:
         """Get HTML parser."""
         if not LXML_AVAILABLE:
-            logger.warning("lxml not available, HTML parsing disabled")
+            ic.configureOutput(prefix='WARNING| '); ic("lxml not available, HTML parsing disabled")
             return None
         return LHTMLParser(remove_blank_text=True, remove_comments=True, remove_pis=True, collect_ids=False)
 
@@ -118,7 +117,7 @@ class BaseSearchEngine(ABC, Generic[T]):
                         value = "".join(data) if isinstance(data, list) else data
                         setattr(result, key, value.strip() if isinstance(value, str) else value)
                 except Exception as ex:
-                    logger.debug("Error extracting %s: %r", key, ex)
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Error extracting {key}: {ex}")
             results.append(result)
         
         return results

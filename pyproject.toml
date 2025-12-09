@@ -69,7 +69,8 @@ dependencies = [
     "psutil",
     "aiohttp",
     "zstandard",
-    "litproxy"
+    "litproxy",
+    "litprinter",
 ]
 
 [project.scripts]

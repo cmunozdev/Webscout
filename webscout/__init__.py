@@ -9,7 +9,6 @@ from .Provider.TTS import *
 from .Provider.AISEARCH import *
 from .Provider.STT import *
 from .Extra import *
-from .Litlogger import *
 from .optimizers import *
 from .swiftcli import *
 from .litagent import LitAgent
@@ -25,11 +24,6 @@ try:
     if update_message:
         print(update_message)
 except Exception as e:
-    # Silently handle update check errors, but log for debugging if needed
-    import os
-    if os.environ.get('WEBSCOUT_DEBUG'):
-        import traceback
-        traceback.print_exc()
     pass
 # Import models for easy access
 from .models import model

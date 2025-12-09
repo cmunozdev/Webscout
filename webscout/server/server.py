@@ -9,10 +9,6 @@ authentication, and provider management.
 from __future__ import annotations
 
 import os
-import sys
-import time
-from datetime import datetime, timezone
-from typing import Optional
 
 import uvicorn
 from fastapi import FastAPI
@@ -21,24 +17,17 @@ from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.responses import HTMLResponse
 
-from webscout.Litlogger import Logger, LogLevel, LogFormat, ConsoleHandler
 from .config import ServerConfig, AppConfig
 from .routes import Api
 from .providers import initialize_provider_map, initialize_tti_provider_map
-
 
 # Configuration constants
 DEFAULT_PORT = 8000
 DEFAULT_HOST = "0.0.0.0"
 API_VERSION = "v1"
 
-# Setup Litlogger
-logger = Logger(
-    name="webscout.api",
-    level=LogLevel.INFO,
-    handlers=[ConsoleHandler(stream=sys.stdout)],
-    fmt=LogFormat.DEFAULT
-)
+# Setup logging
+# Using litprinter console instead of standard logging
 
 # Global configuration instance - lazy initialization
 config = None

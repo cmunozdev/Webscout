@@ -2,15 +2,13 @@
 
 from __future__ import annotations
 
-import logging
+from litprinter import ic
 from typing import Any
 from urllib.parse import quote
 
 from ..base import BaseSearchEngine
 from ..results import TextResult
 from ...utils import json_loads
-
-logger = logging.getLogger(__name__)
 
 
 class Wikipedia(BaseSearchEngine[TextResult]):

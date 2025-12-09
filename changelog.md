@@ -2,6 +2,46 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.12.09] - 2025-12-09
+
+### ✨ Added
+- **feat**: pyproject.toml - Added `litprinter` dependency for improved logging functionality
+- **feat**: webscout/Provider/OPENAI/utils.py - Added dict-like access methods (`__getitem__`, `__setitem__`, `keys`, `values`, `items`) to `ChatCompletionMessage` class for better compatibility
+- **feat**: webscout/Provider/OPENAI/PI.py - Added missing `count_tokens` import for proper token counting functionality
+
+### 🐛 Fixed
+- **fix**: webscout/server/providers.py - Added `required_auth = False` filtering to only initialize OpenAI-compatible providers that don't require authentication, improving server startup and reducing provider count to 28 no-auth providers
+
+### 🔧 Maintenance
+- **refactor**: Replaced Litlogger with litprinter across entire codebase for consistent logging:
+  - **refactor**: webscout/Extra/autocoder/autocoder.py - Updated logger initialization comment
+  - **refactor**: webscout/Extra/tempmail/async_utils.py - Replaced standard logging with litprinter
+  - **refactor**: webscout/Provider/OPENAI/K2Think.py - Replaced Litlogger imports with litprinter
+  - **refactor**: webscout/Provider/OPENAI/base.py - Replaced Litlogger with litprinter for error logging
+  - **refactor**: webscout/Provider/TTS/speechma.py - Replaced Litlogger with litprinter
+  - **refactor**: webscout/Provider/meta.py - Removed unused logging import
+  - **refactor**: webscout/__init__.py - Removed Litlogger import
+  - **refactor**: webscout/conversation.py - Replaced logging with litprinter
+  - **refactor**: webscout/search/base.py - Replaced logging with litprinter
+  - **refactor**: webscout/search/engines/wikipedia.py - Replaced logging with litprinter
+  - **refactor**: webscout/search/http_client.py - Replaced logging with litprinter
+  - **refactor**: webscout/server/config.py - Replaced Litlogger with litprinter
+  - **refactor**: webscout/server/providers.py - Replaced Litlogger with litprinter
+  - **refactor**: webscout/server/request_processing.py - Replaced Litlogger with litprinter and added inline utility functions
+  - **refactor**: webscout/server/routes.py - Replaced Litlogger with litprinter
+  - **refactor**: webscout/server/server.py - Replaced Litlogger with litprinter
+- **refactor**: webscout/search/engines/__init__.py - Changed from auto-discovery to static imports for better performance and reliability
+- **refactor**: webscout/Provider/AISEARCH/__init__.py - Cleaned up import comments
+- **refactor**: webscout/server/request_processing.py - Added inline implementations of `get_client_ip()`, `generate_request_id()`, and `log_api_request()` functions to replace dependency on simple_logger.py
+- **refactor**: README.md - Removed reference to deprecated LitLogger
+- **refactor**: lol.py - Updated example to use ChatGPT provider and added cprint import
+
+### 🚮 Removed
+- **removed**: AGENTS.md - Deleted unused documentation file
+- **removed**: webscout/Litlogger/ - Completely removed Litlogger package directory and all its files (README.md, __init__.py, formats.py, handlers.py, levels.py, logger.py)
+- **removed**: webscout/litprinter/__init__.py - Removed redundant wrapper file
+- **removed**: webscout/server/simple_logger.py - Deleted file as functionality moved inline to request_processing.py
+
 ## [2025.12.03] - 2025-12-03
 
 ### ✨ Added

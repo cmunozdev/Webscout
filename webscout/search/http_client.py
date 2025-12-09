@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import logging
+from litprinter import ic
 from random import choice
 from typing import Any, Literal
 
@@ -14,8 +14,6 @@ except ImportError:
 import curl_cffi.requests
 
 from ..exceptions import RatelimitE, TimeoutE, WebscoutE
-
-logger = logging.getLogger(__name__)
 
 
 class HttpClient:

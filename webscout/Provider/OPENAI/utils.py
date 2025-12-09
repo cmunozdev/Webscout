@@ -50,6 +50,26 @@ class ChatCompletionMessage(BaseModel):
     function_call: Optional[FunctionCall] = None
     tool_calls: Optional[List[ToolCall]] = None
 
+    def __getitem__(self, key):
+        """Allow dict-like access."""
+        return getattr(self, key)
+
+    def __setitem__(self, key, value):
+        """Allow dict-like assignment."""
+        setattr(self, key, value)
+
+    def keys(self):
+        """Return dict-like keys."""
+        return self.__dict__.keys()
+
+    def values(self):
+        """Return dict-like values."""
+        return self.__dict__.values()
+
+    def items(self):
+        """Return dict-like items."""
+        return self.__dict__.items()
+
 class Choice(BaseModel):
     """Choice in completion response."""
     index: StrictInt

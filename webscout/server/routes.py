@@ -4,23 +4,16 @@ API routes for the Webscout server.
 
 import time
 import uuid
-import sys
-from datetime import datetime, timezone
-from typing import Any
 
 from fastapi import FastAPI, Request, Body, Query
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import (
-    HTTP_422_UNPROCESSABLE_ENTITY,
-    HTTP_401_UNAUTHORIZED,
-    HTTP_403_FORBIDDEN,
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-
-from webscout.Litlogger import Logger, LogLevel, LogFormat, ConsoleHandler
+from litprinter import ic
 
 from .config import AppConfig
 from .request_models import (
@@ -35,17 +28,9 @@ from .request_processing import (
     process_messages, prepare_provider_params,
     handle_streaming_response, handle_non_streaming_response
 )
-from .simple_logger import request_logger
+# from .simple_logger import request_logger
 from webscout.search.engines import ENGINES
-
-# Setup logger
-logger = Logger(
-    name="webscout.api",
-    level=LogLevel.INFO,
-    handlers=[ConsoleHandler(stream=sys.stdout)],
-    fmt=LogFormat.DEFAULT
-)
-
+from litprinter import ic
 
 class Api:
     """API route handler class."""
@@ -64,7 +49,7 @@ class Api:
 
         @self.app.exception_handler(APIError)
         async def api_error_handler(request, exc: APIError):
-            logger.error(f"API Error: {exc.message} (Status: {exc.status_code})")
+            ic.configureOutput(prefix='ERROR| '); ic(f"API Error: {exc.message} (Status: {exc.status_code})")
             # Patch: add footer to error content before creating JSONResponse
             error_response = exc.to_response()
             # If the response is a JSONResponse, patch its content dict before returning
@@ -118,7 +103,7 @@ class Api:
 
         @self.app.exception_handler(Exception)
         async def general_exception_handler(request, exc: Exception):
-            logger.error(f"Unhandled server error: {exc}")
+            ic.configureOutput(prefix='ERROR| '); ic(f"Unhandled server error: {exc}")
             content = {
                 "error": {
                     "message": f"Internal server error: {str(exc)}",
@@ -312,7 +297,7 @@ class Api:
             request_id = f"chatcmpl-{uuid.uuid4()}"
 
             try:
-                logger.info(f"Processing chat completion request {request_id} for model: {chat_request.model}")
+                ic.configureOutput(prefix='INFO| '); ic(f"Processing chat completion request {request_id} for model: {chat_request.model}")
 
                 # Resolve provider and model
                 provider_class, model_name = resolve_provider_and_model(chat_request.model)
@@ -320,9 +305,9 @@ class Api:
                 # Initialize provider with caching and error handling
                 try:
                     provider = get_provider_instance(provider_class)
-                    logger.debug(f"Using provider instance: {provider_class.__name__}")
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Using provider instance: {provider_class.__name__}")
                 except Exception as e:
-                    logger.error(f"Failed to initialize provider {provider_class.__name__}: {e}")
+                    ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize provider {provider_class.__name__}: {e}")
                     raise APIError(
                         f"Failed to initialize provider {provider_class.__name__}: {e}",
                         HTTP_500_INTERNAL_SERVER_ERROR,
@@ -373,7 +358,7 @@ class Api:
                 # Re-raise API errors as-is
                 raise
             except Exception as e:
-                logger.error(f"Unexpected error in chat completion {request_id}: {e}")
+                ic.configureOutput(prefix='ERROR| '); ic(f"Unexpected error in chat completion {request_id}: {e}")
                 raise APIError(
                     f"Internal server error: {str(e)}",
                     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -394,7 +379,7 @@ class Api:
             request_id = f"img-{uuid.uuid4()}"
 
             try:
-                logger.info(f"Processing image generation request {request_id} for model: {image_request.model}")
+                ic.configureOutput(prefix='INFO| '); ic(f"Processing image generation request {request_id} for model: {image_request.model}")
 
                 # Resolve TTI provider and model
                 provider_class, model_name = resolve_tti_provider_and_model(image_request.model)
@@ -402,7 +387,7 @@ class Api:
                 # Initialize TTI provider
                 try:
                     provider = get_tti_provider_instance(provider_class)
-                    logger.debug(f"Using TTI provider instance: {provider_class.__name__}")
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Using TTI provider instance: {provider_class.__name__}")
                 except APIError as e:
                     # Add helpful footer for provider errors
                     return JSONResponse(
@@ -416,7 +401,7 @@ class Api:
                         }
                     )
                 except Exception as e:
-                    logger.error(f"Failed to initialize TTI provider {provider_class.__name__}: {e}")
+                    ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize TTI provider {provider_class.__name__}: {e}")
                     raise APIError(
                         f"Failed to initialize TTI provider {provider_class.__name__}: {e}",
                         HTTP_500_INTERNAL_SERVER_ERROR,
@@ -457,13 +442,13 @@ class Api:
                     )
 
                 elapsed = time.time() - start_time
-                logger.info(f"Completed image generation request {request_id} in {elapsed:.2f}s")
+                ic.configureOutput(prefix='INFO| '); ic(f"Completed image generation request {request_id} in {elapsed:.2f}s")
 
                 return response_data
             except APIError:
                 raise
             except Exception as e:
-                logger.error(f"Unexpected error in image generation {request_id}: {e}")
+                ic.configureOutput(prefix='ERROR| '); ic(f"Unexpected error in image generation {request_id}: {e}")
                 raise APIError(
                     f"Internal server error: {str(e)}",
                     HTTP_500_INTERNAL_SERVER_ERROR,

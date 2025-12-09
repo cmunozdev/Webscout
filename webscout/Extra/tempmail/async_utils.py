@@ -2,12 +2,10 @@
 Async utilities for temporary email generation
 """
 import asyncio
-import logging
+from litprinter import ic
 from typing import Dict, List, Optional, Tuple
 
 from .base import TempMailAPI, MessageResponseModel
-
-logger = logging.getLogger(__name__)
 
 class AsyncTempMailHelper:
     """
@@ -40,7 +38,7 @@ class AsyncTempMailHelper:
             self.token = result.token
             return self.email, self.token
         except Exception as e:
-            logger.error(f"Error creating email: {e}")
+            ic.configureOutput(prefix='ERROR| '); ic(f"Error creating email: {e}")
             await self.close()
             raise
     
@@ -72,7 +70,7 @@ class AsyncTempMailHelper:
                 for msg in messages
             ]
         except Exception as e:
-            logger.error(f"Error getting messages: {e}")
+            ic.configureOutput(prefix='ERROR| '); ic(f"Error getting messages: {e}")
             return []
     
     async def delete(self) -> bool:
@@ -83,14 +81,14 @@ class AsyncTempMailHelper:
             True if deletion was successful, False otherwise
         """
         if not self.api or not self.email or not self.token:
-            logger.warning("No email to delete")
+            ic.configureOutput(prefix='WARNING| '); ic("No email to delete")
             return False
             
         try:
             result = await self.api.delete_email(self.email, self.token)
             return result
         except Exception as e:
-            logger.error(f"Error deleting email: {e}")
+            ic.configureOutput(prefix='ERROR| '); ic(f"Error deleting email: {e}")
             return False
         finally:
             await self.close()

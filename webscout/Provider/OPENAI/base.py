@@ -3,11 +3,7 @@ from typing import List, Dict, Optional, Union, Generator, Any, TypedDict, Calla
 import json
 import requests
 from dataclasses import dataclass
-
-# Import WebScout Litlogger instead of standard logging
-from webscout.Litlogger import Logger, LogLevel
-
-logger = Logger(name="OpenAIBase", level=LogLevel.INFO)
+from litprinter import ic
 
 # Import the utils for response structures
 from webscout.Provider.OPENAI.utils import ChatCompletion, ChatCompletionChunk
@@ -64,7 +60,7 @@ class Tool:
         try:
             return self.implementation(**arguments)
         except Exception as e:
-            logger.error(f"Error executing tool '{self.name}': {str(e)}")
+            ic.configureOutput(prefix='ERROR| '); ic(f"Error executing tool '{self.name}': {str(e)}")
             return f"Error executing tool '{self.name}': {str(e)}"
 
 class BaseCompletions(ABC):
@@ -114,7 +110,7 @@ class BaseCompletions(ABC):
                 # Assume already formatted correctly
                 formatted_tools.append(tool)
             else:
-                logger.warning(f"Skipping invalid tool type: {type(tool)}")
+                ic.configureOutput(prefix='WARNING| '); ic(f"Skipping invalid tool type: {type(tool)}")
         
         return formatted_tools
     
@@ -163,7 +159,7 @@ class BaseCompletions(ABC):
                         "result": f"Error: Tool '{tool_name}' not found."
                     })
             except Exception as e:
-                logger.error(f"Error processing tool call: {str(e)}")
+                ic.configureOutput(prefix='ERROR| '); ic(f"Error processing tool call: {str(e)}")
                 results.append({
                     "tool_call_id": call.get("id", "unknown"),
                     "result": f"Error processing tool call: {str(e)}"

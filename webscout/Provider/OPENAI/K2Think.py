@@ -15,10 +15,7 @@ from webscout.Provider.OPENAI.utils import (
 # Import LitAgent
 from webscout.litagent import LitAgent
 
-# Import logger
-from webscout.Litlogger import Logger, LogLevel
-
-logger = Logger(name="K2Think", level=LogLevel.INFO)
+from litprinter import ic
 
 class Completions(BaseCompletions):
     def __init__(self, client: 'K2Think'):

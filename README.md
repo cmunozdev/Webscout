@@ -97,7 +97,6 @@
 - **[GitAPI](webscout/Extra/GitToolkit/gitapi):** Powerful GitHub data extraction toolkit without authentication requirements for public data
 - **[SwiftCLI](webscout/swiftcli/Readme.md):** A powerful and elegant CLI framework for beautiful command-line interfaces
 - **[LitPrinter](webscout/docs/litprinter.md):** Styled console output with rich formatting and colors
-- **[LitLogger](webscout/litlogger/README.md):** Simplified logging with customizable formats and color schemes
 - **[LitAgent](webscout/litagent/Readme.md):** Modern user agent generator that keeps your requests undetectable
 - **[Scout](docs/scout.md):** Advanced web parsing and crawling library with intelligent HTML/XML parsing
 - **[GGUF Conversion](webscout/Extra/gguf.md):** Convert and quantize Hugging Face models to GGUF format
