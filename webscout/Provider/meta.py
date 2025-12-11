@@ -15,6 +15,7 @@ from webscout.AIutel import AwesomePrompts
 from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent as Lit
+from litprinter import ic
 MAX_RETRIES = 3
 
 def generate_offline_threading_id() -> str:
@@ -256,7 +257,7 @@ def get_fb_session(email, password, proxies=None):
             "Was not able to login to Facebook. Please check your credentials. "
             "You may also have been rate limited. Try to connect to Facebook manually."
         )
-    logging.info("Successfully logged in to Facebook.")
+    ic.configureOutput(prefix='INFO| '); ic("Successfully logged in to Facebook.")
     return cookies
 
 
