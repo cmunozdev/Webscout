@@ -4,7 +4,7 @@ import json
 from typing import Any, Dict, Optional, Generator, Union
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
+from webscout.AIutel import AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent
@@ -85,6 +85,7 @@ class DeepInfra(Provider):
         "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
         "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "nvidia/Llama-3.1-Nemotron-70B-Instruct",
+        "nvidia/Nemotron-3-Nano-30B-A3B",
         "zai-org/GLM-4.5-Air",
         "zai-org/GLM-4.5",
         "zai-org/GLM-4.5V",
@@ -115,7 +116,7 @@ class DeepInfra(Provider):
         act: str = None,
         model: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         system_prompt: str = "You are a helpful assistant.",
-        browser: str = "chrome" # Note: browser fingerprinting might be less effective with impersonate
+        browser: str = "chrome"
     ):
         """Initializes the DeepInfra API client."""
         if model not in self.AVAILABLE_MODELS:
@@ -123,12 +124,9 @@ class DeepInfra(Provider):
 
         self.url = "https://api.deepinfra.com/v1/openai/chat/completions"
 
-        # Initialize LitAgent (keep if needed for other headers or logic)
         self.agent = LitAgent()
-        # Fingerprint generation might be less relevant with impersonate
         self.fingerprint = self.agent.generate_fingerprint(browser)
         self.api = api_key
-        # Use the fingerprint for headers (keep relevant ones)
         self.headers = {
             "Accept": self.fingerprint["accept"],
             "Accept-Language": self.fingerprint["accept_language"],
@@ -141,7 +139,6 @@ class DeepInfra(Provider):
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
             "X-Deepinfra-Source": "web-embed",
-            # Additional headers from LitAgent.generate_fingerprint
             "User-Agent": self.fingerprint.get("user_agent", ""),
             "Sec-CH-UA": self.fingerprint.get("sec_ch_ua", ""),
             "Sec-CH-UA-Mobile": "?0",
@@ -156,11 +153,9 @@ class DeepInfra(Provider):
         if self.api is not None:
             self.headers["Authorization"] = f"Bearer {self.api}"
 
-        # Initialize curl_cffi Session
         self.session = Session()
-        # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
-        self.session.proxies = proxies # Assign proxies directly
+        self.session.proxies = proxies
         self.system_prompt = system_prompt
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
@@ -196,14 +191,12 @@ class DeepInfra(Provider):
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
 
-        # Update headers with new fingerprint (only relevant ones)
         self.headers.update({
             "Accept": self.fingerprint["accept"],
             "Accept-Language": self.fingerprint["accept_language"],
         })
 
-        # Update session headers
-        self.session.headers.update(self.headers) # Update only relevant headers
+        self.session.headers.update(self.headers)
 
         return self.fingerprint
 
@@ -256,43 +249,38 @@ class DeepInfra(Provider):
             else:
                 raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
 
-        # Payload construction
         payload = {
             "model": self.model,
             "messages": [
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": conversation_prompt},
             ],
-            "stream": stream # Pass stream argument to payload
+            "stream": stream
         }
 
         def for_stream():
-            streaming_text = "" # Initialize outside try block
+            streaming_text = "" 
             try:
-                # Use curl_cffi session post with impersonate
                 response = self.session.post(
                     self.url,
-                    # headers are set on the session
                     data=json.dumps(payload),
                     stream=True,
                     timeout=self.timeout,
-                    impersonate="chrome110" # Use a common impersonation profile
+                    impersonate="chrome110"
                 )
-                response.raise_for_status() # Check for HTTP errors
+                response.raise_for_status()
 
-                # Use sanitize_stream
                 processed_stream = sanitize_stream(
-                    data=response.iter_content(chunk_size=None), # Pass byte iterator
+                    data=response.iter_content(chunk_size=None),
                     intro_value="data:",
-                    to_json=True,     # Stream sends JSON
+                    to_json=True,
                     skip_markers=["[DONE]"],
-                    content_extractor=self._deepinfra_extractor, # Use the specific extractor
-                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
+                    content_extractor=self._deepinfra_extractor,
+                    yield_raw_on_error=False,
                     raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    # Ensure string output
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
                     
@@ -308,7 +296,6 @@ class DeepInfra(Provider):
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)}") from e
             finally:
-                # Update history after stream finishes or fails (only for processed responses)
                 if not raw and streaming_text:
                     self.last_response = {"text": streaming_text}
                     self.conversation.update_chat_history(prompt, streaming_text)
@@ -316,23 +303,18 @@ class DeepInfra(Provider):
 
         def for_non_stream():
             try:
-                # Use curl_cffi session post with impersonate for non-streaming
                 response = self.session.post(
                     self.url,
-                    # headers are set on the session
                     data=json.dumps(payload),
                     timeout=self.timeout,
-                    impersonate="chrome110" # Use a common impersonation profile
+                    impersonate="chrome110"
                 )
-                response.raise_for_status() # Check for HTTP errors
+                response.raise_for_status()
 
                 if raw:
-                    # Return raw response text
                     return response.text
 
-                response_json = response.json() # Parse JSON directly for non-streaming response
-
-                # Extract content - non-streaming responses have different structure than streaming
+                response_json = response.json()
                 if isinstance(response_json, dict):
                     choices = response_json.get("choices", [])
                     if choices:
@@ -347,9 +329,9 @@ class DeepInfra(Provider):
                 self.conversation.update_chat_history(prompt, content)
                 return self.last_response
 
-            except CurlError as e: # Catch CurlError
+            except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e
-            except Exception as e: # Catch other potential exceptions (like HTTPError, JSONDecodeError)
+            except Exception as e:
                 err_text = getattr(e, 'response', None) and getattr(e.response, 'text', '')
                 raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {e} - {err_text}") from e
 
@@ -425,6 +407,6 @@ class DeepInfra(Provider):
 
 if __name__ == "__main__":
     ai = DeepInfra()
-    response = ai.chat("Hello", raw=True, stream=True)
+    response = ai.chat("Hello", raw=False, stream=True)
     for chunk in response:
         print(chunk, end="")

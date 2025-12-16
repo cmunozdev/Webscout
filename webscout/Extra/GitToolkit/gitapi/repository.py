@@ -198,3 +198,109 @@ class Repository:
         """Get community profile metrics"""
         url = f"{self.base_url}/community/profile"
         return request(url)
+
+    def get_readme(self, ref: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Get repository README.
+        
+        Args:
+            ref: The name of the commit/branch/tag (default: repo default branch)
+            
+        Returns:
+            README content with encoding and download_url
+        """
+        url = f"{self.base_url}/readme"
+        if ref:
+            url += f"?ref={quote(ref, safe='')}"
+        return request(url)
+
+    def get_license(self) -> Dict[str, Any]:
+        """
+        Get repository license.
+        
+        Returns:
+            License information including name, key, spdx_id, and content
+        """
+        url = f"{self.base_url}/license"
+        return request(url)
+
+    def get_topics(self) -> Dict[str, Any]:
+        """
+        Get repository topics.
+        
+        Returns:
+            Dict with 'names' key containing list of topic strings
+        """
+        url = f"{self.base_url}/topics"
+        return request(url)
+
+    def get_forks(self, sort: str = "newest", page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
+        """
+        List repository forks.
+        
+        Args:
+            sort: Sort by (newest, oldest, stargazers, watchers)
+            page: Page number
+            per_page: Results per page (max 100)
+            
+        Returns:
+            List of forked repositories
+        """
+        url = f"{self.base_url}/forks?sort={sort}&page={page}&per_page={per_page}"
+        return request(url)
+
+    def get_stargazers(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
+        """
+        List users who have starred the repository.
+        
+        Args:
+            page: Page number
+            per_page: Results per page (max 100)
+            
+        Returns:
+            List of users who starred the repo
+        """
+        url = f"{self.base_url}/stargazers?page={page}&per_page={per_page}"
+        return request(url)
+
+    def get_watchers(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
+        """
+        List users watching the repository (subscribers).
+        
+        Args:
+            page: Page number
+            per_page: Results per page (max 100)
+            
+        Returns:
+            List of users watching the repo
+        """
+        url = f"{self.base_url}/subscribers?page={page}&per_page={per_page}"
+        return request(url)
+
+    def compare(self, base: str, head: str) -> Dict[str, Any]:
+        """
+        Compare two commits, branches, or tags.
+        
+        Args:
+            base: Base commit/branch/tag
+            head: Head commit/branch/tag
+            
+        Returns:
+            Comparison data including commits, files, and diff stats
+        """
+        url = f"{self.base_url}/compare/{quote(base, safe='')}...{quote(head, safe='')}"
+        return request(url)
+
+    def get_events(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
+        """
+        List repository events.
+        
+        Args:
+            page: Page number
+            per_page: Results per page (max 100)
+            
+        Returns:
+            List of repository events
+        """
+        url = f"{self.base_url}/events?page={page}&per_page={per_page}"
+        return request(url)

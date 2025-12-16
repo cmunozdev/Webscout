@@ -1,6 +1,6 @@
 from .sanitize import * # noqa: E402,F401
 from .conversation import Conversation  # noqa: E402,F401
-from .Extra.autocoder import AutoCoder  # noqa: E402,F401
+
 from .optimizers import Optimizers  # noqa: E402,F401
 from .prompt_manager import AwesomePrompts  # noqa: E402,F401
 

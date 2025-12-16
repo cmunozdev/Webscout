@@ -7,7 +7,7 @@ from .https import (
     _get_trending_learning_videos,
     trending_sports
 )
-from .utils import dup_filter
+from .utils import dup_filter, request
 from .patterns import _ExtraPatterns as Patterns
 from typing import Optional, List
 
@@ -44,7 +44,9 @@ class Extras:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
         data = Patterns.video_id.findall(trending_songs())
-        return dup_filter(data, limit) if data else None    @staticmethod
+        return dup_filter(data, limit) if data else None
+
+    @staticmethod
     def gaming_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending gaming videos from YouTube.
@@ -72,7 +74,9 @@ class Extras:
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
-        return dup_filter(Patterns.video_id.findall(trending_feeds()), limit)    @staticmethod
+        return dup_filter(Patterns.video_id.findall(trending_feeds()), limit)
+
+    @staticmethod
     def live_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending live videos from YouTube.
@@ -116,3 +120,58 @@ class Extras:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
         return dup_filter(Patterns.video_id.findall(trending_sports()), limit)
+
+    @staticmethod
+    def shorts_videos(limit: int = None) -> Optional[List[str]]:
+        """
+        Get trending YouTube Shorts.
+        
+        Args:
+            limit (int, optional): Maximum number of Shorts to return.
+        
+        Returns:
+            Optional[List[str]]: List of video IDs or None if no Shorts found
+        """
+        try:
+            html = request("https://www.youtube.com/shorts")
+            video_ids = Patterns.video_id.findall(html)
+            return dup_filter(video_ids, limit) if video_ids else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def movies(limit: int = None) -> Optional[List[str]]:
+        """
+        Get featured movies from YouTube.
+        
+        Args:
+            limit (int, optional): Maximum number of movies to return.
+        
+        Returns:
+            Optional[List[str]]: List of video IDs or None if no movies found
+        """
+        try:
+            html = request("https://www.youtube.com/feed/storefront")
+            video_ids = Patterns.video_id.findall(html)
+            return dup_filter(video_ids, limit) if video_ids else None
+        except Exception:
+            return None
+
+    @staticmethod
+    def podcasts(limit: int = None) -> Optional[List[str]]:
+        """
+        Get trending podcasts from YouTube.
+        
+        Args:
+            limit (int, optional): Maximum number of podcasts to return.
+        
+        Returns:
+            Optional[List[str]]: List of video IDs or None if no podcasts found
+        """
+        try:
+            html = request("https://www.youtube.com/podcasts")
+            video_ids = Patterns.video_id.findall(html)
+            return dup_filter(video_ids, limit) if video_ids else None
+        except Exception:
+            return None
+

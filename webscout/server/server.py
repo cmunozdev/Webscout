@@ -20,6 +20,7 @@ from starlette.responses import HTMLResponse
 from .config import ServerConfig, AppConfig
 from .routes import Api
 from .providers import initialize_provider_map, initialize_tti_provider_map
+from .ui_templates import LANDING_PAGE_HTML, SWAGGER_CSS
 
 # Configuration constants
 DEFAULT_PORT = 8000
@@ -42,7 +43,6 @@ def get_config() -> ServerConfig:
 
 def create_app():
     """Create and configure the FastAPI application."""
-    import os
     app_title = os.getenv("WEBSCOUT_API_TITLE", "Webscout API")
     app_description = os.getenv("WEBSCOUT_API_DESCRIPTION", "OpenAI API compatible interface for various LLM providers")
     app_version = os.getenv("WEBSCOUT_API_VERSION", "0.2.0")
@@ -67,54 +67,15 @@ def create_app():
             title=app.title + " - API Documentation",
         ).body.decode("utf-8")
         
-        # Simple, clean footer with WebScout branding
+        # Custom footer and styles
         footer_html = """
-        <div style='
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: rgba(255, 255, 255, 0.95);
-            backdrop-filter: blur(10px);
-            border-top: 1px solid #e5e7eb;
-            padding: 12px 20px;
-            text-align: center;
-            font-size: 14px;
-            color: #6b7280;
-            z-index: 1000;
-            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.1);
-        '>
-            Powered by <a href='https://github.com/OEvortex/Webscout' target='_blank' style='
-                color: #6366f1;
-                text-decoration: none;
-                font-weight: 600;
-                transition: color 0.2s ease;
-            ' onmouseover='this.style.color="#4f46e5"' onmouseout='this.style.color="#6366f1"'>
-                WebScout
-            </a>
+        <div class="webscout-footer">
+            Powered by <a href='https://github.com/OEvortex/Webscout' target='_blank'>WebScout</a>
         </div>
-        <style>
-            body {
-                padding-bottom: 60px !important;
-            }
-            .swagger-ui .topbar {
-                background-color: #fafafa;
-                border-bottom: 1px solid #e5e7eb;
-            }
-            .swagger-ui .info .title {
-                color: #1f2937;
-            }
-            .swagger-ui .btn.authorize {
-                background-color: #6366f1;
-                border-color: #6366f1;
-            }
-            .swagger-ui .btn.authorize:hover {
-                background-color: #4f46e5;
-                border-color: #4f46e5;
-            }
-        </style>
         """
         
+        # Inject custom CSS and footer
+        html = html.replace("</head>", f"<style>{SWAGGER_CSS}</style></head>")
         html = html.replace("</body>", f"{footer_html}</body>")
         return HTMLResponse(content=html)
 
@@ -143,10 +104,10 @@ def create_app():
     initialize_provider_map()
     initialize_tti_provider_map()
 
-    # Root redirect
+    # Root landing page
     @app.get("/", include_in_schema=False)
     async def root():
-        return RedirectResponse(url="/docs")
+        return HTMLResponse(content=LANDING_PAGE_HTML)
 
     return app
 

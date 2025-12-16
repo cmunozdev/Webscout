@@ -1,7 +1,14 @@
 import re
 import json
-from typing import Dict, Any
+from typing import Dict, Any, List, Optional, Generator
 from .https import video_data
+from urllib.request import Request, urlopen
+
+try:
+    from webscout.litagent.agent import LitAgent
+    _USER_AGENT = LitAgent().random()
+except ImportError:
+    _USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
 
 class Video:
@@ -17,7 +24,7 @@ class Video:
         video_id : str
             The id or url of the video
         """
-        pattern = re.compile(r'.be/(.*?)$|=(.*?)$|^(\w{11})$')  # noqa
+        pattern = re.compile(r'.be/(.*?)$|=(.*?)$|shorts/(.*?)$|^(\w{11})$')  # noqa
         match = pattern.search(video_id)
 
         if not match:
@@ -27,6 +34,7 @@ class Video:
                 match.group(1)
                 or match.group(2)
                 or match.group(3)
+                or match.group(4)
         )
 
         if self._matched_id:
@@ -174,8 +182,6 @@ class Video:
 
         return data
 
-
-
     @property
     def embed_html(self) -> str:
         """
@@ -222,11 +228,176 @@ class Video:
             'maxres': f'https://i.ytimg.com/vi/{self._matched_id}/maxresdefault.jpg'
         }
 
+    @property
+    def is_live(self) -> bool:
+        """
+        Check if video is currently live.
+
+        Returns:
+            True if video is live, False otherwise
+        """
+        return '"isLive":true' in self._video_data or '"isLiveNow":true' in self._video_data
+
+    @property
+    def is_short(self) -> bool:
+        """
+        Check if video is a YouTube Short.
+
+        Returns:
+            True if video is a Short, False otherwise
+        """
+        # Check duration (Shorts are max 60 seconds)
+        meta = self.metadata
+        duration = meta.get('duration')
+        if duration and int(duration) <= 60:
+            # Also check for shorts indicators
+            if 'shorts' in self._video_data.lower() or '"shorts"' in self._video_data:
+                return True
+        return False
+
+    @property
+    def hashtags(self) -> List[str]:
+        """
+        Get hashtags from video description and title.
+
+        Returns:
+            List of hashtags found
+        """
+        meta = self.metadata
+        text = (meta.get('description', '') or '') + ' ' + (meta.get('title', '') or '')
+        pattern = r'#([a-zA-Z0-9_]+)'
+        matches = re.findall(pattern, text)
+        return list(dict.fromkeys(matches))  # Remove duplicates
+
+    def get_related_videos(self, limit: int = 10) -> List[str]:
+        """
+        Get related/suggested videos.
+
+        Args:
+            limit: Maximum number of video IDs to return
+
+        Returns:
+            List of related video IDs
+        """
+        # Find related videos in the page data
+        pattern = r'"watchNextEndScreenRenderer".*?"videoId":"([a-zA-Z0-9_-]{11})"'
+        matches = re.findall(pattern, self._video_data)
+        
+        if not matches:
+            # Fallback pattern
+            pattern = r'"compactVideoRenderer".*?"videoId":"([a-zA-Z0-9_-]{11})"'
+            matches = re.findall(pattern, self._video_data)
+        
+        # Remove duplicates and self
+        seen = set()
+        unique = []
+        for vid in matches:
+            if vid not in seen and vid != self._matched_id:
+                seen.add(vid)
+                unique.append(vid)
+                if len(unique) >= limit:
+                    break
+        
+        return unique
+
+    def get_chapters(self) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get video chapters if available.
+
+        Returns:
+            List of chapters with title, start_time, and thumbnail, or None
+        """
+        # Look for chapter data in the page
+        pattern = r'"chapterRenderer":\s*\{[^}]*"title":\s*\{\s*"simpleText":\s*"([^"]+)"[^}]*"timeRangeStartMillis":\s*(\d+)'
+        matches = re.findall(pattern, self._video_data)
+        
+        if not matches:
+            # Alternative pattern
+            pattern = r'"chapters":\s*\[(.*?)\]'
+            chapter_match = re.search(pattern, self._video_data)
+            if chapter_match:
+                try:
+                    # Parse as JSON if possible
+                    chapters_str = '[' + chapter_match.group(1) + ']'
+                    chapters_data = json.loads(chapters_str)
+                    return chapters_data
+                except:
+                    pass
+            return None
+        
+        chapters = []
+        for title, start_ms in matches:
+            chapters.append({
+                'title': title,
+                'start_seconds': int(start_ms) / 1000,
+                'start_time': f"{int(int(start_ms)/1000//60)}:{int(int(start_ms)/1000%60):02d}"
+            })
+        
+        return chapters if chapters else None
+
+    def stream_comments(self, limit: int = 20) -> Generator[Dict[str, Any], None, None]:
+        """
+        Stream video comments from initial page load.
+
+        Note: YouTube loads comments dynamically via JavaScript, so this method
+        may not find comments for all videos. It works best when YouTube includes
+        some initial comments in the page HTML.
+
+        Args:
+            limit: Maximum number of comments to yield
+
+        Yields:
+            Comment dictionaries with author, text, video_id
+        """
+        # Try multiple patterns for comments data
+        patterns = [
+            # Pattern for commentRenderer with simpleText
+            r'"commentRenderer":\s*\{[^}]*"authorText":\s*\{[^}]*"simpleText":\s*"([^"]+)"[^}]*\}.*?"contentText":\s*\{[^}]*"runs":\s*\[\s*\{[^}]*"text":\s*"([^"]*)"',
+            # Pattern for author and contentText
+            r'"authorText":\s*\{[^}]*"simpleText":\s*"([^"]+)"[^}]*\}[^}]*"contentText":\s*\{[^}]*"text":\s*"([^"]*)"',
+            # Simpler pattern
+            r'"authorText":"([^"]+)".*?"contentText":"([^"]*)"',
+        ]
+        
+        count = 0
+        seen_comments = set()
+        
+        for pattern in patterns:
+            if count >= limit:
+                break
+            matches = re.findall(pattern, self._video_data, re.DOTALL)
+            for author, text in matches:
+                if count >= limit:
+                    break
+                # Avoid duplicates
+                comment_key = (author, text[:50])
+                if comment_key in seen_comments:
+                    continue
+                seen_comments.add(comment_key)
+                
+                # Clean up text
+                text = text.replace('\\n', '\n')
+                text = text.replace('\\u0026', '&')
+                text = text.replace('\\u003c', '<')
+                text = text.replace('\\u003e', '>')
+                
+                yield {
+                    'author': author,
+                    'text': text,
+                    'video_id': self._matched_id
+                }
+                count += 1
+
+
 if __name__ == '__main__':
     video = Video('https://www.youtube.com/watch?v=9bZkp7q19f0')
     print(video.metadata)
+    print(f"\nIs Live: {video.is_live}")
+    print(f"Is Short: {video.is_short}")
+    print(f"Hashtags: {video.hashtags}")
+    print(f"Related videos: {video.get_related_videos(5)}")
+    
+    chapters = video.get_chapters()
+    if chapters:
+        print(f"Chapters: {chapters[:3]}")
 
-    # Example of getting comments
-    print("\nFirst 3 comments:")
-    for i, comment in enumerate(video.stream_comments(3), 1):
-        print(f"{i}. {comment['author']}: {comment['text'][:50]}...")

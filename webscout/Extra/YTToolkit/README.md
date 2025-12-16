@@ -26,13 +26,14 @@
   * Progress tracking and auto-save functionality
   * Batch downloading with search capabilities
 
-* **Transcript Extraction**
+* **Transcript Extraction** (InnerTube API)
   * Multi-language transcript support
   * Automatic and manual transcript fetching
   * Real-time translation capabilities
   * Flexible parsing options
+  * Reliable InnerTube API-based fetching
 
-### Data Extraction
+### Data Extraction (ytapi)
 
 * **Channel Information**
   * Comprehensive channel metadata
@@ -43,14 +44,22 @@
 * **Video Intelligence**
   * Detailed video metadata retrieval
   * Thumbnail extraction in multiple resolutions
-  * Stream and upload history tracking
+  * Live stream and shorts detection
+  * Related videos and chapters extraction
   * Embed code generation
 
 * **Search & Discovery**
-  * Advanced search capabilities
+  * Advanced search capabilities (videos, channels, playlists)
   * Trending videos across categories
+  * Shorts and live stream search
   * Playlist content extraction
   * No official API dependency
+
+* **Captions & Transcripts**
+  * Available language detection
+  * Timed transcript retrieval
+  * Transcript search functionality
+  * Plain text transcript extraction
 
 ## 🚀 Installation
 
@@ -84,9 +93,12 @@ downloader.auto_save(dir='./downloads')
 ```python
 from webscout import YTTranscriber
 
-# Get video transcript
+# Get video transcript (uses InnerTube API for reliability)
 transcript = YTTranscriber.get_transcript('https://youtube.com/watch?v=dQw4w9WgXcQ')
-print(transcript)
+
+# Each entry has: text, start time, duration
+for entry in transcript[:5]:
+    print(f"[{entry['start']:.1f}s] {entry['text']}")
 
 # Get transcript in a specific language
 spanish_transcript = YTTranscriber.get_transcript(
@@ -94,11 +106,10 @@ spanish_transcript = YTTranscriber.get_transcript(
     languages='es'   # Language code
 )
 
-# Translate transcript
-translated = YTTranscriber.translate_transcript(
-    'dQw4w9WgXcQ',  # Video ID or URL
-    source_lang='en',
-    target_lang='fr'
+# Get any available transcript (when language doesn't matter)
+any_transcript = YTTranscriber.get_transcript(
+    'dQw4w9WgXcQ',
+    languages=None  # Get first available
 )
 ```
 
@@ -138,6 +149,17 @@ print(f"Views: {metadata['views']}")
 print(f"Duration: {metadata['duration']} seconds")
 print(f"Upload Date: {metadata['upload_date']}")
 
+# New properties
+print(f"Is Live: {video.is_live}")
+print(f"Is Short: {video.is_short}")
+print(f"Hashtags: {video.hashtags}")
+
+# Get related videos
+related = video.get_related_videos(5)
+
+# Get video chapters
+chapters = video.get_chapters()
+
 # Get thumbnails
 thumbnails = video.thumbnail_urls
 print(f"Default thumbnail: {thumbnails['default']}")
@@ -155,12 +177,44 @@ video_results = Search.videos("Python tutorial", limit=5)
 # Search for channels
 channel_results = Search.channels("coding", limit=3)
 
+# Search for shorts
+shorts = Search.shorts("funny cats", limit=5)
+
+# Search for live streams
+live = Search.live_streams("gaming", limit=5)
+
 # Get trending videos
 trending = Extras.trending_videos(limit=10)
 
 # Get category-specific videos
 music_videos = Extras.music_videos(limit=5)
 gaming_videos = Extras.gaming_videos(limit=5)
+shorts_videos = Extras.shorts_videos(limit=5)
+```
+
+### Captions API
+
+```python
+from webscout.Extra.YTToolkit.ytapi import Captions
+
+# Get available caption languages
+languages = Captions.get_available_languages('dQw4w9WgXcQ')
+for lang in languages:
+    print(f"{lang['code']}: {lang['name']} (auto: {lang['is_auto']})")
+
+# Get timed transcript
+transcript = Captions.get_timed_transcript('dQw4w9WgXcQ', language='en')
+for entry in transcript[:3]:
+    print(f"[{entry['start']:.1f}s] {entry['text']}")
+
+# Get plain text transcript
+text = Captions.get_transcript('dQw4w9WgXcQ')
+print(text[:200])
+
+# Search within transcript
+results = Captions.search_transcript('dQw4w9WgXcQ', 'never gonna')
+for r in results:
+    print(f"{r['start']:.1f}s: {r['text']}")
 ```
 
 ## 📓 Detailed Documentation
@@ -209,36 +263,26 @@ print(f"Downloaded files: {history}")
 <details>
 <summary><strong>Transcript Retriever (YTTranscriber)</strong></summary>
 
-The `YTTranscriber` class extracts and processes video transcripts:
+The `YTTranscriber` class extracts video transcripts using YouTube's InnerTube API:
 
 ```python
 from webscout import YTTranscriber
 
-# Get available transcript languages
-languages = YTTranscriber.get_available_languages('dQw4w9WgXcQ')
-print(f"Available languages: {languages}")
-
-# Get transcript with specific options
-transcript = YTTranscriber.get_transcript(
-    'dQw4w9WgXcQ',
-    languages=['en', 'es', 'fr'],  # Preferred languages in order
-    translate=True,                # Auto-translate if needed
-    format='text'                  # Format: 'text', 'json', or 'srt'
-)
-
 # Get transcript with timestamps
-timestamped = YTTranscriber.get_transcript(
-    'dQw4w9WgXcQ',
-    include_timestamps=True
-)
-for entry in timestamped:
+transcript = YTTranscriber.get_transcript('dQw4w9WgXcQ')
+for entry in transcript:
     print(f"[{entry['start']:.2f}s] {entry['text']}")
 
-# Save transcript to file
-YTTranscriber.save_transcript(
+# Get transcript in specific language
+spanish = YTTranscriber.get_transcript('dQw4w9WgXcQ', languages='es')
+
+# Get any available transcript
+any_lang = YTTranscriber.get_transcript('dQw4w9WgXcQ', languages=None)
+
+# Use with proxies
+transcript = YTTranscriber.get_transcript(
     'dQw4w9WgXcQ',
-    output_file='transcript.txt',
-    format='text'
+    proxies={'http': 'http://proxy:8080'}
 )
 ```
 </details>
@@ -296,8 +340,24 @@ print(f"Title: {metadata['title']}")
 print(f"Views: {metadata['views']}")
 print(f"Duration: {metadata['duration']} seconds")
 print(f"Upload Date: {metadata['upload_date']}")
-print(f"Author ID: {metadata['author_id']}")
-print(f"Tags: {metadata['tags']}")
+
+# New properties
+print(f"Is Live: {video.is_live}")
+print(f"Is Short: {video.is_short}")
+print(f"Hashtags: {video.hashtags}")
+
+# Get related videos
+related = video.get_related_videos(5)
+
+# Get chapters (if available)
+chapters = video.get_chapters()
+if chapters:
+    for ch in chapters:
+        print(f"{ch['start_time']}: {ch['title']}")
+
+# Stream comments (from initial page load)
+for comment in video.stream_comments(limit=10):
+    print(f"{comment['author']}: {comment['text']}")
 
 # Get thumbnails in different resolutions
 thumbnails = video.thumbnail_urls
@@ -320,12 +380,7 @@ The `Search` and `Extras` classes provide discovery capabilities:
 from webscout import Search, Extras
 
 # Search for videos with advanced options
-video_results = Search.videos(
-    "Python tutorial",
-    limit=5,           # Number of results
-    sort_by="relevance",  # Sort order
-    filter_by="video"     # Filter type
-)
+video_results = Search.videos("Python tutorial", limit=5)
 
 # Search for channels
 channel_results = Search.channels("coding", limit=3)
@@ -333,15 +388,21 @@ channel_results = Search.channels("coding", limit=3)
 # Search for playlists
 playlist_results = Search.playlists("music mix", limit=3)
 
+# New search methods
+shorts = Search.shorts("funny", limit=5)
+live = Search.live_streams("gaming", limit=5)
+long_videos = Search.videos_by_duration("tutorial", duration="long")
+recent = Search.videos_by_upload_date("news", upload_date="today")
+
 # Get trending videos by region
-trending = Extras.trending_videos(
-    limit=10,
-    region="US"  # Country code
-)
+trending = Extras.trending_videos(limit=10, region="US")
 
 # Get category-specific videos
 music = Extras.music_videos(limit=5)
 gaming = Extras.gaming_videos(limit=5)
+shorts = Extras.shorts_videos(limit=5)
+movies = Extras.movies(limit=5)
+podcasts = Extras.podcasts(limit=5)
 ```
 </details>
 
@@ -350,17 +411,24 @@ gaming = Extras.gaming_videos(limit=5)
 | Module | File | Description |
 |--------|------|-------------|
 | **Video Downloader** | [`YTdownloader.py`](YTdownloader.py) | YouTube video downloading with format and quality options |
-| **Transcript Retriever** | [`transcriber.py`](transcriber.py) | Multi-language transcript extraction and translation |
+| **Transcript Retriever** | [`transcriber.py`](transcriber.py) | InnerTube API-based transcript extraction |
 | **Channel Data** | [`ytapi/channel.py`](ytapi/channel.py) | Channel metadata and interaction |
 | **Video Information** | [`ytapi/video.py`](ytapi/video.py) | Video information extraction |
 | **Search** | [`ytapi/query.py`](ytapi/query.py) | Advanced search capabilities |
 | **Trending** | [`ytapi/extras.py`](ytapi/extras.py) | Trending and category-based video retrieval |
 | **Playlists** | [`ytapi/playlist.py`](ytapi/playlist.py) | Playlist metadata extraction |
+| **Captions** | [`ytapi/captions.py`](ytapi/captions.py) | Caption/transcript extraction wrapper |
+| **Suggestions** | [`ytapi/suggestions.py`](ytapi/suggestions.py) | Search autocomplete and trending searches |
+| **Shorts** | [`ytapi/shorts.py`](ytapi/shorts.py) | YouTube Shorts functionality |
+| **Hashtags** | [`ytapi/hashtag.py`](ytapi/hashtag.py) | Hashtag-related video discovery |
 
 ## ⚠️ Disclaimer
 
 > [!WARNING]
 > This toolkit is designed for educational and research purposes only. Please use responsibly and in accordance with YouTube's terms of service. The developers are not responsible for any misuse of this software.
+
+> [!IMPORTANT]
+> Web scraping is inherently fragile. YouTube may change their website structure or API at any time, which could break functionality. If you encounter issues, please report them on GitHub.
 
 ## 🤝 Contributing
 

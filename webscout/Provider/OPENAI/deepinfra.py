@@ -266,6 +266,7 @@ class DeepInfra(OpenAICompatibleProvider):
         "mistralai/Mistral-Small-3.2-24B-Instruct-2506",
         "mistralai/Mixtral-8x7B-Instruct-v0.1",
         "nvidia/Llama-3.1-Nemotron-70B-Instruct",
+        "nvidia/Nemotron-3-Nano-30B-A3B",
         "zai-org/GLM-4.5-Air",
         "zai-org/GLM-4.5",
         "zai-org/GLM-4.5V",

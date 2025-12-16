@@ -28,36 +28,66 @@ class ModelConverter:
     """Handles the conversion of Hugging Face models to GGUF format."""
     
     VALID_METHODS: Dict[str, str] = {
-        "fp16": "16-bit floating point - maximum accuracy, largest size",
-        "bf16": "bfloat16 - good balance for some models",
-        "q2_k": "2-bit quantization (smallest size, lowest accuracy)",
-        "q3_k_l": "3-bit quantization (large) - balanced for size/accuracy",
-        "q3_k_m": "3-bit quantization (medium) - good balance for most use cases",
-        "q3_k_s": "3-bit quantization (small) - optimized for speed",
-        "q4_0": "4-bit quantization (version 0) - standard 4-bit compression",
-        "q4_1": "4-bit quantization (version 1) - improved accuracy over q4_0",
-        "q4_k_m": "4-bit quantization (medium) - balanced for most models",
-        "q4_k_s": "4-bit quantization (small) - optimized for speed",
-        "q5_0": "5-bit quantization (version 0) - high accuracy, larger size",
-        "q5_1": "5-bit quantization (version 1) - improved accuracy over q5_0",
-        "q5_k_m": "5-bit quantization (medium) - best balance for quality/size",
-        "q5_k_s": "5-bit quantization (small) - optimized for speed",
-        "q6_k": "6-bit quantization - highest accuracy, largest size",
-        "q8_0": "8-bit quantization - maximum accuracy, largest size",
-        "tq1_0": "1-bit ternary quantization - experimental, very small size",
-        "tq2_0": "2-bit ternary quantization - experimental, small size"
+        # Full precision types
+        "f32": "32-bit floating point - full precision, largest size",
+        "fp16": "16-bit floating point - maximum accuracy, large size",
+        "f16": "16-bit floating point - alias for fp16",
+        "bf16": "bfloat16 - good balance for training and some models",
+        "auto": "Auto-detect best 16-bit type based on model tensors",
+        # K-Quant types (super-block quantization)
+        "q2_k": "2-bit K-quant (smallest size, lowest accuracy)",
+        "q2_k_s": "2-bit K-quant small - maximum compression",
+        "q3_k_l": "3-bit K-quant large - balanced for size/accuracy",
+        "q3_k_m": "3-bit K-quant medium - good balance for most use cases",
+        "q3_k_s": "3-bit K-quant small - optimized for speed",
+        "q4_0": "4-bit quantization (legacy) - standard 4-bit, auto-repacks for ARM",
+        "q4_1": "4-bit quantization (legacy) - improved accuracy over q4_0",
+        "q4_k_l": "4-bit K-quant large - highest quality 4-bit",
+        "q4_k_m": "4-bit K-quant medium - balanced for most models",
+        "q4_k_s": "4-bit K-quant small - optimized for speed",
+        "q5_0": "5-bit quantization (legacy) - high accuracy",
+        "q5_1": "5-bit quantization (legacy) - improved accuracy over q5_0",
+        "q5_k_l": "5-bit K-quant large - highest quality 5-bit",
+        "q5_k_m": "5-bit K-quant medium - best balance for quality/size",
+        "q5_k_s": "5-bit K-quant small - optimized for speed",
+        "q6_k": "6-bit K-quant - near-lossless quality",
+        "q8_0": "8-bit quantization - near-original quality",
+        # Ternary quantization (experimental)
+        "tq1_0": "1-bit ternary quantization - experimental, extreme compression",
+        "tq2_0": "2-bit ternary quantization - experimental, very small size"
     }
     
     VALID_IMATRIX_METHODS: Dict[str, str] = {
-        "iq3_m": "3-bit imatrix quantization (medium) - balanced importance-based",
-        "iq3_xxs": "3-bit imatrix quantization (extra extra small) - maximum compression",
-        "q4_k_m": "4-bit imatrix quantization (medium) - balanced importance-based",
-        "q4_k_s": "4-bit imatrix quantization (small) - optimized for speed",
-        "iq4_nl": "4-bit imatrix quantization (non-linear) - best accuracy for 4-bit",
-        "iq4_xs": "4-bit imatrix quantization (extra small) - maximum compression",
-        "q5_k_m": "5-bit imatrix quantization (medium) - balanced importance-based",
-        "q5_k_s": "5-bit imatrix quantization (small) - optimized for speed"
+        # 1-bit IQ types (extreme compression, requires imatrix)
+        "iq1_s": "1-bit IQ small - extreme compression, requires imatrix",
+        "iq1_m": "1-bit IQ medium - extreme compression, requires imatrix",
+        # 2-bit IQ types
+        "iq2_xxs": "2-bit IQ extra extra small - maximum compression",
+        "iq2_xs": "2-bit IQ extra small - very high compression",
+        "iq2_s": "2-bit IQ small - high compression",
+        "iq2_m": "2-bit IQ medium - balanced compression",
+        # 3-bit IQ types
+        "iq3_xxs": "3-bit IQ extra extra small - maximum compression",
+        "iq3_xs": "3-bit IQ extra small - high compression",
+        "iq3_s": "3-bit IQ small - balanced compression",
+        "iq3_m": "3-bit IQ medium - balanced importance-based",
+        # 4-bit IQ types
+        "iq4_nl": "4-bit IQ non-linear - best accuracy for 4-bit",
+        "iq4_xs": "4-bit IQ extra small - maximum 4-bit compression",
+        # K-Quant types that benefit from imatrix
+        "q2_k": "2-bit K-quant with imatrix - improved quality",
+        "q2_k_s": "2-bit K-quant small with imatrix",
+        "q3_k_s": "3-bit K-quant small with imatrix",
+        "q3_k_m": "3-bit K-quant medium with imatrix",
+        "q3_k_l": "3-bit K-quant large with imatrix",
+        "q4_k_s": "4-bit K-quant small with imatrix",
+        "q4_k_m": "4-bit K-quant medium with imatrix",
+        "q5_k_s": "5-bit K-quant small with imatrix",
+        "q5_k_m": "5-bit K-quant medium with imatrix",
+        "q6_k": "6-bit K-quant with imatrix"
     }
+    # Default output type options (matches llama.cpp)
+    VALID_OUTTYPES: Set[str] = {"f32", "f16", "bf16", "q8_0", "tq1_0", "tq2_0", "auto"}
     
     def __init__(
         self,
@@ -69,20 +99,36 @@ class ModelConverter:
         train_data_file: Optional[str] = None,
         split_model: bool = False,
         split_max_tensors: int = 256,
-        split_max_size: Optional[str] = None
+        split_max_size: Optional[str] = None,
+        # New llama.cpp options
+        outtype: str = "f16",
+        vocab_only: bool = False,
+        remote: bool = False,
+        dry_run: bool = False,
+        no_lazy: bool = False,
+        model_name: Optional[str] = None,
+        small_first_shard: bool = False
     ) -> None:
         self.model_id = model_id
         self.username = username
         self.token = token
         self.quantization_methods = quantization_methods.split(',')
-        self.model_name = model_id.split('/')[-1]
+        self.model_name = model_name or model_id.split('/')[-1]
         self.workspace = Path(os.getcwd())
         self.use_imatrix = use_imatrix
         self.train_data_file = train_data_file
         self.split_model = split_model
         self.split_max_tensors = split_max_tensors
         self.split_max_size = split_max_size
-        self.fp16_only = "fp16" in self.quantization_methods and len(self.quantization_methods) == 1
+        # New llama.cpp options
+        self.outtype = outtype.lower()
+        self.vocab_only = vocab_only
+        self.remote = remote
+        self.dry_run = dry_run
+        self.no_lazy = no_lazy
+        self.small_first_shard = small_first_shard
+        # Determine if we only need the base conversion (no quantization)
+        self.base_only = self.outtype in self.VALID_OUTTYPES and len(self.quantization_methods) == 1 and self.quantization_methods[0] in ["fp16", "f16", "f32", "bf16", "auto"]
         
     def validate_inputs(self) -> None:
         """Validates all input parameters."""
@@ -108,15 +154,28 @@ class ModelConverter:
             
         if bool(self.username) != bool(self.token):
             raise ValueError("Both username and token must be provided for upload, or neither.")
+        
+        # Validate outtype
+        if self.outtype not in self.VALID_OUTTYPES:
+            raise ValueError(
+                f"Invalid output type: {self.outtype}.\n"
+                f"Valid types are: {', '.join(self.VALID_OUTTYPES)}"
+            )
             
         if self.split_model and self.split_max_size:
             try:
-                size = int(self.split_max_size[:-1])
-                unit = self.split_max_size[-1].upper()
-                if unit not in ['M', 'G']:
-                    raise ValueError("Split max size must end with M or G")
-            except ValueError:
-                raise ValueError("Invalid split max size format. Use format like '256M' or '5G'")
+                # Support K, M, G units (like llama.cpp's split_str_to_n_bytes)
+                if self.split_max_size[-1].upper() in ['K', 'M', 'G']:
+                    size = int(self.split_max_size[:-1])
+                    unit = self.split_max_size[-1].upper()
+                    if unit not in ['K', 'M', 'G']:
+                        raise ValueError("Split max size must end with K, M, or G")
+                elif self.split_max_size.isnumeric():
+                    size = int(self.split_max_size)
+                else:
+                    raise ValueError("Invalid format")
+            except (ValueError, IndexError):
+                raise ValueError("Invalid split max size format. Use format like '256M', '5G', or numeric bytes")
                 
     @staticmethod
     def check_dependencies() -> Dict[str, bool]:
@@ -902,20 +961,32 @@ This repository is licensed under the same terms as the original model.
             
     def _convert_with_dirs(self, tmpdir: str, outdir: str) -> None:
         """Helper method to perform conversion with given directories."""
-        fp16 = str(Path(outdir)/f"{self.model_name}.fp16.gguf")
+        # Use outtype for base filename (e.g., model.f16.gguf, model.bf16.gguf)
+        outtype_suffix = self.outtype if self.outtype != "auto" else "f16"
+        base_gguf = str(Path(outdir)/f"{self.model_name}.{outtype_suffix}.gguf")
         
-        # Download model
+        # Download model (or use remote mode)
         local_dir = Path(tmpdir)/self.model_name
-        console.print("[bold green]Downloading model...")
-        api = HfApi(token=self.token)
-        api.snapshot_download(
-            repo_id=self.model_id,
-            local_dir=local_dir,
-            local_dir_use_symlinks=False
-        )
+        if self.remote:
+            console.print("[bold green]Using remote mode - downloading only config and tokenizer...")
+            api = HfApi(token=self.token)
+            api.snapshot_download(
+                repo_id=self.model_id,
+                local_dir=local_dir,
+                local_dir_use_symlinks=False,
+                allow_patterns=["LICENSE", "*.json", "*.md", "*.txt", "tokenizer.model"]
+            )
+        else:
+            console.print("[bold green]Downloading model...")
+            api = HfApi(token=self.token)
+            api.snapshot_download(
+                repo_id=self.model_id,
+                local_dir=local_dir,
+                local_dir_use_symlinks=False
+            )
         
-        # Convert to fp16
-        console.print("[bold green]Converting to fp16...")
+        # Convert to GGUF with specified outtype
+        console.print(f"[bold green]Converting to {self.outtype}...")
 
         # Find the conversion script
         conversion_scripts = [
@@ -936,12 +1007,32 @@ This repository is licensed under the same terms as the original model.
         # Use the appropriate Python executable
         python_cmd = "python" if platform.system() == "Windows" else "python3"
 
+        # Build conversion command with new llama.cpp options
         convert_cmd = [
             python_cmd, conversion_script,
             str(local_dir),
-            "--outtype", "f16",
-            "--outfile", fp16
+            "--outtype", self.outtype,
+            "--outfile", base_gguf
         ]
+        
+        # Add optional flags based on new llama.cpp features
+        if self.vocab_only:
+            convert_cmd.append("--vocab-only")
+        if self.no_lazy:
+            convert_cmd.append("--no-lazy")
+        if self.dry_run:
+            convert_cmd.append("--dry-run")
+        if self.remote:
+            convert_cmd.extend(["--remote"])
+        if self.model_name:
+            convert_cmd.extend(["--model-name", self.model_name])
+        if self.split_model:
+            if self.split_max_tensors > 0:
+                convert_cmd.extend(["--split-max-tensors", str(self.split_max_tensors)])
+            if self.split_max_size:
+                convert_cmd.extend(["--split-max-size", self.split_max_size])
+        if self.small_first_shard:
+            convert_cmd.append("--no-tensor-first-split")
 
         console.print(f"[cyan]Conversion command: {' '.join(convert_cmd)}")
 
@@ -949,18 +1040,19 @@ This repository is licensed under the same terms as the original model.
             result = subprocess.run(convert_cmd, capture_output=True, text=True)
 
             if result.returncode != 0:
-                raise ConversionError(f"Error converting to fp16: {result.stderr}")
+                raise ConversionError(f"Error converting to {self.outtype}: {result.stderr}")
         except FileNotFoundError as e:
             raise ConversionError(f"Could not execute conversion script: {e}")
 
-        if not os.path.isfile(fp16):
-            raise ConversionError(f"Conversion completed but output file not found: {fp16}")
+        if not os.path.isfile(base_gguf):
+            raise ConversionError(f"Conversion completed but output file not found: {base_gguf}")
 
-        console.print("[green]Model converted to fp16 successfully!")
+        console.print(f"[green]Model converted to {self.outtype} successfully!")
             
-        # If fp16_only is True, we're done after fp16 conversion
-        if self.fp16_only:
-            quantized_files = [f"{self.model_name}.fp16.gguf"]
+        # If base_only is True, we're done after base conversion (no quantization needed)
+        if self.base_only:
+            gguf_filename = f"{self.model_name}.{outtype_suffix}.gguf"
+            quantized_files = [gguf_filename]
             if self.username and self.token:
                 repo_id = f"{self.username}/{self.model_name}-GGUF"
 
@@ -972,17 +1064,16 @@ This repository is licensed under the same terms as the original model.
                 self.upload_readme(readme_content, repo_id)
 
                 # Step 3: Upload model GGUF file
-                file_name = f"{self.model_name}.fp16.gguf"
-                console.print(f"[bold green]Uploading model file: {file_name}")
+                console.print(f"[bold green]Uploading model file: {gguf_filename}")
                 try:
                     api.upload_file(
-                        path_or_fileobj=fp16,
-                        path_in_repo=file_name,
+                        path_or_fileobj=base_gguf,
+                        path_in_repo=gguf_filename,
                         repo_id=repo_id
                     )
-                    console.print(f"[green]✓ Successfully uploaded: {file_name}")
+                    console.print(f"[green]✓ Successfully uploaded: {gguf_filename}")
                 except Exception as e:
-                    console.print(f"[red]✗ Failed to upload {file_name}: {e}")
+                    console.print(f"[red]✗ Failed to upload {gguf_filename}: {e}")
                     raise ConversionError(f"Error uploading model file: {e}")
             return
             
@@ -991,7 +1082,7 @@ This repository is licensed under the same terms as the original model.
         if self.use_imatrix:
             train_data_path = self.train_data_file if self.train_data_file else "llama.cpp/groups_merged.txt"
             imatrix_path = str(Path(outdir)/"imatrix.dat")
-            self.generate_importance_matrix(fp16, train_data_path, imatrix_path)
+            self.generate_importance_matrix(base_gguf, train_data_path, imatrix_path)
         
         # Quantize model
         console.print("[bold green]Quantizing model...")
@@ -1013,12 +1104,12 @@ This repository is licensed under the same terms as the original model.
                 quantize_cmd: List[str] = [
                     quantize_binary,
                     "--imatrix", str(imatrix_path),
-                    fp16, quantized_path, method
+                    base_gguf, quantized_path, method
                 ]
             else:
                 quantize_cmd = [
                     quantize_binary,
-                    fp16, quantized_path, method
+                    base_gguf, quantized_path, method
                 ]
 
             console.print(f"[cyan]Quantization command: {' '.join(quantize_cmd)}")
@@ -1091,7 +1182,7 @@ This repository is licensed under the same terms as the original model.
 app = CLI(
     name="gguf",
     help="Convert HuggingFace models to GGUF format with style! 🔥",
-    version="1.0.0"
+    version="2.0.0"
 )
 
 @app.command(name="convert")
@@ -1099,21 +1190,35 @@ app = CLI(
 @option("-u", "--username", help="Your HuggingFace username for uploads", default=None)
 @option("-t", "--token", help="Your HuggingFace API token for uploads", default=None)
 @option("-q", "--quantization", help="Comma-separated quantization methods", default="q4_k_m")
+@option("-o", "--outtype", help="Output type: f32, f16, bf16, q8_0, tq1_0, tq2_0, auto", default="f16")
 @option("-i", "--use-imatrix", help="Use importance matrix for quantization", is_flag=True)
 @option("--train-data", help="Training data file for imatrix quantization", default=None)
 @option("-s", "--split-model", help="Split the model into smaller chunks", is_flag=True)
 @option("--split-max-tensors", help="Maximum number of tensors per file when splitting", default=256)
 @option("--split-max-size", help="Maximum file size when splitting (e.g., '256M', '5G')", default=None)
+@option("--vocab-only", help="Only extract vocabulary (no model weights)", is_flag=True)
+@option("--remote", help="(Experimental) Read tensors remotely without full download", is_flag=True)
+@option("--dry-run", help="Only print split plan without writing files", is_flag=True)
+@option("--no-lazy", help="Disable lazy evaluation (use more RAM)", is_flag=True)
+@option("--model-name", help="Custom model name override", default=None)
+@option("--small-first-shard", help="Do not add tensors to the first split", is_flag=True)
 def convert_command(
     model_id: str,
     username: Optional[str] = None,
     token: Optional[str] = None,
     quantization: str = "q4_k_m",
+    outtype: str = "f16",
     use_imatrix: bool = False,
     train_data: Optional[str] = None,
     split_model: bool = False,
     split_max_tensors: int = 256,
-    split_max_size: Optional[str] = None
+    split_max_size: Optional[str] = None,
+    vocab_only: bool = False,
+    remote: bool = False,
+    dry_run: bool = False,
+    no_lazy: bool = False,
+    model_name: Optional[str] = None,
+    small_first_shard: bool = False
 ) -> None:
     """
     Convert and quantize HuggingFace models to GGUF format! 🚀
@@ -1122,17 +1227,25 @@ def convert_command(
         model_id (str): Your model's HF ID (like 'OEvortex/HelpingAI-Lite-1.5T') 🎯
         username (str, optional): Your HF username for uploads 👤
         token (str, optional): Your HF API token 🔑
-        quantization (str): Quantization methods (default: q4_k_m,q5_k_m) 🎮
+        quantization (str): Quantization methods (default: q4_k_m) 🎮
+        outtype (str): Output type: f32, f16, bf16, q8_0, tq1_0, tq2_0, auto 📊
         use_imatrix (bool): Use importance matrix for quantization 🔍
         train_data (str, optional): Training data file for imatrix quantization 📚
         split_model (bool): Split the model into smaller chunks 🔪
         split_max_tensors (int): Max tensors per file when splitting (default: 256) 📊
         split_max_size (str, optional): Max file size when splitting (e.g., '256M', '5G') 📏
+        vocab_only (bool): Only extract vocabulary (no model weights) 📖
+        remote (bool): (Experimental) Read tensors remotely without full download 🌐
+        dry_run (bool): Only print split plan without writing files 📝
+        no_lazy (bool): Disable lazy evaluation (use more RAM) 🧠
+        model_name (str, optional): Custom model name override 🏷️
+        small_first_shard (bool): Do not add tensors to the first split 📦
         
     Example:
         >>> python -m webscout.Extra.gguf convert \\
         ...     -m "OEvortex/HelpingAI-Lite-1.5T" \\
-        ...     -q "q4_k_m,q5_k_m"
+        ...     -q "q4_k_m,q5_k_m" \\
+        ...     -o "f16"
     """
     try:
         converter = ModelConverter(
@@ -1144,7 +1257,14 @@ def convert_command(
             train_data_file=train_data,
             split_model=split_model,
             split_max_tensors=split_max_tensors,
-            split_max_size=split_max_size
+            split_max_size=split_max_size,
+            outtype=outtype,
+            vocab_only=vocab_only,
+            remote=remote,
+            dry_run=dry_run,
+            no_lazy=no_lazy,
+            model_name=model_name,
+            small_first_shard=small_first_shard
         )
         converter.convert()
     except (ConversionError, ValueError) as e:

@@ -28,9 +28,7 @@ from .request_processing import (
     process_messages, prepare_provider_params,
     handle_streaming_response, handle_non_streaming_response
 )
-# from .simple_logger import request_logger
 from webscout.search.engines import ENGINES
-from litprinter import ic
 
 class Api:
     """API route handler class."""
@@ -146,6 +144,28 @@ class Api:
                 "object": "list",
                 "data": models
             }
+
+        @self.app.get(
+            "/v1/models/{model}",
+            response_model=dict,
+            tags=["Chat Completions"],
+            description="Retrieve model instance details."
+        )
+        async def retrieve_model(model: str):
+            """Retrieve model instance details."""
+            try:
+                # Check if model resolves to a valid provider/model pair
+                resolve_provider_and_model(model)
+                return {
+                    "id": model,
+                    "object": "model",
+                    "created": int(time.time()),
+                    "owned_by": "webscout"
+                }
+            except APIError:
+                raise
+            except Exception:
+                 raise APIError(f"Model {model} not found", 404, "model_not_found", param="model")
 
         @self.app.get(
             "/v1/providers",

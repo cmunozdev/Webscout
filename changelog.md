@@ -2,6 +2,72 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.12.16] - 2025-12-16
+
+### ✨ Added
+
+- **feat**: webscout/Provider/OPENAI/zenmux.py - Implemented dynamic model list fetching from `https://zenmux.ai/api/v1/models` API endpoint, making it fully compatible with Groq provider pattern
+- **feat**: webscout/Provider/OPENAI/zenmux.py - Added `get_models()` and `update_available_models()` class methods for automatic model discovery and updating AVAILABLE_MODELS on initialization
+
+#### GGUF Converter v2.0 Major Update
+- **feat**: webscout/Extra/gguf.py - Upgraded to version 2.0.0 with latest llama.cpp features
+- **feat**: Added new output types (`--outtype`): `f32`, `f16`, `bf16`, `q8_0`, `tq1_0`, `tq2_0`, `auto`
+- **feat**: Added remote mode (`--remote`) for experimental tensor streaming without full model download
+- **feat**: Added dry run mode (`--dry-run`) to preview split plans without writing files
+- **feat**: Added vocab-only mode (`--vocab-only`) to extract just vocabulary without model weights
+- **feat**: Added no-lazy mode (`--no-lazy`) to disable lazy evaluation for debugging
+- **feat**: Added model name override (`--model-name`) for custom output naming
+- **feat**: Added small first shard (`--small-first-shard`) for metadata-only first split file
+- **feat**: Added new K-quant types: `q2_k_s`, `q4_k_l`, `q5_k_l`
+- **feat**: Added ternary quantization: `tq1_0` (1-bit), `tq2_0` (2-bit) experimental
+- **feat**: Added comprehensive IQ (importance-based) quantization methods:
+  - 1-bit: `iq1_s`, `iq1_m`
+  - 2-bit: `iq2_xxs`, `iq2_xs`, `iq2_s`, `iq2_m`
+  - 3-bit: `iq3_xxs`, `iq3_xs`, `iq3_s`, `iq3_m`
+  - 4-bit: `iq4_nl`, `iq4_xs`
+
+#### GitToolkit Enhancements
+- **feat**: webscout/Extra/GitToolkit/gitapi/search.py - New `GitSearch` class with methods for GitHub Search API: `search_repositories()`, `search_users()`, `search_topics()`, `search_commits()`, `search_issues()`, `search_labels()`
+- **feat**: webscout/Extra/GitToolkit/gitapi/gist.py - New `Gist` class for public gist operations: `get()`, `list_public()`, `list_for_user()`, `get_commits()`, `get_forks()`, `get_revision()`, `get_comments()`
+- **feat**: webscout/Extra/GitToolkit/gitapi/organization.py - New `Organization` class for org data: `get_info()`, `get_repos()`, `get_public_members()`, `get_events()`
+- **feat**: webscout/Extra/GitToolkit/gitapi/trending.py - New `Trending` class for GitHub trending: `get_repositories()`, `get_developers()`
+- **feat**: webscout/Extra/GitToolkit/gitapi/repository.py - Added 9 new methods: `get_readme()`, `get_license()`, `get_topics()`, `get_forks()`, `get_stargazers()`, `get_watchers()`, `compare()`, `get_events()`
+- **feat**: webscout/Extra/GitToolkit/gitapi/user.py - Added 2 new methods: `get_social_accounts()`, `get_packages()`
+
+#### YTToolkit Enhancements
+- **feat**: webscout/Extra/YTToolkit/ytapi/suggestions.py - New `Suggestions` class for YouTube autocomplete: `autocomplete()`, `trending_searches()`
+- **feat**: webscout/Extra/YTToolkit/ytapi/shorts.py - New `Shorts` class for YouTube Shorts: `is_short()`, `get_trending()`, `search()`
+- **feat**: webscout/Extra/YTToolkit/ytapi/hashtag.py - New `Hashtag` class for hashtag videos: `get_videos()`, `get_metadata()`, `extract_from_text()`
+- **feat**: webscout/Extra/YTToolkit/ytapi/captions.py - New `Captions` class for video transcripts: `get_available_languages()`, `get_transcript()`, `get_timed_transcript()`, `search_transcript()`
+- **feat**: webscout/Extra/YTToolkit/ytapi/video.py - Added new properties/methods: `is_live`, `is_short`, `hashtags`, `get_related_videos()`, `get_chapters()`, `stream_comments()`
+- **feat**: webscout/Extra/YTToolkit/ytapi/query.py - Added new search methods: `shorts()`, `live_streams()`, `videos_by_duration()`, `videos_by_upload_date()`
+- **feat**: webscout/Extra/YTToolkit/ytapi/extras.py - Added new trending methods: `shorts_videos()`, `movies()`, `podcasts()`
+
+### 🔧 Improved
+- **refactor**: webscout/Extra/YTToolkit/transcriber.py - Rewrote YTTranscriber to use YouTube's InnerTube API for more reliable transcript fetching, replacing brittle HTML parsing with direct API calls
+  - Uses `/youtubei/v1/player` endpoint for stable data extraction
+  - Added better error handling for IP blocks, bot detection, and age-restricted videos
+  - Fixed caption name parsing for new YouTube format (runs vs simpleText)
+  - Removed problematic `&fmt=srv3` from caption URLs
+  - Added fallback XML parsing for edge cases
+
+### 🔧 Maintenance
+- **refactor**: webscout/Extra/GitToolkit/gitapi/__init__.py - Updated exports to include new classes
+- **refactor**: webscout/Extra/YTToolkit/ytapi/__init__.py - Updated exports to include new classes
+- **docs**: webscout/Extra/GitToolkit/gitapi/README.md - Updated documentation with all new features and examples
+- **docs**: webscout/Extra/YTToolkit/README.md - Updated documentation with all new features and examples
+- **refactor**: webscout/Extra/gguf.py - Updated conversion logic to use dynamic outtype instead of hardcoded f16
+- **refactor**: webscout/Extra/gguf.py - Improved split size validation to support K, M, G units matching llama.cpp
+- **refactor**: webscout/Extra/gguf.py - Added outtype validation against VALID_OUTTYPES set
+- **docs**: Moved webscout/Extra/gguf.md → docs/gguf.md for better documentation organization
+- **docs**: docs/gguf.md - Complete rewrite for v2.0 with all new features, examples, and troubleshooting
+
+### 🚮 Removed
+- **removed**: webscout/Extra/autocoder/ - Completely removed AutoCoder package directory and all its files.
+- **refactor**: webscout/AIutel.py - Removed AutoCoder import.
+- **refactor**: webscout/Extra/__init__.py - Removed AutoCoder import.
+
+
 ## [2025.12.09] - 2025-12-09
 
 ### ✨ Added

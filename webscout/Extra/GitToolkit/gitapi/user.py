@@ -99,3 +99,28 @@ class User:
         """Get user's public GPG keys"""
         url = f"{self.base_url}/gpg_keys"
         return request(url)
+
+    def get_social_accounts(self) -> List[Dict[str, Any]]:
+        """
+        Get user's social accounts.
+        
+        Returns:
+            List of social accounts with provider and url
+        """
+        url = f"{self.base_url}/social_accounts"
+        return request(url)
+
+    def get_packages(self, package_type: str = "container", page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
+        """
+        Get user's public packages.
+        
+        Args:
+            package_type: Type of package (container, npm, maven, rubygems, nuget, docker)
+            page: Page number
+            per_page: Results per page (max 100)
+            
+        Returns:
+            List of user's packages
+        """
+        url = f"{self.base_url}/packages?package_type={package_type}&page={page}&per_page={per_page}"
+        return request(url)

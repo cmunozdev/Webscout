@@ -50,7 +50,6 @@ from webscout.Provider.OPENAI.e2b import E2B
 from webscout.Provider.OPENAI.elmo import Elmo
 from webscout.Provider.OPENAI.exaai import ExaAI
 from webscout.Provider.OPENAI.exachat import ExaChat
-from webscout.Provider.OPENAI.flowith import Flowith
 from webscout.Provider.OPENAI.groq import Groq
 from webscout.Provider.OPENAI.heckai import HeckAI
 from webscout.Provider.OPENAI.ibm import IBM
@@ -67,6 +66,7 @@ from webscout.Provider.OPENAI.wisecat import WiseCat
 from webscout.Provider.OPENAI.writecream import Writecream
 from webscout.Provider.OPENAI.x0gpt import X0GPT
 from webscout.Provider.OPENAI.yep import YEPCHAT
+from webscout.Provider.OPENAI.zenmux import Zenmux
 
 # List of all exported names
 __all__ = [
@@ -115,7 +115,6 @@ __all__ = [
     "Elmo",
     "ExaAI",
     "ExaChat",
-    "Flowith",
     "Groq",
     "HeckAI",
     "IBM",
@@ -132,4 +131,5 @@ __all__ = [
     "Writecream",
     "X0GPT",
     "YEPCHAT",
+    "Zenmux",
 ]

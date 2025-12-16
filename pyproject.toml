@@ -9,16 +9,16 @@ dynamic = ["version"]
 description = "Search for anything using Google, DuckDuckGo, phind.com, Contains AI models, can transcribe yt videos, temporary email and phone number generation, has TTS support, webai (terminal gpt and open interpreter) and offline LLMs and more"
 readme = "README.md"
 authors = [
-    {name = "OEvortex", email = "helpingai5@gmail.com"}
+    {name = "OEvortex", email = "koulabhay26@gmail.com"}
 ]
 requires-python = ">=3.9"
-license = {text = "HelpingAI"}
+license = {text = "Apache-2.0"}
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "Intended Audience :: Developers",
     "Intended Audience :: End Users/Desktop",
     "Intended Audience :: Science/Research",
-    "License :: Other/Proprietary License",
+    "License :: OSI Approved :: Apache Software License",
     "Natural Language :: English",
     "Operating System :: OS Independent",
     "Operating System :: Microsoft :: Windows",
@@ -69,7 +69,6 @@ dependencies = [
     "psutil",
     "aiohttp",
     "zstandard",
-    "litproxy",
     "litprinter",
 ]
 
@@ -96,7 +95,8 @@ api = [
     "tiktoken",  # Added tiktoken for token counting support
     "jinja2",  # Template engine for custom Swagger UI
     "websockets>=11.0",
-    "starlette"
+    "starlette",
+    "regex"
 ]
 
 [tool.setuptools]

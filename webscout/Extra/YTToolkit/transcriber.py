@@ -13,12 +13,17 @@ from xml.etree import ElementTree
 import re 
 import html  
 from typing import List, Dict, Union, Optional  
-from functools import lru_cache  #
+from functools import lru_cache
 from concurrent.futures import ThreadPoolExecutor  
 from webscout.exceptions import *  
+from webscout.litagent import LitAgent
 
+# YouTube API settings
 WATCH_URL = 'https://www.youtube.com/watch?v={video_id}'
-MAX_WORKERS = 4 
+INNERTUBE_API_URL = "https://www.youtube.com/youtubei/v1/player?key={api_key}"
+INNERTUBE_CONTEXT = {"client": {"clientName": "ANDROID", "clientVersion": "20.10.38"}}
+MAX_WORKERS = 4
+
 
 class YTTranscriber:
     """Transcribe YouTube videos with style! 🎤
@@ -36,7 +41,7 @@ class YTTranscriber:
         if cls._session is None:
             cls._session = requests.Session()
             cls._session.headers.update({
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+                'User-Agent': LitAgent().random()
             })
         return cls._session
 
@@ -52,7 +57,7 @@ class YTTranscriber:
         Args:
             video_url (str): YouTube video URL (supports various formats).
             languages (str, optional): Language code for the transcript.
-                                    If None, fetches the auto-generated transcript.
+                                    If None, fetches the first available transcript.
                                     Defaults to 'en'.
             proxies (Dict[str, str], optional): Proxies to use for the request. Defaults to None.
             cookies (str, optional): Path to the cookie file. Defaults to None.
@@ -88,7 +93,8 @@ class YTTranscriber:
         patterns = [
             r'(?:v=|\/)([0-9A-Za-z_-]{11}).*',
             r'youtu\.be\/([0-9A-Za-z_-]{11})',
-            r'youtube\.com\/embed\/([0-9A-Za-z_-]{11})'
+            r'youtube\.com\/embed\/([0-9A-Za-z_-]{11})',
+            r'youtube\.com\/shorts\/([0-9A-Za-z_-]{11})'
         ]
         
         for pattern in patterns:
@@ -111,8 +117,9 @@ class YTTranscriber:
         except (cookiejar.LoadError, FileNotFoundError):
             raise CookiePathInvalidError(video_id)
 
+
 class TranscriptListFetcher:
-    """Fetches the list of transcripts for a YouTube video."""
+    """Fetches the list of transcripts for a YouTube video using InnerTube API."""
 
     def __init__(self, http_client: requests.Session):
         """Initializes TranscriptListFetcher."""
@@ -120,51 +127,90 @@ class TranscriptListFetcher:
 
     def fetch(self, video_id: str):
         """Fetches and returns a TranscriptList."""
+        captions_json = self._fetch_captions_json(video_id)
         return TranscriptList.build(
             self._http_client,
             video_id,
-            self._extract_captions_json(self._fetch_video_html(video_id), video_id),
+            captions_json,
         )
 
-    def _extract_captions_json(self, html: str, video_id: str) -> dict:
-        """Extracts the captions JSON data from the video's HTML."""
-        splitted_html = html.split('"captions":')
+    def _fetch_captions_json(self, video_id: str) -> dict:
+        """Fetches captions JSON using InnerTube API."""
+        # First get the HTML to extract the API key
+        video_html = self._fetch_video_html(video_id)
+        api_key = self._extract_innertube_api_key(video_html, video_id)
+        
+        # Use InnerTube API to get video data
+        innertube_data = self._fetch_innertube_data(video_id, api_key)
+        return self._extract_captions_from_innertube(innertube_data, video_id)
 
-        if len(splitted_html) <= 1:
-            if video_id.startswith('http://') or video_id.startswith('https://'):
-                raise InvalidVideoIdError(video_id)
-            if 'class="g-recaptcha"' in html:
-                raise TooManyRequestsError(video_id)
-            if '"playabilityStatus":' not in html:
+    def _extract_innertube_api_key(self, html_content: str, video_id: str) -> str:
+        """Extracts the InnerTube API key from HTML."""
+        pattern = r'"INNERTUBE_API_KEY":\s*"([a-zA-Z0-9_-]+)"'
+        match = re.search(pattern, html_content)
+        if match and len(match.groups()) == 1:
+            return match.group(1)
+        
+        # Check for IP block
+        if 'class="g-recaptcha"' in html_content:
+            raise TooManyRequestsError(video_id)
+        
+        raise TranscriptRetrievalError(video_id, "Could not extract InnerTube API key")
+
+    def _fetch_innertube_data(self, video_id: str, api_key: str) -> dict:
+        """Fetches video data from InnerTube API."""
+        response = self._http_client.post(
+            INNERTUBE_API_URL.format(api_key=api_key),
+            json={
+                "context": INNERTUBE_CONTEXT,
+                "videoId": video_id,
+            },
+        )
+        return _raise_http_errors(response, video_id).json()
+
+    def _extract_captions_from_innertube(self, innertube_data: dict, video_id: str) -> dict:
+        """Extracts captions JSON from InnerTube API response."""
+        # Check playability status
+        playability_status = innertube_data.get("playabilityStatus", {})
+        status = playability_status.get("status")
+        
+        if status == "ERROR":
+            reason = playability_status.get("reason", "Unknown error")
+            if "unavailable" in reason.lower():
                 raise VideoUnavailableError(video_id)
-
+            raise TranscriptRetrievalError(video_id, reason)
+        
+        if status == "LOGIN_REQUIRED":
+            reason = playability_status.get("reason", "")
+            if "bot" in reason.lower():
+                raise TooManyRequestsError(video_id)
+            if "age" in reason.lower() or "inappropriate" in reason.lower():
+                raise TranscriptRetrievalError(video_id, "Video is age-restricted")
+            raise TranscriptRetrievalError(video_id, reason or "Login required")
+        
+        # Get captions
+        captions = innertube_data.get("captions", {})
+        captions_json = captions.get("playerCaptionsTracklistRenderer")
+        
+        if captions_json is None or "captionTracks" not in captions_json:
             raise TranscriptsDisabledError(video_id)
-
-        captions_json = json.loads(
-            splitted_html[1].split(',"videoDetails')[0].replace('\n', '')
-        ).get('playerCaptionsTracklistRenderer')
-        if captions_json is None:
-            raise TranscriptsDisabledError(video_id)
-
-        if 'captionTracks' not in captions_json:
-            raise TranscriptsDisabledError(video_id)
-
+        
         return captions_json
 
-    def _create_consent_cookie(self, html, video_id):
-        match = re.search('name="v" value="(.*?)"', html)
+    def _create_consent_cookie(self, html_content, video_id):
+        match = re.search('name="v" value="(.*?)"', html_content)
         if match is None:
             raise FailedToCreateConsentCookieError(video_id)
         self._http_client.cookies.set('CONSENT', 'YES+' + match.group(1), domain='.youtube.com')
 
     def _fetch_video_html(self, video_id):
-        html = self._fetch_html(video_id)
-        if 'action="https://consent.youtube.com/s"' in html:
-            self._create_consent_cookie(html, video_id)
-            html = self._fetch_html(video_id)
-            if 'action="https://consent.youtube.com/s"' in html:
+        html_content = self._fetch_html(video_id)
+        if 'action="https://consent.youtube.com/s"' in html_content:
+            self._create_consent_cookie(html_content, video_id)
+            html_content = self._fetch_html(video_id)
+            if 'action="https://consent.youtube.com/s"' in html_content:
                 raise FailedToCreateConsentCookieError(video_id)
-        return html
+        return html_content
 
     def _fetch_html(self, video_id):
         response = self._http_client.get(WATCH_URL.format(video_id=video_id), headers={'Accept-Language': 'en-US'})
@@ -195,17 +241,29 @@ class TranscriptList:
         :type http_client: requests.Session
         :param video_id: the id of the video this TranscriptList is for
         :type video_id: str
-        :param captions_json: the JSON parsed from the YouTube pages static HTML
+        :param captions_json: the JSON parsed from the YouTube API
         :type captions_json: dict
         :return: the created TranscriptList
         :rtype TranscriptList:
         """
-        translation_languages = [
-            {
-                'language': translation_language['languageName']['simpleText'],
-                'language_code': translation_language['languageCode'],
-            } for translation_language in captions_json.get('translationLanguages', [])
-        ]
+        # Handle both old format (simpleText) and new format (runs)
+        translation_languages = []
+        for tl in captions_json.get('translationLanguages', []):
+            lang_name = tl.get('languageName', {})
+            if isinstance(lang_name, dict):
+                # Try new format first (runs), then old format (simpleText)
+                if 'runs' in lang_name:
+                    name = lang_name['runs'][0]['text']
+                elif 'simpleText' in lang_name:
+                    name = lang_name['simpleText']
+                else:
+                    name = tl.get('languageCode', 'Unknown')
+            else:
+                name = str(lang_name)
+            translation_languages.append({
+                'language': name,
+                'language_code': tl['languageCode'],
+            })
 
         manually_created_transcripts = {}
         generated_transcripts = {}
@@ -216,11 +274,26 @@ class TranscriptList:
             else:
                 transcript_dict = manually_created_transcripts
 
+            # Extract caption name - handle both formats
+            caption_name = caption.get('name', {})
+            if isinstance(caption_name, dict):
+                if 'runs' in caption_name:
+                    name = caption_name['runs'][0]['text']
+                elif 'simpleText' in caption_name:
+                    name = caption_name['simpleText']
+                else:
+                    name = caption.get('languageCode', 'Unknown')
+            else:
+                name = str(caption_name) if caption_name else caption.get('languageCode', 'Unknown')
+
+            # Remove &fmt=srv3 from URL as it can cause issues
+            base_url = caption['baseUrl'].replace("&fmt=srv3", "")
+
             transcript_dict[caption['languageCode']] = Transcript(
                 http_client,
                 video_id,
-                caption['baseUrl'],
-                caption['name']['simpleText'],
+                base_url,
+                name,
                 caption['languageCode'],
                 caption.get('kind', '') == 'asr',
                 translation_languages if caption.get('isTranslatable', False) else [],
@@ -239,7 +312,7 @@ class TranscriptList:
     def find_transcript(self, language_codes):
         """
         Finds a transcript for a given language code. If no language is provided, it will
-        return the auto-generated transcript.
+        return the first available transcript.
 
         :param language_codes: A list of language codes in a descending priority. 
         :type languages: list[str]
@@ -247,6 +320,9 @@ class TranscriptList:
         :rtype Transcript:
         :raises: NoTranscriptFound
         """
+        if not language_codes:
+            language_codes = ['any']
+
         if 'any' in language_codes:
             for transcript in self:
                 return transcript
@@ -261,9 +337,12 @@ class TranscriptList:
         it fails to do so.
         :type languages: list[str]
         :return: the found Transcript
-        :rtype Transcript:
+        :rtype Transcript:  
         :raises: NoTranscriptFound
         """
+        if not language_codes:
+            language_codes = ['any']
+
         if 'any' in language_codes:
             for transcript in self:
                 if transcript.is_generated:
@@ -279,9 +358,11 @@ class TranscriptList:
         it fails to do so.
         :type languages: list[str]
         :return: the found Transcript
-        :rtype Transcript:
+        :rtype Transcript:  
         :raises: NoTranscriptFound
         """
+        if not language_codes:
+            language_codes = ['any']
         return self._find_transcript(language_codes, [self._manually_created_transcripts])
 
     def _find_transcript(self, language_codes, transcript_dicts):
@@ -447,20 +528,45 @@ class TranscriptParser:
 
     def parse(self, plain_data):
         """Parse that XML data into something beautiful! ✨"""
-        return [
-            {
-                'text': re.sub(self._html_regex, '', html.unescape(xml_element.text)),
-                'start': float(xml_element.attrib['start']),
-                'duration': float(xml_element.attrib.get('dur', '0.0')),
-            }
-            for xml_element in ElementTree.fromstring(plain_data)
-            if xml_element.text is not None
-        ]
+        try:
+            return [
+                {
+                    'text': re.sub(self._html_regex, '', html.unescape(xml_element.text or '')),
+                    'start': float(xml_element.attrib['start']),
+                    'duration': float(xml_element.attrib.get('dur', '0.0')),
+                }
+                for xml_element in ElementTree.fromstring(plain_data)
+                if xml_element.text is not None
+            ]
+        except ElementTree.ParseError as e:
+            # If XML parsing fails, try to extract text manually
+            return self._fallback_parse(plain_data)
+    
+    def _fallback_parse(self, plain_data):
+        """Fallback parsing method if XML parsing fails."""
+        results = []
+        # Try regex pattern matching
+        pattern = r'<text start="([^"]+)" dur="([^"]+)"[^>]*>([^<]*)</text>'
+        matches = re.findall(pattern, plain_data, re.DOTALL)
+        
+        for start, dur, text in matches:
+            text = html.unescape(text)
+            text = re.sub(self._html_regex, '', text)
+            if text.strip():
+                results.append({
+                    'text': text.strip(),
+                    'start': float(start),
+                    'duration': float(dur),
+                })
+        
+        return results
 
 
 def _raise_http_errors(response, video_id):
     """Handle those HTTP errors with style! 🛠️"""
     try:
+        if response.status_code == 429:
+            raise TooManyRequestsError(video_id)
         response.raise_for_status()
         return response
     except requests.exceptions.HTTPError as error:
@@ -473,4 +579,4 @@ if __name__ == "__main__":
     video_url = "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
     transcript = YTTranscriber.get_transcript(video_url, languages=None)
     print("Here's what we got! 🔥")
-    print(transcript)
+    print(transcript[:5])
