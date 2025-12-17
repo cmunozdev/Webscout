@@ -2,11 +2,19 @@
 
 All notable changes to this project will be documented in this file.
 
+
+## [2025.12.17] - 2025-12-17
+
+### ✨ Added
+
+- **feat**: webscout/Provider/OPENAI/freeassist.py - New OpenAI-compatible FreeAssist provider using FreeAssist.ai API with access to multiple AI models including gemini 2.5 flash and flash lite and GPT-5-nano and GPT-5-mini
+- **feat**: webscout/Provider/OPENAI/freeassist.py - Supports both streaming and non-streaming modes with proper SSE parsing
+- **feat**: webscout/Provider/OPENAI/zenmux.py - Implemented dynamic model list fetching from `https://zenmux.ai/api/v1/models` API endpoint, making it fully compatible with Groq provider pattern
+
 ## [2025.12.16] - 2025-12-16
 
 ### ✨ Added
 
-- **feat**: webscout/Provider/OPENAI/zenmux.py - Implemented dynamic model list fetching from `https://zenmux.ai/api/v1/models` API endpoint, making it fully compatible with Groq provider pattern
 - **feat**: webscout/Provider/OPENAI/zenmux.py - Added `get_models()` and `update_available_models()` class methods for automatic model discovery and updating AVAILABLE_MODELS on initialization
 
 #### GGUF Converter v2.0 Major Update
