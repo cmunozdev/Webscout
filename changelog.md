@@ -7,9 +7,38 @@ All notable changes to this project will be documented in this file.
 
 ### ✨ Added
 
-- **feat**: webscout/Provider/OPENAI/freeassist.py - New OpenAI-compatible FreeAssist provider using FreeAssist.ai API with access to multiple AI models including gemini 2.5 flash and flash lite and GPT-5-nano and GPT-5-mini
+### 🚮 Removed
+- **removed**: webscout/Provider/Nemotron.py - Removed Nemotron provider as the file doesn't exist and was causing import errors
+- **removed**: References to NEMOTRON from webscout/Provider/__init__.py
+- **removed**: Nemotron entry from Provider.md documentation
+
+- **feat**: webscout/Provider/OPENAI/gradient.py - New OpenAI-compatible Gradient Network provider for accessing distributed GPU clusters with models GPT OSS 120B and Qwen3 235B
+- **feat**: webscout/Provider/OPENAI/gradient.py - Supports both streaming and non-streaming modes with thinking/reasoning capability
+- **feat**: webscout/Provider/OPENAI/gradient.py - Auto-detection of cluster mode per model (nvidia for GPT OSS 120B, hybrid for Qwen3 235B)
+- **feat**: webscout/Provider/freeassist.py - New OpenAI-compatible FreeAssist provider using FreeAssist.ai API with access to multiple AI models including gemini 2.5 flash and flash lite and GPT-5-nano and GPT-5-mini
+- **feat**: webscout/Provider/OPENAI/sambanova.py - New OpenAI-compatible Sambanova provider supporting Llama 3.1/3.3, Qwen, and DeepSeek models with streaming capabilities
+- **feat**: webscout/Provider/OPENAI/meta.py - New OpenAI-compatible Meta AI provider with web authentication, optional Facebook login, and streaming support
+
+### 🔧 Improved
+
+- **refactor**: webscout/Provider/Gradient.py - Major rewrite with correct headers matching actual API, proper SSE response parsing for content/reasoningContent
+- **refactor**: webscout/Provider/Gradient.py - Now uses sanitize_stream with custom _gradient_extractor following the pattern of other providers
+- **refactor**: webscout/Provider/Gradient.py - Added MODEL_CLUSTERS mapping for auto-detection of cluster mode (nvidia for GPT, hybrid for Qwen3)
+- **refactor**: webscout/Provider/Gradient.py - Updated model names to use spaces (GPT OSS 120B, Qwen3 235B) matching API format
 - **feat**: webscout/Provider/OPENAI/freeassist.py - Supports both streaming and non-streaming modes with proper SSE parsing
 - **feat**: webscout/Provider/OPENAI/zenmux.py - Implemented dynamic model list fetching from `https://zenmux.ai/api/v1/models` API endpoint, making it fully compatible with Groq provider pattern
+- **refactor**: webscout/Provider/TextPollinationsAI.py - Switched to requests library and implemented proper non-streaming support via `stream=False` to match API behavior
+- **fix**: webscout/Provider/OPENAI/textpollinations.py - Fixed duplicate code blocks and syntax errors, ensuring proper class structure and dynamic model fetching
+
+### 🚮 Removed
+- **removed**: webscout/Provider/OPENAI/FreeGemini.py - Removed FreeGemini provider due to service deprecation
+- **removed**: webscout/Provider/OpenGPT.py - Removed OpenGPT provider from the project
+
+### 🔧 Maintenance
+- **refactor**: webscout/Provider/OPENAI/DeepAI.py - Implemented dynamic model fetching using `get_models()` and `update_available_models()` class methods following Cerebras provider pattern
+- **refactor**: webscout/Provider/OPENAI/textpollinations.py - Implemented dynamic model fetching using `get_models()` and `update_available_models()` class methods following Cerebras provider pattern
+- **refactor**: webscout/Provider/TTI/together.py - Implemented dynamic model fetching using `get_models()` and `update_available_models()` class methods following Cerebras provider pattern
+- **docs**: Updated provider documentation to reflect consistent dynamic model fetching implementation across providers
 
 ## [2025.12.16] - 2025-12-16
 
@@ -231,7 +260,6 @@ All notable changes to this project will be documented in this file.
 ## [2025.11.21] - 2025-11-21
 
 ### 🐛 Fixed
- - **fix**: FreeGemini.py - Fixed `TypeError: Session.request() got an unexpected keyword argument 'impersonate'` by overriding the parent class's `requests.Session` with `curl_cffi.requests.Session` to support browser impersonation for bypassing bot detection
  - **fix**: IBM.py - Fixed typo in `refresh_identity` method where `s-elf.headers` was incorrectly used instead of `self.headers`
  - **fix**: AIauto.py - Fixed critical bug where `chat` method could return a generator when `stream=False`, causing `AssertionError` in providers like AI4Chat
  - **fix**: AIauto.py - Added proper handling for providers that return generators even in non-streaming mode by consuming the generator to extract the return value
@@ -392,3 +420,12 @@ All notable changes to this project will be documented in this file.
 ---
 
 For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
+
+For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
+
+
+
+For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
+
+
+

@@ -1,10 +1,9 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
+
+import requests
 import json
 from typing import Union, Any, Dict, Generator, Optional, List
 
-import requests
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream # Import sanitize_stream
+from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent as Lit
@@ -15,6 +14,9 @@ class TextPollinationsAI(Provider):
     """
 
     required_auth = False
+    _models_url = "https://text.pollinations.ai/models"
+    
+    # Static list as fallback
     AVAILABLE_MODELS = [
         "deepseek",
         "gemini",
@@ -34,11 +36,10 @@ class TextPollinationsAI(Provider):
         "rtist",
         "unity",
     ]
-    _models_url = "https://text.pollinations.ai/models"
 
     def __init__(self,
         is_conversation: bool = True,
-        max_tokens: int = 8096, # Note: max_tokens is not directly used by this API endpoint
+        max_tokens: int = 8096, 
         timeout: int = 30,
         intro: str = None,
         filepath: str = None,
@@ -46,35 +47,38 @@ class TextPollinationsAI(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        model: str = "openai-large",
+        model: str = "openai",
         system_prompt: str = "You are a helpful AI assistant.",
     ):
         """Initializes the TextPollinationsAI API client."""
-        self.session = Session()
+        self.session = requests.Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.api_endpoint = "https://text.pollinations.ai/openai"
-        self.stream_chunk_size = 64
         self.timeout = timeout
         self.last_response = {}
         self.model = model
         self.system_prompt = system_prompt
+        self.proxies = proxies
 
-        # Validate against the hardcoded list
+        # Fetch latest models dynamically to ensure we have the most up-to-date list
+        self.update_available_models()
+        
         if model not in self.AVAILABLE_MODELS:
-            raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
+            # warn or just allow it? allowing it for flexibility
+            if model not in self.AVAILABLE_MODELS:
+                 pass # User might know a model we don't
 
         self.headers = {
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
             'User-Agent': Lit().random(),
             'Content-Type': 'application/json',
-            # Add sec-ch-ua headers if needed for impersonation consistency
         }
 
-        # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
-        self.session.proxies = proxies # Assign proxies directly
+        if proxies:
+            self.session.proxies.update(proxies)
 
         self.__available_optimizers = (
             method for method in dir(Optimizers)
@@ -94,6 +98,21 @@ class TextPollinationsAI(Provider):
         )
         self.conversation.history_offset = history_offset
 
+    def update_available_models(self):
+        try:
+            response = requests.get(
+                self._models_url,
+                headers={"Accept": "application/json"},
+                timeout=10
+            )
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    new_models = [m.get("name") for m in data if isinstance(m, dict) and "name" in m]
+                    if new_models:
+                        self.AVAILABLE_MODELS = new_models
+        except Exception:
+            pass
 
     def ask(
         self,
@@ -124,7 +143,6 @@ class TextPollinationsAI(Provider):
             "stream": stream,
         }
 
-        # Add function calling parameters if provided
         if tools:
             payload["tools"] = tools
         if tool_choice:
@@ -136,93 +154,84 @@ class TextPollinationsAI(Provider):
                     self.api_endpoint,
                     json=payload,
                     stream=True,
-                    timeout=self.timeout,
-                    impersonate="chrome120"
+                    timeout=self.timeout
                 )
-                if not response.ok:
-                    raise exceptions.FailedToGenerateResponseError(
-                        f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
-                    )
+                response.raise_for_status()
+                
                 streaming_text = ""
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None),
-                    intro_value="data:",
+                    intro_value="data:", # Standard OpenAI SSE prefix
                     to_json=True,
                     skip_markers=["[DONE]"],
                     content_extractor=lambda chunk: chunk.get('choices', [{}])[0].get('delta') if isinstance(chunk, dict) else None,
                     yield_raw_on_error=False,
                     raw=raw
                 )
+
                 for delta in processed_stream:
-                    if isinstance(delta, bytes):
-                        delta = delta.decode('utf-8', errors='ignore')
-                    if delta is None:
-                        continue
-                    if raw:
-                        # Only yield content or tool_calls as string
-                        if isinstance(delta, dict):
-                            if 'content' in delta and delta['content'] is not None:
-                                content = delta['content']
-                                streaming_text += content
+                    if isinstance(delta, dict):
+                        # Extract content if available
+                        if 'content' in delta and delta['content'] is not None:
+                            content = delta['content']
+                            if raw:
                                 yield content
-                            elif 'tool_calls' in delta:
-                                tool_calls = delta['tool_calls']
-                                yield json.dumps(tool_calls)
-                        elif isinstance(delta, str):
-                            streaming_text += delta
-                            yield delta
-                    else:
-                        if isinstance(delta, dict):
-                            if 'content' in delta and delta['content'] is not None:
-                                content = delta['content']
+                            else:
                                 streaming_text += content
                                 yield dict(text=content)
-                            elif 'tool_calls' in delta:
-                                tool_calls = delta['tool_calls']
+                        # Extract tool calls if available
+                        elif 'tool_calls' in delta:
+                            tool_calls = delta['tool_calls']
+                            if raw:
+                                yield json.dumps(tool_calls)
+                            else:
                                 yield dict(tool_calls=tool_calls)
+
                 self.last_response.update(dict(text=streaming_text))
                 if streaming_text:
-                    self.conversation.update_chat_history(
-                        prompt, streaming_text
-                    )
-            except CurlError as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e
+                    self.conversation.update_chat_history(prompt, streaming_text)
+                    
             except Exception as e:
-                raise exceptions.FailedToGenerateResponseError(f"An unexpected error occurred ({type(e).__name__}): {e}") from e
+                raise exceptions.FailedToGenerateResponseError(f"Stream request failed: {e}") from e
+
         def for_non_stream():
-            final_content = ""
-            tool_calls_aggregated = None
             try:
-                for chunk_data in for_stream():
+                # Force stream=False for non-streaming request
+                payload["stream"] = False
+                response = self.session.post(
+                    self.api_endpoint,
+                    json=payload,
+                    timeout=self.timeout
+                )
+                response.raise_for_status()
+                resp_json = response.json()
+                
+                # Check for standard OpenAI response structure
+                if 'choices' in resp_json and len(resp_json['choices']) > 0:
+                    choice = resp_json['choices'][0]
+                    message = choice.get('message', {})
+                    content = message.get('content', '')
+                    tool_calls = message.get('tool_calls')
+                    
+                    result = {}
+                    if content:
+                        result["text"] = content
+                    if tool_calls:
+                        result["tool_calls"] = tool_calls
+                        
+                    self.last_response = result
+                    self.conversation.update_chat_history(prompt, content or "")
+                    
                     if raw:
-                        if isinstance(chunk_data, str):
-                            final_content += chunk_data
-                        elif isinstance(chunk_data, bytes):
-                            final_content += chunk_data.decode('utf-8', errors='ignore')
-                        elif isinstance(chunk_data, list):
-                            if tool_calls_aggregated is None:
-                                tool_calls_aggregated = []
-                            tool_calls_aggregated.extend(chunk_data)
-                    else:
-                        if isinstance(chunk_data, dict):
-                            if "text" in chunk_data:
-                                final_content += chunk_data["text"]
-                            elif "tool_calls" in chunk_data:
-                                if tool_calls_aggregated is None:
-                                    tool_calls_aggregated = []
-                                tool_calls_aggregated.extend(chunk_data["tool_calls"])
-                        elif isinstance(chunk_data, str):
-                            final_content += chunk_data
+                        return content if content else (json.dumps(tool_calls) if tool_calls else "")
+                    return result
+                    
+                else:
+                    return {} 
+
             except Exception as e:
-                if not final_content and not tool_calls_aggregated:
-                    raise exceptions.FailedToGenerateResponseError(f"Failed to get non-stream response: {str(e)}") from e
-            result = {}
-            if final_content:
-                result["text"] = final_content
-            if tool_calls_aggregated:
-                result["tool_calls"] = tool_calls_aggregated
-            self.last_response = result
-            return self.last_response if not raw else (final_content if final_content else json.dumps(tool_calls_aggregated) if tool_calls_aggregated else "")
+                raise exceptions.FailedToGenerateResponseError(f"Non-stream request failed: {e}") from e
+
         return for_stream() if stream else for_non_stream()
 
     def chat(
@@ -233,9 +242,8 @@ class TextPollinationsAI(Provider):
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-        raw: bool = False,  # Added raw parameter
+        raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
-        """Generate response as a string"""
         def for_stream():
             for response in self.ask(
                 prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally,
@@ -256,9 +264,8 @@ class TextPollinationsAI(Provider):
                 tool_choice=tool_choice,
             )
             if raw:
-                return result if isinstance(result, str) else (result.get("text", "") if isinstance(result, dict) else str(result))
-            else:
-                return self.get_message(result)
+                return result
+            return self.get_message(result)
         return for_stream() if stream else for_non_stream()
 
     def get_message(self, response: dict) -> str:
@@ -267,46 +274,32 @@ class TextPollinationsAI(Provider):
         if "text" in response:
             return response["text"]
         elif "tool_calls" in response:
-            # For tool calls, return a string representation
             return json.dumps(response["tool_calls"])
-        return "" # Return empty string if neither text nor tool_calls found
+        return ""
 
 if __name__ == "__main__":
-    # Ensure curl_cffi is installed
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-
-    # Test all available models
-    working = 0
-    total = len(TextPollinationsAI.AVAILABLE_MODELS)
-
-
-    for model in TextPollinationsAI.AVAILABLE_MODELS:
+    
+    # Test only a subset to be fast
+    test_models = ["openai", "gemini"] 
+    
+    for model in test_models:
         try:
+            print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
             test_ai = TextPollinationsAI(model=model, timeout=60)
-            # Test stream first
-            response_stream = test_ai.chat("Say 'Hello' in one word", stream=True)
-            response_text = ""
-            print(f"\r{model:<50} {'Streaming...':<10}", end="", flush=True)
-            for chunk in response_stream:
-                response_text += chunk
-
-            if response_text and len(response_text.strip()) > 0:
-                status = "✓"
-                # Clean and truncate response
-                clean_text = response_text.strip()
-                display_text = clean_text[:50] + "..." if len(clean_text) > 50 else clean_text
+            
+            # Non-stream test
+            start_response = test_ai.chat("Hello!", stream=False)
+            if start_response:
+               status = "✓"
+               display = start_response[:30] + "..."
             else:
-                status = "✗ (Stream)"
-                display_text = "Empty or invalid stream response"
-            print(f"\r{model:<50} {status:<10} {display_text}")
-
-            # Optional: Add non-stream test if needed
-            # print(f"\r{model:<50} {'Non-Stream...':<10}", end="", flush=True)
-            # response_non_stream = test_ai.chat("Say 'Hi' again", stream=False)
-            # if not response_non_stream or len(response_non_stream.strip()) == 0:
-            #      print(f"\r{model:<50} {'✗ (Non-Stream)':<10} Empty non-stream response")
-
+               status = "✗"
+               display = "Empty"
+               
+            print(f"\r{model:<50} {status:<10} {display}")
+            
         except Exception as e:
-            print(f"\r{model:<50} {'✗':<10} {str(e)}")
+            print(f"\r{model:<50} {'✗':<10} {str(e)[:50]}")

@@ -242,23 +242,151 @@ class TogetherImage(TTICompatibleProvider):
     """
 
     # Image models from Together.xyz API (filtered for image type only)
-    AVAILABLE_MODELS = [
-        "black-forest-labs/FLUX.1-canny",
-        "black-forest-labs/FLUX.1-depth",
-        "black-forest-labs/FLUX.1-dev",
-        "black-forest-labs/FLUX.1-dev-lora",
-        "black-forest-labs/FLUX.1-kontext-dev",
-        "black-forest-labs/FLUX.1-kontext-max",
-        "black-forest-labs/FLUX.1-kontext-pro",
-        "black-forest-labs/FLUX.1-krea-dev",
-        "black-forest-labs/FLUX.1-pro",
-        "black-forest-labs/FLUX.1-redux",
-        "black-forest-labs/FLUX.1-schnell",
-        "black-forest-labs/FLUX.1-schnell-Free",
-        "black-forest-labs/FLUX.1.1-pro"
-    ]
+    AVAILABLE_MODELS = []
+
+    @classmethod
+    def get_models(cls, api_key: str = None):
+        """Fetch available image models from Together API.
+
+        Args:
+            api_key (str, optional): Together API key. If not provided, returns default models.
+
+        Returns:
+            list: List of available image model IDs
+        """
+        if not api_key:
+            # Return default models if no API key is provided
+            return [
+                "black-forest-labs/FLUX.1-canny",
+                "black-forest-labs/FLUX.1-depth",
+                "black-forest-labs/FLUX.1-dev",
+                "black-forest-labs/FLUX.1-dev-lora",
+                "black-forest-labs/FLUX.1-kontext-dev",
+                "black-forest-labs/FLUX.1-kontext-max",
+                "black-forest-labs/FLUX.1-kontext-pro",
+                "black-forest-labs/FLUX.1-krea-dev",
+                "black-forest-labs/FLUX.1-pro",
+                "black-forest-labs/FLUX.1-redux",
+                "black-forest-labs/FLUX.1-schnell",
+                "black-forest-labs/FLUX.1-schnell-Free",
+                "black-forest-labs/FLUX.1.1-pro"
+            ]
+
+        try:
+            # Get API key from activation endpoint or use provided key
+            # Since TogetherImage uses a different API key acquisition method, we'll use the cached key
+            temp_images = Images(None)
+            current_api_key = temp_images.get_api_key() if api_key is None else api_key
+
+            headers = {
+                "Authorization": f"Bearer {current_api_key}",
+                "Accept": "application/json"
+            }
+
+            response = requests.get(
+                "https://api.together.xyz/v1/models",
+                headers=headers,
+                timeout=30
+            )
+
+            if response.status_code != 200:
+                # Return default models if API call fails
+                return [
+                    "black-forest-labs/FLUX.1-canny",
+                    "black-forest-labs/FLUX.1-depth",
+                    "black-forest-labs/FLUX.1-dev",
+                    "black-forest-labs/FLUX.1-dev-lora",
+                    "black-forest-labs/FLUX.1-kontext-dev",
+                    "black-forest-labs/FLUX.1-kontext-max",
+                    "black-forest-labs/FLUX.1-kontext-pro",
+                    "black-forest-labs/FLUX.1-krea-dev",
+                    "black-forest-labs/FLUX.1-pro",
+                    "black-forest-labs/FLUX.1-redux",
+                    "black-forest-labs/FLUX.1-schnell",
+                    "black-forest-labs/FLUX.1-schnell-Free",
+                    "black-forest-labs/FLUX.1.1-pro"
+                ]
+
+            models_data = response.json()
+
+            # Filter image models
+            image_models = []
+            if isinstance(models_data, dict) and "data" in models_data:
+                for model in models_data["data"]:
+                    if isinstance(model, dict) and model.get("type", "").lower() == "image":
+                        image_models.append(model["id"])
+            elif isinstance(models_data, list):
+                for model in models_data:
+                    if isinstance(model, dict) and model.get("type", "").lower() == "image":
+                        image_models.append(model["id"])
+
+            if image_models:
+                return sorted(image_models)
+            else:
+                # Return default models if no image models found
+                return [
+                    "black-forest-labs/FLUX.1-canny",
+                    "black-forest-labs/FLUX.1-depth",
+                    "black-forest-labs/FLUX.1-dev",
+                    "black-forest-labs/FLUX.1-dev-lora",
+                    "black-forest-labs/FLUX.1-kontext-dev",
+                    "black-forest-labs/FLUX.1-kontext-max",
+                    "black-forest-labs/FLUX.1-kontext-pro",
+                    "black-forest-labs/FLUX.1-krea-dev",
+                    "black-forest-labs/FLUX.1-pro",
+                    "black-forest-labs/FLUX.1-redux",
+                    "black-forest-labs/FLUX.1-schnell",
+                    "black-forest-labs/FLUX.1-schnell-Free",
+                    "black-forest-labs/FLUX.1.1-pro"
+                ]
+
+        except Exception:
+            # Return default models list if fetching fails
+            return [
+                "black-forest-labs/FLUX.1-canny",
+                "black-forest-labs/FLUX.1-depth",
+                "black-forest-labs/FLUX.1-dev",
+                "black-forest-labs/FLUX.1-dev-lora",
+                "black-forest-labs/FLUX.1-kontext-dev",
+                "black-forest-labs/FLUX.1-kontext-max",
+                "black-forest-labs/FLUX.1-kontext-pro",
+                "black-forest-labs/FLUX.1-krea-dev",
+                "black-forest-labs/FLUX.1-pro",
+                "black-forest-labs/FLUX.1-redux",
+                "black-forest-labs/FLUX.1-schnell",
+                "black-forest-labs/FLUX.1-schnell-Free",
+                "black-forest-labs/FLUX.1.1-pro"
+            ]
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from Together API"""
+        try:
+            models = cls.get_models(api_key)
+            if models and len(models) > 0:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            # Fallback to default models list if fetching fails
+            cls.AVAILABLE_MODELS = [
+                "black-forest-labs/FLUX.1-canny",
+                "black-forest-labs/FLUX.1-depth",
+                "black-forest-labs/FLUX.1-dev",
+                "black-forest-labs/FLUX.1-dev-lora",
+                "black-forest-labs/FLUX.1-kontext-dev",
+                "black-forest-labs/FLUX.1-kontext-max",
+                "black-forest-labs/FLUX.1-kontext-pro",
+                "black-forest-labs/FLUX.1-krea-dev",
+                "black-forest-labs/FLUX.1-pro",
+                "black-forest-labs/FLUX.1-redux",
+                "black-forest-labs/FLUX.1-schnell",
+                "black-forest-labs/FLUX.1-schnell-Free",
+                "black-forest-labs/FLUX.1.1-pro"
+            ]
 
     def __init__(self):
+        # Update available models from API
+        self.update_available_models()
+
         self.images = Images(self)
         self._api_key_cache = None
         # Initialize LitAgent for consistent fingerprints across image generation requests

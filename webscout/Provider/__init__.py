@@ -33,11 +33,9 @@ from webscout.Provider.llama3mitril import Llama3Mitril
 from webscout.Provider.llmchat import LLMChat
 from webscout.Provider.llmchatco import LLMChatCo
 from webscout.Provider.meta import Meta
-from webscout.Provider.Nemotron import NEMOTRON
 from webscout.Provider.Netwrck import Netwrck
 from webscout.Provider.oivscode import oivscode
 from webscout.Provider.Openai import OPENAI
-from webscout.Provider.OpenGPT import OpenGPT
 from webscout.Provider.Perplexitylabs import PerplexityLabs
 from webscout.Provider.PI import PiAI
 from webscout.Provider.QwenLM import QwenLM
@@ -95,10 +93,8 @@ __all__ = [
     "LLMChat",
     "LLMChatCo",
     "Meta",
-    "NEMOTRON",
     "Netwrck",
     "oivscode",
-    "OpenGPT",
     "PerplexityLabs",
     "PiAI",
     "QwenLM",

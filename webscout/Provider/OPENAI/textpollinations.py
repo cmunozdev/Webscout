@@ -1,3 +1,4 @@
+
 import time
 import uuid
 import requests
@@ -79,7 +80,6 @@ class Completions(BaseCompletions):
     ) -> Generator[ChatCompletionChunk, None, None]:
         """Implementation for streaming chat completions."""
         try:
-
             # Make the streaming request
             response = self._client.session.post(
                 self._client.api_endpoint,
@@ -92,9 +92,6 @@ class Completions(BaseCompletions):
 
             if not response.ok:
                 raise IOError(f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}")
-
-            # Process the streaming response
-            full_response = ""
 
             for line in response.iter_lines():
                 if line:
@@ -112,7 +109,6 @@ class Completions(BaseCompletions):
                                     # Handle content in delta
                                     if 'content' in choice['delta']:
                                         content = choice['delta']['content']
-                                        full_response += content
                                         delta_obj.content = content
 
                                     # Handle tool calls in delta
@@ -174,7 +170,6 @@ class Completions(BaseCompletions):
     ) -> ChatCompletion:
         """Implementation for non-streaming chat completions."""
         try:
-
             # Make the non-streaming request
             response = self._client.session.post(
                 self._client.api_endpoint,
@@ -221,10 +216,8 @@ class Completions(BaseCompletions):
                         if tool_calls:
                             message.tool_calls = tool_calls
                 else:
-                    # Fallback if no message is present
                     message = ChatCompletionMessage(role="assistant", content="")
             else:
-                # Fallback if no choices are present
                 message = ChatCompletionMessage(role="assistant", content="")
 
             # Create the choice
@@ -265,35 +258,31 @@ class Chat(BaseChat):
 class TextPollinations(OpenAICompatibleProvider):
     """
     OpenAI-compatible client for TextPollinations API.
-
-    Usage:
-        client = TextPollinations()
-        response = client.chat.completions.create(
-            model="openai-large",
-            messages=[{"role": "user", "content": "Hello!"}]
-        )
-        print(response.choices[0].message.content)
     """
     required_auth = False
+    
+    # We will populate this dynamically
+    AVAILABLE_MODELS = []
 
-    AVAILABLE_MODELS = [
-        "deepseek",
-        "gemini",
-        "gemini-search",
-        "mistral",
-        "openai",
-        "openai-audio",
-        "openai-fast",
-        "openai-reasoning",
-        "qwen-coder",
-        "roblox-rp",
-        "bidara",
-        "chickytutor",
-        "evil",
-        "midijourney",
-        "rtist",
-        "unity",
-    ]
+    @classmethod
+    def get_models(cls, api_key: str = None) -> List[str]:
+        """Fetch available models from TextPollinations API."""
+        try:
+            response = requests.get(
+                "https://text.pollinations.ai/models",
+                headers={"Accept": "application/json"},
+                timeout=30
+            )
+
+            if response.status_code == 200:
+                data = response.json()
+                if isinstance(data, list):
+                    return [model.get("name") for model in data if isinstance(model, dict) and "name" in model]
+            
+            return []
+
+        except Exception:
+            return []
 
     def __init__(
         self,
@@ -302,14 +291,13 @@ class TextPollinations(OpenAICompatibleProvider):
     ):
         """
         Initialize the TextPollinations client.
-
-        Args:
-            timeout: Request timeout in seconds
-            proxies: Optional proxy configuration
         """
         self.timeout = timeout
         self.api_endpoint = "https://text.pollinations.ai/openai"
         self.proxies = proxies
+
+        # Update available models from API
+        self.update_available_models()
 
         # Initialize session
         self.session = requests.Session()
@@ -333,6 +321,13 @@ class TextPollinations(OpenAICompatibleProvider):
         # Initialize chat interface
         self.chat = Chat(self)
 
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from TextPollinations API"""
+        models = cls.get_models(api_key)
+        if models:
+            cls.AVAILABLE_MODELS = models
+
     @property
     def models(self):
         class _ModelList:
@@ -343,8 +338,17 @@ class TextPollinations(OpenAICompatibleProvider):
 if __name__ == "__main__":
     # Example usage
     client = TextPollinations()
-    response = client.chat.completions.create(
-        model="openai-large",
-        messages=[{"role": "user", "content": "Hello!"}]
-    ) 
-    print(response.choices[0].message.content)
+    if client.models.list():
+        print(f"Available models: {client.models.list()}")
+        model_to_use = client.models.list()[0]
+        print(f"Testing model: {model_to_use}")
+        try:
+            response = client.chat.completions.create(
+                model=model_to_use,
+                messages=[{"role": "user", "content": "Hello!"}]
+            ) 
+            print(response.choices[0].message.content)
+        except Exception as e:
+            print(f"Error testing model: {e}")
+    else:
+        print("No models available.")

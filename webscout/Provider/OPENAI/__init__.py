@@ -33,7 +33,6 @@ from webscout.Provider.OPENAI.utils import (
 
 # Provider implementations
 from webscout.Provider.OPENAI.DeepAI import DeepAI
-from webscout.Provider.OPENAI.FreeGemini import FreeGemini
 from webscout.Provider.OPENAI.K2Think import K2Think
 from webscout.Provider.OPENAI.PI import PiAI
 from webscout.Provider.OPENAI.TogetherAI import TogetherAI
@@ -67,6 +66,9 @@ from webscout.Provider.OPENAI.writecream import Writecream
 from webscout.Provider.OPENAI.x0gpt import X0GPT
 from webscout.Provider.OPENAI.yep import YEPCHAT
 from webscout.Provider.OPENAI.zenmux import Zenmux
+from webscout.Provider.OPENAI.gradient import Gradient
+from webscout.Provider.OPENAI.sambanova import Sambanova
+from webscout.Provider.OPENAI.meta import Meta
 
 # List of all exported names
 __all__ = [
@@ -97,7 +99,6 @@ __all__ = [
     "count_tokens",
     # Provider implementations
     "DeepAI",
-    "FreeGemini",
     "K2Think",
     "PiAI",
     "TogetherAI",
@@ -132,4 +133,7 @@ __all__ = [
     "X0GPT",
     "YEPCHAT",
     "Zenmux",
+    "Gradient",
+    "Sambanova",
+    "Meta",
 ]

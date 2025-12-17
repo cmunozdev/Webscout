@@ -3,34 +3,40 @@ Gradient Network Chat API Provider
 Reverse engineered from https://chat.gradient.network/
 """
 
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
+import requests
 from typing import Optional, Generator, Dict, Any, Union
 
 from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
 from webscout import exceptions
-from webscout.litagent import LitAgent
 
 
 class Gradient(Provider):
     """
     Provider for Gradient Network chat API
     Supports real-time streaming responses from distributed GPU clusters
+    
+    Note: GPT OSS 120B works on "nvidia" cluster, Qwen3 235B works on "hybrid" cluster
     """
     
     required_auth = False
     AVAILABLE_MODELS = [
-        "GPT-OSS-120B",
-        "Qwen3-235B",
+        "GPT OSS 120B",
+        "Qwen3 235B",
     ]
+    
+    # Model to cluster mapping
+    MODEL_CLUSTERS = {
+        "GPT OSS 120B": "nvidia",
+        "Qwen3 235B": "hybrid",
+    }
 
     def __init__(
         self,
-        model: str = "GPT-OSS-120B",
+        model: str = "GPT OSS 120B",
         is_conversation: bool = True,
         max_tokens: int = 2049,
-        timeout: int = 30,
+        timeout: int = 60,
         intro: str = None,
         filepath: str = None,
         update_file: bool = True,
@@ -38,9 +44,11 @@ class Gradient(Provider):
         history_offset: int = 10250,
         act: str = None,
         system_prompt: str = "You are a helpful assistant.",
-        cluster_mode: str = "nvidia",
+        cluster_mode: str = None,  # Auto-detected based on model if None
         enable_thinking: bool = True,
     ):
+        # Normalize model name (convert dashes to spaces)
+        model = model.replace("-", " ")
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
 
@@ -50,25 +58,32 @@ class Gradient(Provider):
         self.timeout = timeout
         self.proxies = proxies
         self.system_prompt = system_prompt
-        self.cluster_mode = cluster_mode
+        # Auto-detect cluster mode based on model if not specified
+        self.cluster_mode = cluster_mode or self.MODEL_CLUSTERS.get(model, "nvidia")
         self.enable_thinking = enable_thinking
+        self.last_response = {}
         
-        self.session = Session()
-        self.session.proxies = proxies
-
-        self.agent = LitAgent()
-        self.fingerprint = self.agent.generate_fingerprint("chrome")
+        self.session = requests.Session()
+        if proxies:
+            self.session.proxies = proxies
         
+        # Headers matching the working curl request
         self.headers = {
-            "User-Agent": self.fingerprint.get("user_agent", ""),
-            "Accept": "*/*",
-            "Accept-Language": self.fingerprint.get("accept_language", ""),
-            "Content-Type": "application/json",
-            "Origin": "https://chat.gradient.network",
-            "Referer": "https://chat.gradient.network/",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
+            "accept": "*/*",
+            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+            "content-type": "application/json",
+            "dnt": "1",
+            "origin": "https://chat.gradient.network",
+            "priority": "u=1, i",
+            "referer": "https://chat.gradient.network/",
+            "sec-ch-ua": '"Microsoft Edge";v="143", "Chromium";v="143", "Not A(Brand";v="24"',
+            "sec-ch-ua-mobile": "?0",
+            "sec-ch-ua-platform": '"Windows"',
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
+            "sec-gpc": "1",
+            "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0",
         }
         self.session.headers.update(self.headers)
 
@@ -90,6 +105,31 @@ class Gradient(Provider):
         )
         self.conversation.history_offset = history_offset
 
+    @staticmethod
+    def _gradient_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
+        """
+        Extracts content from Gradient API stream response.
+        
+        The API returns JSON objects like:
+        {"type": "reply", "data": {"role": "assistant", "content": "text"}}
+        {"type": "reply", "data": {"role": "assistant", "reasoningContent": "text"}}
+        
+        Args:
+            chunk: Parsed JSON dict from the stream
+            
+        Returns:
+            Extracted content string or None
+        """
+        if isinstance(chunk, dict):
+            chunk_type = chunk.get("type")
+            if chunk_type == "reply":
+                data = chunk.get("data", {})
+                # Prefer "content" over "reasoningContent"
+                content = data.get("content") or data.get("reasoningContent")
+                if content:
+                    return content
+        return None
+
     def ask(
         self,
         prompt: str,
@@ -108,9 +148,9 @@ class Gradient(Provider):
                 raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
 
         messages = [
-                {"role": "system", "content": self.system_prompt},
-                {"role": "user", "content": conversation_prompt},
-            ]
+            {"role": "system", "content": self.system_prompt},
+            {"role": "user", "content": conversation_prompt},
+        ]
 
         payload = {
             "model": self.model,
@@ -127,16 +167,16 @@ class Gradient(Provider):
                     json=payload,
                     stream=True,
                     timeout=self.timeout,
-                    impersonate="chrome110",
                 )
                 response.raise_for_status()
 
+                # Use sanitize_stream for processing
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None),
-                    intro_value=None,
-                    to_json=True,
+                    intro_value=None,  # No prefix to remove
+                    to_json=True,  # Parse as JSON
                     skip_markers=[],
-                    content_extractor=self._Gradient_extractor,
+                    content_extractor=self._gradient_extractor,
                     yield_raw_on_error=False,
                     raw=raw
                 )
@@ -147,11 +187,10 @@ class Gradient(Provider):
                     else:
                         if content_chunk and isinstance(content_chunk, str):
                             streaming_text += content_chunk
-                        resp = dict(text=content_chunk)
-                        yield resp if not raw else content_chunk
+                        yield {"text": content_chunk}
 
-            except CurlError as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
+            except requests.exceptions.RequestException as e:
+                raise exceptions.FailedToGenerateResponseError(f"Request failed: {str(e)}") from e
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)}") from e
             finally:
@@ -163,7 +202,7 @@ class Gradient(Provider):
             try:
                 full_response = ""
                 for chunk in for_stream():
-                    full_response += self.get_message(chunk)
+                    full_response += self.get_message(chunk) if not raw else chunk
                 
                 self.last_response = {"text": full_response}
                 self.conversation.update_chat_history(prompt, full_response)
@@ -202,13 +241,6 @@ class Gradient(Provider):
         assert isinstance(response, dict), "Response should be of dict data-type only"
         return response.get("text", "")
 
-    @staticmethod
-    def _Gradient_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
-        if isinstance(chunk, dict):
-            chunk_type = chunk.get("type")
-            if chunk_type == "reply":
-                return chunk.get("data", {}).get("reasoningContent", "")
-        return None
 
 if __name__ == "__main__":
     print("-" * 80)
@@ -217,19 +249,19 @@ if __name__ == "__main__":
 
     for model in Gradient.AVAILABLE_MODELS:
         try:
-            test_ai = Gradient(model=model, timeout=60)
+            test_ai = Gradient(model=model, timeout=120)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
             for chunk in response:
                 response_text += chunk
 
             if response_text and len(response_text.strip()) > 0:
-                status = "v"
+                status = "✓"
                 clean_text = response_text.strip().encode('utf-8', errors='ignore').decode('utf-8')
                 display_text = clean_text[:50] + "..." if len(clean_text) > 50 else clean_text
             else:
-                status = "x"
+                status = "✗"
                 display_text = "Empty or invalid response"
             print(f"\r{model:<50} {status:<10} {display_text}")
         except Exception as e:
-            print(f"\r{model:<50} {'x':<10} {str(e)}")
+            print(f"\r{model:<50} {'✗':<10} {str(e)[:50]}")

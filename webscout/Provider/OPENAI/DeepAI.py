@@ -242,34 +242,7 @@ class DeepAI(OpenAICompatibleProvider):
         )
     """
     required_auth = True
-    AVAILABLE_MODELS = [
-        "standard", 
-        "genius", 
-        "online",
-        "supergenius",
-        "onlinegenius",
-        "deepseek-v3.2",
-        "gemini-2.5-flash-lite",
-        "qwen3-30b-a3b",
-        "gpt-5-nano",
-        "gpt-oss-120b",
-        "gpt-5-chat-latest",
-        "claude-opus-4-1",
-        "llama-4-scout",
-        "claude-4.5-sonnet",
-        "deepseek-v3.1-terminus",
-        "llama-3.3-70b-instruct",
-        "grok-4",
-        "claude-sonnet-4",
-        "qwen3-coder",
-        "gpt-5",
-        "kimi-k2-0905",
-        "claude-opus-4",
-        "gpt-5-mini",
-        "gemini-2.5-pro",
-        "grok-code-fast-1",
-        "gpt-4.1",
-    ]
+    AVAILABLE_MODELS = []
 
     def __init__(
         self,
@@ -295,6 +268,10 @@ class DeepAI(OpenAICompatibleProvider):
             proxies: Optional proxy configuration
         """
         super().__init__(proxies=proxies)
+
+        # Update available models from API
+        self.update_available_models(api_key)
+
         self.timeout = timeout
         self.api_key = api_key
         self.model = model
@@ -330,8 +307,6 @@ class DeepAI(OpenAICompatibleProvider):
         # Set cookies
         self.session.cookies.update(self.cookies)
 
-        # Initialize the chat interface
-        self.chat = Chat(self)
 
     def refresh_identity(self, browser: str = None, impersonate: str = "chrome120"):
         """Refreshes the browser identity fingerprint and curl_cffi session."""
@@ -367,7 +342,123 @@ class DeepAI(OpenAICompatibleProvider):
         Returns:
             list: List of available model IDs
         """
-        return cls.AVAILABLE_MODELS
+        if not api_key:
+            return [
+                "standard",
+                "genius",
+                "online",
+                "supergenius",
+                "onlinegenius",
+                "deepseek-v3.2",
+                "gemini-2.5-flash-lite",
+                "qwen3-30b-a3b",
+                "gpt-5-nano",
+                "gpt-oss-120b",
+                "gpt-5-chat-latest",
+                "claude-opus-4-1",
+                "llama-4-scout",
+                "claude-4.5-sonnet",
+                "deepseek-v3.1-terminus",
+                "llama-3.3-70b-instruct",
+                "grok-4",
+                "claude-sonnet-4",
+                "qwen3-coder",
+                "gpt-5",
+                "kimi-k2-0905",
+                "claude-opus-4",
+                "gpt-5-mini",
+                "gemini-2.5-pro",
+                "grok-code-fast-1",
+                "gpt-4.1",
+            ]
+
+        try:
+            # Use a temporary session for this class method
+            from curl_cffi.requests import Session
+            temp_session = Session()
+
+            headers = {
+                "Content-Type": "application/x-www-form-urlencoded",
+                "api-key": api_key,
+                "Accept": "*/*",
+                "Accept-Language": "en-US,en;q=0.9",
+                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
+                "DNT": "1",
+            }
+
+            # Note: DeepAI doesn't have a standard models endpoint, so we'll use a default list
+            # If DeepAI has a models endpoint, you would call it here
+            # For now, we'll return the default list as there's no known models endpoint
+            return [
+                "standard",
+                "genius",
+                "online",
+                "supergenius",
+                "onlinegenius",
+                "deepseek-v3.2",
+                "gemini-2.5-flash-lite",
+                "qwen3-30b-a3b",
+                "gpt-5-nano",
+                "gpt-oss-120b",
+                "gpt-5-chat-latest",
+                "claude-opus-4-1",
+                "llama-4-scout",
+                "claude-4.5-sonnet",
+                "deepseek-v3.1-terminus",
+                "llama-3.3-70b-instruct",
+                "grok-4",
+                "claude-sonnet-4",
+                "qwen3-coder",
+                "gpt-5",
+                "kimi-k2-0905",
+                "claude-opus-4",
+                "gpt-5-mini",
+                "gemini-2.5-pro",
+                "grok-code-fast-1",
+                "gpt-4.1",
+            ]
+
+        except Exception:
+            # Return default models list if fetching fails
+            return [
+                "standard",
+                "genius",
+                "online",
+                "supergenius",
+                "onlinegenius",
+                "deepseek-v3.2",
+                "gemini-2.5-flash-lite",
+                "qwen3-30b-a3b",
+                "gpt-5-nano",
+                "gpt-oss-120b",
+                "gpt-5-chat-latest",
+                "claude-opus-4-1",
+                "llama-4-scout",
+                "claude-4.5-sonnet",
+                "deepseek-v3.1-terminus",
+                "llama-3.3-70b-instruct",
+                "grok-4",
+                "claude-sonnet-4",
+                "qwen3-coder",
+                "gpt-5",
+                "kimi-k2-0905",
+                "claude-opus-4",
+                "gpt-5-mini",
+                "gemini-2.5-pro",
+                "grok-code-fast-1",
+                "gpt-4.1",
+            ]
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from DeepAI API"""
+        try:
+            models = cls.get_models(api_key)
+            if models and len(models) > 0:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            # Fallback to default models list if fetching fails
+            pass
 
     @property
     def models(self):
