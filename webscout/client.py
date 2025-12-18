@@ -116,6 +116,45 @@ def load_tti_providers() -> Tuple[Dict[str, Type[TTICompatibleProvider]], Set[st
 OPENAI_PROVIDERS, OPENAI_AUTH_REQUIRED = load_openai_providers()
 TTI_PROVIDERS, TTI_AUTH_REQUIRED = load_tti_providers()
 
+def _get_models_safely(provider_cls: type, instance: Any = None) -> List[str]:
+    """Safely get the list of available models from a provider using models.list().
+    
+    Always uses the standardized models.list() interface which providers implement.
+    This ensures we get the most up-to-date model list, including dynamically fetched models.
+    
+    Args:
+        provider_cls: The provider class
+        instance: Optional pre-created instance. If None, will try to create one.
+    
+    Returns:
+        List of model names as strings, or empty list if not available.
+    """
+    models = []
+    
+    # Get or create an instance to call models.list()
+    try:
+        if instance is None:
+            # Try to create an instance
+            try:
+                instance = provider_cls()
+            except Exception:
+                # Some providers may require arguments
+                return []
+        
+        # Use the standardized models.list() interface
+        if hasattr(instance, "models") and hasattr(instance.models, "list"):
+            res = instance.models.list()
+            if isinstance(res, list):
+                for m in res:
+                    if isinstance(m, str):
+                        models.append(m)
+                    elif isinstance(m, dict) and "id" in m:
+                        models.append(m["id"])
+    except Exception:
+        pass
+    
+    return models
+
 class ClientCompletions(BaseCompletions):
     """Unified completions interface with automatic provider and model resolution."""
     
@@ -144,38 +183,21 @@ class ClientCompletions(BaseCompletions):
         model_to_provider = {}
         
         for p_name, p_cls in available:
-            p_models = []
+            # Try to get models from class first (fast path)
+            p_models = _get_models_safely(p_cls)
             
-            try:
-                # 1. Inspect class safely without triggering properties
-                static_val = inspect.getattr_static(p_cls, "AVAILABLE_MODELS", [])
-                
-                if isinstance(static_val, list) and static_val:
-                    p_models = static_val
-                else:
-                    # 2. If it is a property or empty, get a real instance to resolve it
-                    try:
-                        instance = self._get_provider_instance(p_cls)
-                        # Now safely get the attribute from instance
-                        val = getattr(instance, "AVAILABLE_MODELS", [])
-                        if isinstance(val, list):
-                            p_models = val
-                        
-                        # Also check .models.list()
-                        if not p_models and hasattr(instance, "models") and hasattr(instance.models, "list"):
-                            res = instance.models.list()
-                            if isinstance(res, list):
-                                p_models = [m["id"] if isinstance(m, dict) and "id" in m else m for m in res]
-                    except Exception:
-                        pass
-            except Exception:
-                pass
+            # If empty, try instantiating the provider to get models
+            if not p_models:
+                try:
+                    instance = self._get_provider_instance(p_cls)
+                    p_models = _get_models_safely(p_cls, instance)
+                except Exception:
+                    pass
             
-            # Ensure p_models is iterable and contains strings
-            if isinstance(p_models, list):
-                for m in p_models:
-                    if isinstance(m, str) and m not in model_to_provider:
-                        model_to_provider[m] = p_cls
+            # Add all valid model names to our mapping
+            for m in p_models:
+                if m not in model_to_provider:
+                    model_to_provider[m] = p_cls
         
         if not model_to_provider:
             return None
@@ -202,11 +224,11 @@ class ClientCompletions(BaseCompletions):
         if provider:
             resolved_model = model
             if model == "auto":
-                try:
-                    p_models = getattr(provider, "AVAILABLE_MODELS", [])
-                    if p_models: resolved_model = random.choice(p_models)
-                    else: resolved_model = "gpt-3.5-turbo"
-                except Exception: resolved_model = "gpt-3.5-turbo"
+                p_models = _get_models_safely(provider)
+                if p_models:
+                    resolved_model = random.choice(p_models)
+                else:
+                    resolved_model = "gpt-3.5-turbo"
             return provider, resolved_model
 
         # 3. If model is "auto", select a random available provider
@@ -216,14 +238,15 @@ class ClientCompletions(BaseCompletions):
                 raise RuntimeError("No available chat providers found.")
             random.shuffle(available)
             p_name, p_cls = available[0]
-            m_name = random.choice(getattr(p_cls, "AVAILABLE_MODELS", ["gpt-3.5-turbo"]))
+            p_models = _get_models_safely(p_cls)
+            m_name = random.choice(p_models) if p_models else "gpt-3.5-turbo"
             return p_cls, m_name
 
         # 4. Find provider that supports the given model name
         available = self._get_available_providers()
         for p_name, p_cls in available:
-            p_models = getattr(p_cls, "AVAILABLE_MODELS", [])
-            if model in p_models:
+            p_models = _get_models_safely(p_cls)
+            if p_models and model in p_models:
                 return p_cls, model
         
         # 5. Fuzzy match
@@ -313,8 +336,8 @@ class ClientCompletions(BaseCompletions):
             if p_cls == resolved_provider: continue
             try:
                 provider_instance = self._get_provider_instance(p_cls)
-                p_models = getattr(p_cls, "AVAILABLE_MODELS", [])
-                p_model = resolved_model if resolved_model in p_models else (random.choice(p_models) if p_models else resolved_model)
+                p_models = _get_models_safely(p_cls)
+                p_model = resolved_model if (p_models and resolved_model in p_models) else (random.choice(p_models) if p_models else resolved_model)
                 
                 failover_kwargs = call_kwargs.copy()
                 failover_kwargs["model"] = p_model
@@ -371,7 +394,7 @@ class ClientImages(BaseImages):
         if provider:
             resolved_model = model
             if model == "auto":
-                p_models = getattr(provider, "AVAILABLE_MODELS", [])
+                p_models = _get_models_safely(provider)
                 resolved_model = random.choice(p_models) if p_models else "flux"
             return provider, resolved_model
 
@@ -381,11 +404,13 @@ class ClientImages(BaseImages):
                 raise RuntimeError("No available image providers found.")
             random.shuffle(available)
             p_name, p_cls = available[0]
-            return p_cls, random.choice(getattr(p_cls, "AVAILABLE_MODELS", ["flux"]))
+            p_models = _get_models_safely(p_cls)
+            return p_cls, random.choice(p_models) if p_models else "flux"
 
         available = self._get_available_providers()
         for p_name, p_cls in available:
-            if model in getattr(p_cls, "AVAILABLE_MODELS", []): return p_cls, model
+            p_models = _get_models_safely(p_cls)
+            if p_models and model in p_models: return p_cls, model
         
         if available:
             random.shuffle(available)
@@ -430,8 +455,8 @@ class ClientImages(BaseImages):
             if p_cls == resolved_provider: continue
             try:
                 provider_instance = self._get_provider_instance(p_cls)
-                p_models = getattr(p_cls, "AVAILABLE_MODELS", [])
-                p_model = resolved_model if resolved_model in p_models else (random.choice(p_models) if p_models else resolved_model)
+                p_models = _get_models_safely(p_cls)
+                p_model = resolved_model if (p_models and resolved_model in p_models) else (random.choice(p_models) if p_models else resolved_model)
                 failover_kwargs = call_kwargs.copy()
                 failover_kwargs["model"] = p_model
                 

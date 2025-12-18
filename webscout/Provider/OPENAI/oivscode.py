@@ -268,20 +268,7 @@ class oivscode(OpenAICompatibleProvider):
                     errors.append(f"Failed to fetch models from {models_url}: {response.status_code} {response.text}")
             except Exception as e:
                 errors.append(f"Error fetching from {models_url}: {e}")
-        if results:
-            for url, models in results.items():
-                print(f"Models from {url}:")
-                if models:
-                    for m in sorted(models):
-                        print(f"  {m}")
-                else:
-                    print("  No models found.")
-            return results
-        else:
-            print("No models found from any endpoint.")
-            for err in errors:
-                print(err)
-            return {}
+        return results
 
     @property
     def models(self):
