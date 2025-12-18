@@ -3,6 +3,22 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.12.18] - 2025-12-18
+
+### ✨ Added
+- **feat**: webscout/Provider/OPENAI/typliai.py - New OpenAI-compatible TypliAI provider with streaming and non-streaming support for GPT-4.1, GPT-5, Gemini 2.5, Claude 4.5, and Grok 4 models.
+
+### 🚮 Removed
+- **removed**: webscout/Provider/Perplexitylabs.py - Removed PerplexityLabs provider file.
+- **removed**: PerplexityLabs entry from Provider.md documentation and statistics.
+- **removed**: References to PerplexityLabs from webscout/Provider/__init__.py.
+- **removed**: webscout/Provider/TeachAnything.py - Removed TeachAnything provider file.
+- **removed**: TeachAnything entry from Provider.md documentation and statistics.
+- **removed**: References to TeachAnything from webscout/Provider/__init__.py.
+
+### 🛠️ Fixed
+- **fix**: webscout/Provider/turboseek.py - Updated provider to handle new HTML-based raw stream response format and improved HTML-to-Markdown conversion.
+
 ## [2025.12.17] - 2025-12-17
 
 ### ✨ Added

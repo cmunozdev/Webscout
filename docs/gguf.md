@@ -605,3 +605,14 @@ The converter uses the latest llama.cpp features including:
   
   <p>Made with ❤️ by the Webscout team</p>
 </div>
+
+<!-- Auto-generated developer documentation summary -->
+## Developer Notes (auto-generated)
+
+This section was appended by an automated documentation task for `webscout/Extra/gguf.py` and summarizes the module's structure and usage:
+
+- Provides ModelConverter for HF->GGUF conversion, quantization, optional imatrix and splitting.
+- Includes robust llama.cpp build orchestration, cross-platform hardware detection, and Hugging Face upload helpers.
+- CLI entrypoint: `gguf convert` exposing options such as `--quantization`, `--outtype`, `--use-imatrix`, `--split-model`, and upload credentials.
+
+For more details, see the rest of this document and inspect `webscout/Extra/gguf.py` source directly.
