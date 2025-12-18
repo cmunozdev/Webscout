@@ -401,6 +401,39 @@ class ClientImages(BaseImages):
             try: return provider_class()
             except Exception as e: raise RuntimeError(f"Failed to initialize TTI provider {provider_class.__name__}: {e}")
     
+    def _fuzzy_resolve_provider_and_model(self, model: str) -> Optional[Tuple[Type[TTICompatibleProvider], str]]:
+        """Performs fuzzy search to find the closest model match across all providers."""
+        available = self._get_available_providers()
+        model_to_provider = {}
+        
+        for p_name, p_cls in available:
+            # Try to get models from class first (fast path)
+            p_models = _get_models_safely(p_cls)
+            
+            # If empty, try instantiating the provider to get models
+            if not p_models:
+                try:
+                    instance = self._get_provider_instance(p_cls)
+                    p_models = _get_models_safely(p_cls, instance)
+                except Exception:
+                    pass
+            
+            # Add all valid model names to our mapping
+            for m in p_models:
+                if m not in model_to_provider:
+                    model_to_provider[m] = p_cls
+        
+        if not model_to_provider:
+            return None
+            
+        matches = difflib.get_close_matches(model, model_to_provider.keys(), n=1, cutoff=0.6)
+        if matches:
+            matched_model = matches[0]
+            if self._client.print_provider_info:
+                print(f"\033[1;33mFuzzy match: '{model}' -> '{matched_model}'\033[0m")
+            return model_to_provider[matched_model], matched_model
+        return None
+
     def _resolve_provider_and_model(self, model: str, provider: Optional[Type[TTICompatibleProvider]]) -> Tuple[Type[TTICompatibleProvider], str]:
         if "/" in model:
             p_name, m_name = model.split("/", 1)
@@ -428,6 +461,11 @@ class ClientImages(BaseImages):
             p_models = _get_models_safely(p_cls)
             if p_models and model in p_models: return p_cls, model
         
+        # Fuzzy match
+        fuzzy_result = self._fuzzy_resolve_provider_and_model(model)
+        if fuzzy_result:
+            return fuzzy_result
+
         if available:
             random.shuffle(available)
             return available[0][1], model

@@ -18,7 +18,7 @@ All notable changes to this project will be documented in this file.
   - **Failover on Empty Response**: Added logic to detect empty or invalid non-streaming responses and automatically trigger failover to alternative providers.
   - Dynamic discovery for all 39+ chat and 13+ image providers
   - Support for custom `exclude` and `exclude_images` lists
-      - **Fuzzy Model Matching**: Automatically finds the closest matching model name across all providers if an exact match is not found (e.g., `model="grok-4.1-fst"` matches `"grok-4.1-fast"`). Uses `difflib` with a 0.6 confidence cutoff.
+      - **Fuzzy Model Matching**: Automatically finds the closest matching model name across all providers (both chat and TTI) if an exact match is not found (e.g., `model="grok-4.1-fst"` matches `"grok-4.1-fast"` and `model="fluux"` matches `"flux"`). Uses `difflib` with a 0.6 confidence cutoff.
       - Added `last_provider` property to track successful provider/model pairs
     - Cleaned up internal implementation and removed redundant debug prints
   - **feat**: webscout/Provider/OPENAI/typliai.py - New OpenAI-compatible TypliAI provider with streaming and non-streaming support for GPT-4.1, GPT-5, Gemini 2.5, Claude 4.5, and Grok 4 models.
