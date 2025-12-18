@@ -308,7 +308,6 @@ class LLMChatCo(OpenAICompatibleProvider):
         # Initialize headers using the fingerprint
         self.headers = {
             "Accept": fingerprint["accept"],
-            "Accept-Encoding": "gzip, deflate, br, zstd", # Standard encoding
             "Accept-Language": fingerprint["accept_language"],
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",

@@ -321,10 +321,18 @@ class ClientCompletions(BaseCompletions):
                     except StopIteration: pass
                     except Exception: pass
                 else:
-                    self._last_provider = resolved_provider.__name__
-                    if self._client.print_provider_info:
-                        print(f"\033[1;34m{resolved_provider.__name__}:{resolved_model}\033[0m\n")
-                    return response
+                    # Check if response is valid and has non-empty content
+                    if (response and hasattr(response, "choices") and response.choices and 
+                        response.choices[0].message and response.choices[0].message.content and 
+                        response.choices[0].message.content.strip()):
+                        
+                        self._last_provider = resolved_provider.__name__
+                        if self._client.print_provider_info:
+                            print(f"\033[1;34m{resolved_provider.__name__}:{resolved_model}\033[0m\n")
+                        return response
+                    else:
+                        # Raise exception to trigger failover loop
+                        raise ValueError(f"Provider {resolved_provider.__name__} returned empty content")
             except Exception: pass
 
         # Failover to other providers
@@ -356,10 +364,18 @@ class ClientCompletions(BaseCompletions):
                         return chained_gen(first_chunk, response, p_name, p_model)
                     except (StopIteration, Exception): continue
                 
-                self._last_provider = p_name
-                if self._client.print_provider_info:
-                    print(f"\033[1;34m{p_name}:{p_model}\033[0m\n")
-                return response
+                # Check if response is valid and has non-empty content
+                if (response and hasattr(response, "choices") and response.choices and 
+                    response.choices[0].message and response.choices[0].message.content and 
+                    response.choices[0].message.content.strip()):
+                    
+                    self._last_provider = p_name
+                    if self._client.print_provider_info:
+                        print(f"\033[1;34m{p_name}:{p_model}\033[0m\n")
+                    return response
+                else:
+                    errors.append(f"{p_name}: Returned empty response.")
+                    continue
             except Exception as e:
                 errors.append(f"{p_name}: {str(e)}")
                 continue

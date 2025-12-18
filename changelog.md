@@ -6,7 +6,7 @@ All notable changes to this project will be documented in this file.
 ## [2025.12.18.1] - 2025-12-18
 
 ### ✨ Added
-- **feat**: webscout/client.py - Enhanced unified Client interface for AI providers:
+  - **feat**: webscout/client.py - Enhanced unified Client interface for AI providers:
   - `client.chat.completions.create()` - OpenAI-compatible chat completions
   - `client.images.generate()` / `client.images.create()` - Unified image generation
   - **Intelligent Model Resolution**:
@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
     - `model="model_name"`: Automatically finds which provider supports the requested model
   - **Simplified Auth Detection**: Providers are now identified as "free" or "auth-required" based solely on the `required_auth` attribute
   - **Auto-failover**: Improved failover logic that intelligently adjusts model names across different providers
+  - **Failover on Empty Response**: Added logic to detect empty or invalid non-streaming responses and automatically trigger failover to alternative providers.
   - Dynamic discovery for all 39+ chat and 13+ image providers
   - Support for custom `exclude` and `exclude_images` lists
       - **Fuzzy Model Matching**: Automatically finds the closest matching model name across all providers if an exact match is not found (e.g., `model="grok-4.1-fst"` matches `"grok-4.1-fast"`). Uses `difflib` with a 0.6 confidence cutoff.
@@ -43,8 +44,8 @@ All notable changes to this project will be documented in this file.
 - **removed**: References to GeminiProxy from webscout/Provider/__init__.py.
 
 ### 🛠️ Fixed
+- **fix**: webscout/Provider/OPENAI/ - Fixed "Accept-Encoding" issue in multiple providers (`K2Think`, `AkashGPT`, `LLMChatCo`, `Yep`, `Zenmux`, `DeepInfra`) that caused decompression errors and empty responses when using `requests` or `cloudscraper` libraries.
 - **fix**: webscout/Provider/turboseek.py - Updated provider to handle new HTML-based raw stream response format and improved HTML-to-Markdown conversion.
-
 ## [2025.12.17] - 2025-12-17
 
 ### ✨ Added

@@ -332,7 +332,6 @@ class K2Think(OpenAICompatibleProvider):
 
         self.headers = {
             "Accept": "*/*",
-            "Accept-Encoding": "gzip, deflate, br, zstd",
             "Accept-Language": self.fingerprint["accept_language"],
             "Content-Type": "application/json",
             "User-Agent": self.fingerprint["user_agent"],
