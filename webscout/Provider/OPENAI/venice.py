@@ -441,10 +441,6 @@ class Venice(OpenAICompatibleProvider):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
 
-    @classmethod
-    def models(cls):
-        """Return the list of available models for Venice."""
-        return cls.AVAILABLE_MODELS
 
 if __name__ == "__main__":
     # Test the provider
