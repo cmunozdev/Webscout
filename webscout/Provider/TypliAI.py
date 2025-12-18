@@ -1,8 +1,6 @@
-import re
-import json
 import random
 import string
-from typing import Optional, Union, Any, Dict, Generator
+from typing import Union, Any, Dict, Generator
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 # from curl_cffi.const import CurlHttpVersion # Not strictly needed if using default
@@ -34,7 +32,17 @@ class TypliAI(Provider):
         'I don't have access to real-time weather information...'
     """
     required_auth = False
-    AVAILABLE_MODELS = ["gpt-4o-mini"]
+    AVAILABLE_MODELS = [
+        "openai/gpt-4.1-mini", 
+        "openai/gpt-4.1",
+        "openai/gpt-5-mini", 
+        "openai/gpt-5.2", 
+        "openai/gpt-5.2-pro",
+        "google/gemini-2.5-flash",
+        "anthropic/claude-haiku-4-5",
+        "xai/grok-4-fast-reasoning",
+        "xai/grok-4-fast",
+    ]
 
     def __init__(
         self,
@@ -48,7 +56,7 @@ class TypliAI(Provider):
         history_offset: int = 10250,
         act: str = None,
         system_prompt: str = "You are a helpful assistant.",
-        model: str = "gpt-4o-mini"
+        model: str = "openai/gpt-4.1-mini"
     ):
         """
         Initializes the TypliAI API with given parameters.
@@ -79,22 +87,23 @@ class TypliAI(Provider):
         # Initialize LitAgent for user agent generation if available
 
         self.agent = LitAgent()
-        # user_agent = self.agent.random() # Let impersonate handle the user-agent
+        user_agent = self.agent.random() # Let impersonate handle the user-agent
         self.headers = {
-            'accept': '*/*', # Changed from '/' in example, but '*' is safer
-            'accept-language': 'en-US,en;q=0.9',
+            'accept': '/',
+            'accept-language': 'en-US,en;q=0.9,en-IN;q=0.8',
             'content-type': 'application/json',
+            'dnt': '1',
             'origin': 'https://typli.ai',
+            'priority': 'u=1, i',
             'referer': 'https://typli.ai/free-no-sign-up-chatgpt',
-            # Let impersonate handle sec-ch-ua headers
-            # 'sec-ch-ua': '"Microsoft Edge";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
-            # 'sec-ch-ua-mobile': '?0',
-            # 'sec-ch-ua-platform': '"Windows"',
+            'sec-ch-ua': '"Not(A:Brand";v="8", "Chromium";v="144", "Microsoft Edge";v="144"',
+            'sec-ch-ua-mobile': '?0',
+            'sec-ch-ua-platform': '"Windows"',
             'sec-fetch-dest': 'empty',
             'sec-fetch-mode': 'cors',
             'sec-fetch-site': 'same-origin',
-            'dnt': '1',
-            # 'user-agent': user_agent, # Let impersonate handle this
+            'sec-gpc': '1',
+            'user-agent': user_agent,
         }
 
 
@@ -156,15 +165,13 @@ class TypliAI(Provider):
 
 
         payload = {
+            "slug": "free-no-sign-up-chatgpt",
+            "modelId": self.model,
             "id": generate_random_id(),
             "messages": [
-                { # Add the system role message
-                    "role": "system",
-                    "content": self.system_prompt
-                },
                 {
+                    "id": generate_random_id(),
                     "role": "user",
-                    "content": conversation_prompt,
                     "parts": [
                         {
                             "type": "text",
@@ -173,7 +180,7 @@ class TypliAI(Provider):
                     ]
                 }
             ],
-            "slug": "free-no-sign-up-chatgpt"
+            "trigger": "submit-message"
         }
 
         def for_stream():
@@ -193,25 +200,18 @@ class TypliAI(Provider):
                     raise exceptions.FailedToGenerateResponseError(error_msg)
 
                 streaming_response = ""
-                # Use sanitize_stream with extract_regexes
+                # Use sanitize_stream with content_extractor for the new JSON format
                 processed_stream = sanitize_stream(
-                    data=response.iter_content(chunk_size=None), # Pass byte iterator
-                    intro_value=None, # No simple prefix like 'data:'
-                    to_json=False,    # Content is extracted as string, not JSON object per line
-                    extract_regexes=[r'0:"(.*?)"'], # Extract content from '0:"..."' format
-                    skip_regexes=[
-                        r'^f:\{.*\}$',  # Skip metadata lines starting with f:{
-                        r'^e:\{.*\}$',  # Skip metadata lines starting with e:{
-                        r'^d:\{.*\}$',  # Skip metadata lines starting with d:{
-                        r'^8:\[.*\]$',  # Skip metadata lines starting with 8:[
-                        r'^2:\[.*\]$',  # Skip metadata lines starting with 2:[
-                        r'^\s*$'        # Skip empty lines
-                    ],
-                    raw=raw  # Pass the raw parameter to sanitize_stream
+                    data=response.iter_content(chunk_size=None),
+                    intro_value="data: ",
+                    to_json=True,
+                    content_extractor=lambda x: x.get("delta") if isinstance(x, dict) and x.get("type") == "text-delta" else None,
+                    skip_markers=["[DONE]"],
+                    raw=raw
                 )
 
                 for content_chunk in processed_stream:
-                    if content_chunk and isinstance(content_chunk, str): # Extractor returns string
+                    if content_chunk and isinstance(content_chunk, str):
                         streaming_response += content_chunk
                         yield content_chunk if raw else dict(text=content_chunk)
 

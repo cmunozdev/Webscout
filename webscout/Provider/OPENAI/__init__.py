@@ -69,6 +69,7 @@ from webscout.Provider.OPENAI.zenmux import Zenmux
 from webscout.Provider.OPENAI.gradient import Gradient
 from webscout.Provider.OPENAI.sambanova import Sambanova
 from webscout.Provider.OPENAI.meta import Meta
+from webscout.Provider.OPENAI.typliai import TypliAI
 
 # List of all exported names
 __all__ = [
@@ -136,4 +137,5 @@ __all__ = [
     "Gradient",
     "Sambanova",
     "Meta",
+    "TypliAI",
 ]

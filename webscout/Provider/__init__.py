@@ -36,13 +36,11 @@ from webscout.Provider.meta import Meta
 from webscout.Provider.Netwrck import Netwrck
 from webscout.Provider.oivscode import oivscode
 from webscout.Provider.Openai import OPENAI
-from webscout.Provider.Perplexitylabs import PerplexityLabs
 from webscout.Provider.PI import PiAI
 from webscout.Provider.QwenLM import QwenLM
 from webscout.Provider.Sambanova import Sambanova
 from webscout.Provider.searchchat import SearchChatAI
 from webscout.Provider.sonus import SonusAI
-from webscout.Provider.TeachAnything import TeachAnything
 from webscout.Provider.TextPollinationsAI import TextPollinationsAI
 from webscout.Provider.TogetherAI import TogetherAI
 from webscout.Provider.toolbaz import Toolbaz
@@ -95,13 +93,11 @@ __all__ = [
     "Meta",
     "Netwrck",
     "oivscode",
-    "PerplexityLabs",
     "PiAI",
     "QwenLM",
     "Sambanova",
     "SearchChatAI",
     "SonusAI",
-    "TeachAnything",
     "TextPollinationsAI",
     "TogetherAI",
     "Toolbaz",
