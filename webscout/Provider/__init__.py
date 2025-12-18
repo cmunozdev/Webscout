@@ -18,7 +18,6 @@ from webscout.Provider.ExaAI import ExaAI
 from webscout.Provider.ExaChat import ExaChat
 from webscout.Provider.Gemini import GEMINI
 from webscout.Provider.geminiapi import GEMINIAPI
-from webscout.Provider.GeminiProxy import GeminiProxy
 from webscout.Provider.GithubChat import GithubChat
 from webscout.Provider.Gradient import Gradient
 from webscout.Provider.Groq import GROQ
@@ -76,7 +75,6 @@ __all__ = [
     "ExaChat",
     "GEMINI",
     "GEMINIAPI",
-    "GeminiProxy",
     "GithubChat",
     "Gradient",
     "GROQ",

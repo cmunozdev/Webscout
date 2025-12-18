@@ -76,22 +76,21 @@ These providers are only available in the standard implementation format.
 | 5 | **Cohere** | `webscout/Provider/Cohere.py` |
 | 6 | **Gemini** | `webscout/Provider/Gemini.py` |
 | 7 | **GeminiAPI** | `webscout/Provider/geminiapi.py` |
-| 8 | **GeminiProxy** | `webscout/Provider/GeminiProxy.py` |
-| 9 | **GithubChat** | `webscout/Provider/GithubChat.py` |
-| 10 | **Jadve** | `webscout/Provider/Jadve.py` |
-| 11 | **Julius** | `webscout/Provider/julius.py` |
-| 12 | **KoboldAI** | `webscout/Provider/Koboldai.py` |
-| 13 | **LearnFastAI** | `webscout/Provider/learnfastai.py` |
-| 14 | **Llama3Mitril** | `webscout/Provider/llama3mitril.py` |
-| 15 | **LLMChat** | `webscout/Provider/llmchat.py` |
-| 16 | **OpenAI** | `webscout/Provider/Openai.py` |
-| 17 | **QwenLM** | `webscout/Provider/QwenLM.py` |
-| 18 | **SearchChat** | `webscout/Provider/searchchat.py` |
-| 19 | **TurboSeek** | `webscout/Provider/turboseek.py` |
-| 20 | **VercelAI** | `webscout/Provider/VercelAI.py` |
-| 21 | **WrDoChat** | `webscout/Provider/WrDoChat.py` |
+| 8 | **GithubChat** | `webscout/Provider/GithubChat.py` |
+| 9 | **Jadve** | `webscout/Provider/Jadve.py` |
+| 10 | **Julius** | `webscout/Provider/julius.py` |
+| 11 | **KoboldAI** | `webscout/Provider/Koboldai.py` |
+| 12 | **LearnFastAI** | `webscout/Provider/learnfastai.py` |
+| 13 | **Llama3Mitril** | `webscout/Provider/llama3mitril.py` |
+| 14 | **LLMChat** | `webscout/Provider/llmchat.py` |
+| 15 | **OpenAI** | `webscout/Provider/Openai.py` |
+| 16 | **QwenLM** | `webscout/Provider/QwenLM.py` |
+| 17 | **SearchChat** | `webscout/Provider/searchchat.py` |
+| 18 | **TurboSeek** | `webscout/Provider/turboseek.py` |
+| 19 | **VercelAI** | `webscout/Provider/VercelAI.py` |
+| 20 | **WrDoChat** | `webscout/Provider/WrDoChat.py` |
 
-**Total: 21 providers with only normal implementation**
+**Total: 20 providers with only normal implementation**
 
 ---
 
@@ -121,16 +120,16 @@ These providers are only available in the OpenAI-compatible format and have no s
 │ Category                                │ Count │
 ├─────────────────────────────────────────┼───────┤
 │ Both Normal & OpenAI-Compatible         │  33   │
-│ Only Normal Version                     │  21   │
+│ Only Normal Version                     │  20   │
 │ Only OpenAI-Compatible Version          │   6   │
 ├─────────────────────────────────────────┼───────┤
-│ TOTAL UNIQUE PROVIDERS                  │  60   │
+│ TOTAL UNIQUE PROVIDERS                  │  59   │
 └─────────────────────────────────────────┴───────┘
 ```
 
 ### Implementation Coverage
 
-- **Total Normal Implementations**: 54 (33 hybrid + 21 normal-only)
+- **Total Normal Implementations**: 53 (33 hybrid + 20 normal-only)
 - **Total OpenAI Implementations**: 39 (33 hybrid + 6 OpenAI-only)
 - **Providers with Multiple Options**: 33 (55% of all providers)
 

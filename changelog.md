@@ -3,10 +3,33 @@
 All notable changes to this project will be documented in this file.
 
 
-## [2025.12.18] - 2025-12-18
+## [2025.12.18.1] - 2025-12-18
 
 ### ✨ Added
-- **feat**: webscout/Provider/OPENAI/typliai.py - New OpenAI-compatible TypliAI provider with streaming and non-streaming support for GPT-4.1, GPT-5, Gemini 2.5, Claude 4.5, and Grok 4 models.
+- **feat**: webscout/client.py - Enhanced unified Client interface for AI providers:
+  - `client.chat.completions.create()` - OpenAI-compatible chat completions
+  - `client.images.generate()` / `client.images.create()` - Unified image generation
+  - **Intelligent Model Resolution**:
+    - `model="auto"`: Automatically selects a random free provider and its default model
+    - `model="ProviderName/model_name"`: Directly target a specific provider and model (e.g., `"Toolbaz/grok-4.1-fast"`)
+    - `model="model_name"`: Automatically finds which provider supports the requested model
+  - **Simplified Auth Detection**: Providers are now identified as "free" or "auth-required" based solely on the `required_auth` attribute
+  - **Auto-failover**: Improved failover logic that intelligently adjusts model names across different providers
+  - Dynamic discovery for all 39+ chat and 13+ image providers
+  - Support for custom `exclude` and `exclude_images` lists
+      - **Fuzzy Model Matching**: Automatically finds the closest matching model name across all providers if an exact match is not found (e.g., `model="grok-4.1-fst"` matches `"grok-4.1-fast"`). Uses `difflib` with a 0.6 confidence cutoff.
+      - Added `last_provider` property to track successful provider/model pairs
+    - Cleaned up internal implementation and removed redundant debug prints
+  - **feat**: webscout/Provider/OPENAI/typliai.py - New OpenAI-compatible TypliAI provider with streaming and non-streaming support for GPT-4.1, GPT-5, Gemini 2.5, Claude 4.5, and Grok 4 models.
+  - **feat**: webscout/Provider/OPENAI/easemate.py - New OpenAI-compatible Easemate provider.
+  - **feat**: webscout/Provider/OPENAI/freeassist.py - New OpenAI-compatible FreeAssist provider.
+  
+  ### 🔧 Improved
+  - **refactor**: webscout/client.py - Robust model discovery logic that safely handles class attributes, instance properties (including `@property`), and `.models.list()` methods during model resolution and fuzzy matching.
+  - **refactor**: webscout/Provider/Sambanova.py - Major refactor to align with TextPollinationsAI pattern:  - Implemented `sanitize_stream` for robust SSE parsing.
+  - Added support for tools and tool calling via `tools` and `tool_choice`.
+  - Added dynamic model fetching with `update_available_models`.
+  - Integrated `LitAgent` for dynamic browser fingerprinting.
 
 ### 🚮 Removed
 - **removed**: webscout/Provider/Perplexitylabs.py - Removed PerplexityLabs provider file.
@@ -15,6 +38,9 @@ All notable changes to this project will be documented in this file.
 - **removed**: webscout/Provider/TeachAnything.py - Removed TeachAnything provider file.
 - **removed**: TeachAnything entry from Provider.md documentation and statistics.
 - **removed**: References to TeachAnything from webscout/Provider/__init__.py.
+- **removed**: webscout/Provider/GeminiProxy.py - Removed GeminiProxy provider file.
+- **removed**: GeminiProxy entry from Provider.md documentation and statistics.
+- **removed**: References to GeminiProxy from webscout/Provider/__init__.py.
 
 ### 🛠️ Fixed
 - **fix**: webscout/Provider/turboseek.py - Updated provider to handle new HTML-based raw stream response format and improved HTML-to-Markdown conversion.
