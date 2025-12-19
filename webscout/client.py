@@ -335,22 +335,53 @@ class ClientCompletions(BaseCompletions):
                         raise ValueError(f"Provider {resolved_provider.__name__} returned empty content")
             except Exception: pass
 
-        # Failover to other providers
-        available_providers = self._get_available_providers()
-        random.shuffle(available_providers)
+        # Better failover logic: Prioritize providers with same or similar models
+        all_available = self._get_available_providers()
+        
+        # Build prioritized fallback queue
+        tier1, tier2, tier3 = [], [], []
+        base_model = model.split("/")[-1] if "/" in model else model
+        search_models = {base_model, resolved_model} if resolved_model else {base_model}
+        
+        for p_name, p_cls in all_available:
+            if p_cls == resolved_provider: continue
+            
+            p_models = _get_models_safely(p_cls)
+            if not p_models:
+                tier3.append((p_name, p_cls, base_model))
+                continue
+                
+            # Tier 1: Exact matches for requested or resolved model
+            found_exact = False
+            for sm in search_models:
+                if sm in p_models:
+                    tier1.append((p_name, p_cls, sm))
+                    found_exact = True
+                    break
+            if found_exact: continue
+            
+            # Tier 2: Fuzzy matches to base model
+            if model != "auto":
+                matches = difflib.get_close_matches(base_model, p_models, n=1, cutoff=0.6)
+                if matches:
+                    tier2.append((p_name, p_cls, matches[0]))
+                    continue
+            
+            # Tier 3: Random model from available provider
+            tier3.append((p_name, p_cls, random.choice(p_models)))
+            
+        random.shuffle(tier1)
+        random.shuffle(tier2)
+        random.shuffle(tier3)
+        fallback_queue = tier1 + tier2 + tier3
         
         errors = []
-        for p_name, p_cls in available_providers:
-            if p_cls == resolved_provider: continue
+        for p_name, p_cls, p_model in fallback_queue:
             try:
                 provider_instance = self._get_provider_instance(p_cls)
-                p_models = _get_models_safely(p_cls)
-                p_model = resolved_model if (p_models and resolved_model in p_models) else (random.choice(p_models) if p_models else resolved_model)
-                
-                failover_kwargs = call_kwargs.copy()
-                failover_kwargs["model"] = p_model
-                
-                response = provider_instance.chat.completions.create(**failover_kwargs)
+                response = provider_instance.chat.completions.create(
+                    **{**call_kwargs, "model": p_model}
+                )
                 
                 if stream and inspect.isgenerator(response):
                     try:
@@ -358,7 +389,7 @@ class ClientCompletions(BaseCompletions):
                         self._last_provider = p_name
                         def chained_gen(first, rest, pname, mname):
                             if self._client.print_provider_info:
-                                print(f"\033[1;34m{pname}:{mname}\033[0m\n")
+                                print(f"\033[1;34m{pname}:{mname} (Fallback)\033[0m\n")
                             yield first
                             yield from rest
                         return chained_gen(first_chunk, response, p_name, p_model)
@@ -371,7 +402,7 @@ class ClientCompletions(BaseCompletions):
                     
                     self._last_provider = p_name
                     if self._client.print_provider_info:
-                        print(f"\033[1;34m{p_name}:{p_model}\033[0m\n")
+                        print(f"\033[1;34m{p_name}:{p_model} (Fallback)\033[0m\n")
                     return response
                 else:
                     errors.append(f"{p_name}: Returned empty response.")
@@ -503,21 +534,55 @@ class ClientImages(BaseImages):
                 return response
             except Exception: pass
         
-        available_providers = self._get_available_providers()
-        random.shuffle(available_providers)
-        for p_name, p_cls in available_providers:
+        # Better failover logic: Prioritize providers with same or similar models
+        all_available = self._get_available_providers()
+        
+        # Build prioritized fallback queue
+        tier1, tier2, tier3 = [], [], []
+        base_model = model.split("/")[-1] if "/" in model else model
+        search_models = {base_model, resolved_model} if resolved_model else {base_model}
+        
+        for p_name, p_cls in all_available:
             if p_cls == resolved_provider: continue
+            
+            p_models = _get_models_safely(p_cls)
+            if not p_models:
+                tier3.append((p_name, p_cls, base_model))
+                continue
+                
+            # Tier 1: Exact matches for requested or resolved model
+            found_exact = False
+            for sm in search_models:
+                if sm in p_models:
+                    tier1.append((p_name, p_cls, sm))
+                    found_exact = True
+                    break
+            if found_exact: continue
+            
+            # Tier 2: Fuzzy matches to base model
+            if model != "auto":
+                matches = difflib.get_close_matches(base_model, p_models, n=1, cutoff=0.6)
+                if matches:
+                    tier2.append((p_name, p_cls, matches[0]))
+                    continue
+            
+            # Tier 3: Random model from available provider
+            tier3.append((p_name, p_cls, random.choice(p_models)))
+            
+        random.shuffle(tier1)
+        random.shuffle(tier2)
+        random.shuffle(tier3)
+        fallback_queue = tier1 + tier2 + tier3
+        
+        for p_name, p_cls, p_model in fallback_queue:
             try:
                 provider_instance = self._get_provider_instance(p_cls)
-                p_models = _get_models_safely(p_cls)
-                p_model = resolved_model if (p_models and resolved_model in p_models) else (random.choice(p_models) if p_models else resolved_model)
-                failover_kwargs = call_kwargs.copy()
-                failover_kwargs["model"] = p_model
-                
-                response = provider_instance.images.create(**failover_kwargs)
+                response = provider_instance.images.create(
+                    **{**call_kwargs, "model": p_model}
+                )
                 self._last_provider = p_name
                 if self._client.print_provider_info:
-                    print(f"\033[1;34m{p_name}:{p_model}\033[0m\n")
+                    print(f"\033[1;34m{p_name}:{p_model} (Fallback)\033[0m\n")
                 return response
             except Exception: continue
         raise RuntimeError(f"All image providers failed.")
