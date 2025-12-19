@@ -15,7 +15,7 @@ from webscout.Provider.DeepAI import DeepAI
 from webscout.Provider.Deepinfra import DeepInfra
 from webscout.Provider.elmo import Elmo
 from webscout.Provider.ExaAI import ExaAI
-from webscout.Provider.ExaChat import ExaChat
+from webscout.Provider.Ayle import Ayle
 from webscout.Provider.Gemini import GEMINI
 from webscout.Provider.geminiapi import GEMINIAPI
 from webscout.Provider.GithubChat import GithubChat
@@ -72,7 +72,7 @@ __all__ = [
     "DeepInfra",
     "Elmo",
     "ExaAI",
-    "ExaChat",
+    "Ayle",
     "GEMINI",
     "GEMINIAPI",
     "GithubChat",

@@ -48,10 +48,11 @@ from webscout.Provider.OPENAI.deepinfra import DeepInfra
 from webscout.Provider.OPENAI.e2b import E2B
 from webscout.Provider.OPENAI.elmo import Elmo
 from webscout.Provider.OPENAI.exaai import ExaAI
-from webscout.Provider.OPENAI.exachat import ExaChat
+from webscout.Provider.OPENAI.ayle import Ayle
 from webscout.Provider.OPENAI.groq import Groq
 from webscout.Provider.OPENAI.heckai import HeckAI
 from webscout.Provider.OPENAI.ibm import IBM
+from webscout.Provider.OPENAI.llmchat import LLMChat
 from webscout.Provider.OPENAI.llmchatco import LLMChatCo
 from webscout.Provider.OPENAI.netwrck import Netwrck
 from webscout.Provider.OPENAI.oivscode import oivscode
@@ -116,10 +117,11 @@ __all__ = [
     "E2B",
     "Elmo",
     "ExaAI",
-    "ExaChat",
+    "Ayle",
     "Groq",
     "HeckAI",
     "IBM",
+    "LLMChat",
     "LLMChatCo",
     "Netwrck",
     "oivscode",

@@ -16,16 +16,53 @@ class LLMChat(Provider):
     """
     required_auth = False
     AVAILABLE_MODELS = [
+        "@cf/aisingapore/gemma-sea-lion-v4-27b-it",
+        "@cf/deepseek-ai/deepseek-math-7b-instruct",
+        "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
+        "@cf/defog/sqlcoder-7b-2",
+        "@cf/fblgit/una-cybertron-7b-v2-bf16",
+        "@cf/google/gemma-2b-it-lora",
+        "@cf/google/gemma-3-12b-it",
+        "@cf/ibm-granite/granite-4.0-h-micro",
+        "@cf/meta-llama/llama-2-7b-chat-hf-lora",
+        "@cf/meta/llama-2-7b-chat-fp16",
+        "@cf/meta/llama-2-7b-chat-int8",
+        "@cf/meta/llama-3-8b-instruct",
+        "@cf/meta/llama-3-8b-instruct-awq",
         "@cf/meta/llama-3.1-70b-instruct",
         "@cf/meta/llama-3.1-8b-instruct",
-        "@cf/meta/llama-3.2-3b-instruct",
         "@cf/meta/llama-3.2-1b-instruct",
+        "@cf/meta/llama-3.2-3b-instruct",
         "@cf/meta/llama-3.3-70b-instruct-fp8-fast",
-        "@cf/deepseek-ai/deepseek-r1-distill-qwen-32b",
         "@cf/meta/llama-4-scout-17b-16e-instruct",
+        "@cf/meta/llama/llama-2-7b-chat-hf-lora",
+        "@cf/meta/meta-llama-3-8b-instruct",
+        "@cf/microsoft/phi-2",
+        "@cf/mistral/mistral-7b-instruct-v0.1-vllm",
+        "@cf/mistral/mistral-7b-instruct-v0.2-lora",
         "@cf/mistralai/mistral-small-3.1-24b-instruct",
-        "@cf/google/gemma-3-12b-it",
-        "@cf/ibm-granite/granite-4.0-h-micro"
+        "@cf/openchat/openchat-3.5-0106",
+        "@cf/qwen/qwen1.5-0.5b-chat",
+        "@cf/qwen/qwen1.5-1.8b-chat",
+        "@cf/qwen/qwen1.5-14b-chat-awq",
+        "@cf/qwen/qwen1.5-7b-chat-awq",
+        "@cf/qwen/qwen2.5-coder-32b-instruct",
+        "@cf/qwen/qwen3-30b-a3b-fp8",
+        "@cf/qwen/qwq-32b",
+        "@cf/tiiuae/falcon-7b-instruct",
+        "@cf/tinyllama/tinyllama-1.1b-chat-v1.0",
+        "@hf/google/gemma-7b-it",
+        "@hf/meta-llama/meta-llama-3-8b-instruct",
+        "@hf/mistral/mistral-7b-instruct-v0.2",
+        "@hf/nexusflow/starling-lm-7b-beta",
+        "@hf/thebloke/deepseek-coder-6.7b-base-awq",
+        "@hf/thebloke/deepseek-coder-6.7b-instruct-awq",
+        "@hf/thebloke/llama-2-13b-chat-awq",
+        "@hf/thebloke/llamaguard-7b-awq",
+        "@hf/thebloke/mistral-7b-instruct-v0.1-awq",
+        "@hf/thebloke/neural-chat-7b-v3-1-awq",
+        "@hf/thebloke/openhermes-2.5-mistral-7b-awq",
+        "@hf/thebloke/zephyr-7b-beta-awq"
     ]
 
     def __init__(
@@ -211,35 +248,35 @@ class LLMChat(Provider):
         return response["text"]
 
 if __name__ == "__main__":
-    # # Ensure curl_cffi is installed
-    # print("-" * 80)
-    # print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    # print("-" * 80)
+    # Ensure curl_cffi is installed
+    print("-" * 80)
+    print(f"{'Model':<50} {'Status':<10} {'Response'}")
+    print("-" * 80)
     
-    # # Test all available models
-    # working = 0
-    # total = len(LLMChat.AVAILABLE_MODELS)
+    # Test all available models
+    working = 0
+    total = len(LLMChat.AVAILABLE_MODELS)
     
-    # for model in LLMChat.AVAILABLE_MODELS:
-    #     try:
-    #         test_ai = LLMChat(model=model, timeout=60)
-    #         response = test_ai.chat("Say 'Hello' in one word", stream=True)
-    #         response_text = ""
-    #         for chunk in response:
-    #             response_text += chunk
-    #             print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
+    for model in LLMChat.AVAILABLE_MODELS:
+        try:
+            test_ai = LLMChat(model=model, timeout=60)
+            response = test_ai.chat("Say 'Hello' in one word", stream=True)
+            response_text = ""
+            for chunk in response:
+                response_text += chunk
+                print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
             
-    #         if response_text and len(response_text.strip()) > 0:
-    #             status = "✓"
-    #             # Truncate response if too long
-    #             display_text = response_text.strip()[:50] + "..." if len(response_text.strip()) > 50 else response_text.strip()
-    #         else:
-    #             status = "✗"
-    #             display_text = "Empty or invalid response"
-    #         print(f"\r{model:<50} {status:<10} {display_text}")
-    #     except Exception as e:
-    #         print(f"\r{model:<50} {'✗':<10} {str(e)}")
-    ai = LLMChat(model="@cf/meta/llama-3.1-70b-instruct")
-    response = ai.chat("Say 'Hello' in one word", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+            if response_text and len(response_text.strip()) > 0:
+                status = "✓"
+                # Truncate response if too long
+                display_text = response_text.strip()[:50] + "..." if len(response_text.strip()) > 50 else response_text.strip()
+            else:
+                status = "✗"
+                display_text = "Empty or invalid response"
+            print(f"\r{model:<50} {status:<10} {display_text}")
+        except Exception as e:
+            print(f"\r{model:<50} {'✗':<10} {str(e)}")
+    # ai = LLMChat(model="@cf/meta/llama-3.1-70b-instruct")
+    # response = ai.chat("Say 'Hello' in one word", stream=True, raw=False)
+    # for chunk in response:
+    #     print(chunk, end="", flush=True)

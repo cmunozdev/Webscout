@@ -56,7 +56,7 @@ class Completions(BaseCompletions):
         """
         Creates a model response for the given chat conversation using YEPCHAT API.
         Mimics openai.chat.completions.create
-        Note: YEPCHAT does not support system messages. They will be ignored.
+        Note: YEPCHAT does not support system messages. They will be converted to user messages.
         """
         # Only accept and use the raw model name (no prefix logic)
         model_raw = model
@@ -66,20 +66,21 @@ class Completions(BaseCompletions):
                 f"Invalid model: {model}. Choose from: {self._client.AVAILABLE_MODELS}"
             )
 
-        # Filter out system messages and warn the user if any are present
+        # Convert system messages to user messages for compatibility
         filtered_messages = []
-        has_system_message = False
-        if get_system_prompt(messages) or system_prompt:  # Check both message list and explicit param
-            has_system_message = True
+
+        # If an explicit system_prompt is provided, prepend it as a user message
+        if system_prompt:
+            filtered_messages.append({"role": "user", "content": system_prompt})
 
         for msg in messages:
             if msg["role"] == "system":
-                continue  # Skip system messages
-            filtered_messages.append(msg)
-
-        if has_system_message:
-            # Print warning in bold red
-            print(f"{BOLD}{RED}Warning: YEPCHAT does not support system messages, they will be ignored.{RESET}")
+                # Convert system message to user message
+                new_msg = msg.copy()
+                new_msg["role"] = "user"
+                filtered_messages.append(new_msg)
+            else:
+                filtered_messages.append(msg)
 
         # If no messages left after filtering, raise an error
         if not filtered_messages:

@@ -43,7 +43,7 @@ Currently, the following providers are implemented with OpenAI-compatible interf
 - HeckAI
 - IBM
 - SonusAI
-- ExaChat
+- Ayle
 - Netwrck
 - StandardInput
 - Writecream
@@ -810,17 +810,17 @@ for chunk in stream:
 print()  # Add a newline at the end
 ```
 
-### Basic Usage with ExaChat
+### Basic Usage with Ayle
 
 ```python
-from webscout.client import ExaChat
+from webscout.client import Ayle
 
 # Initialize the client
-client = ExaChat()
+client = Ayle()
 
 # Create a completion (non-streaming)
 response = client.chat.completions.create(
-    model="exaanswer",  # Choose from many available models
+    model="gemini-2.5-flash",  # Choose from many available models
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Tell me about Python programming."}
@@ -831,13 +831,13 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-### Using Different ExaChat Providers
+### Using Different Ayle Models
 
 ```python
-from webscout.client import ExaChat
+from webscout.client import Ayle
 
 # Initialize the client
-client = ExaChat(timeout=60)
+client = Ayle(timeout=60)
 
 # Use a Gemini model
 gemini_response = client.chat.completions.create(
@@ -850,14 +850,14 @@ gemini_response = client.chat.completions.create(
 
 # Use a Groq model
 groq_response = client.chat.completions.create(
-    model="llama-3.1-8b-instant",
+    model="llama-3.3-70b-versatile",
     messages=[
         {"role": "user", "content": "Tell me about Python programming."}
     ]
 )
 
 # Print the response
-print(response.choices[0].message.content)
+print(gemini_response.choices[0].message.content)
 ```
 
 ### Streaming with Netwrck
@@ -1024,7 +1024,7 @@ Want to add a new OpenAI-compatible provider? Follow these steps:
 - [Yep.com Website](https://yep.com/)
 - [HeckAI Website](https://heck.ai/)
 - [SonusAI Website](https://chat.sonus.ai/)
-- [ExaChat Website](https://exa-chat.vercel.app/)
+- [Ayle Website](https://ayle.chat/)
 - [Netwrck Website](https://netwrck.com/)
 - [StandardInput Website](https://chat.standard-input.com/)
 

@@ -3,6 +3,21 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.12.20] - 2025-12-20
+
+### ✨ Added
+- **feat**: webscout/Provider/OPENAI/llmchat.py - New OpenAI-compatible LLMChat provider with support for 47+ models including Llama 3.3, DeepSeek R1, and Qwen3.
+- **feat**: webscout/Provider/llmchat.py - Updated model list with latest models from llmchat.in.
+- **feat**: webscout/Provider/OPENAI/ayle.py - Renamed from exachat.py to ayle.py and updated class/references to Ayle.
+- **feat**: webscout/Provider/Ayle.py - Renamed from ExaChat.py to Ayle.py.
+- **feat**: webscout/Provider/OPENAI/yep.py - Now automatically converts "system" role messages to "user" role for compatibility with YEPCHAT API instead of ignoring them.
+
+### 🔧 Improved
+- **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.
+
+### Fixed
+- **fix**: stream not working in Exachat providers and fixed api endpoints
+
 ## [2025.12.19] - 2025-12-19
 
 ### ✨ Added

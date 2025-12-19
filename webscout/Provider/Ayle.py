@@ -11,41 +11,39 @@ from webscout.litagent import LitAgent
 
 # Model configurations
 MODEL_CONFIGS = {
-    "gemini": {
-        "endpoint": "https://ayle.chat/api/gemini",
+    "ayle": {
+        "endpoint": "https://ayle.chat/api/chat",
         "models": [
-            "gemini-2.0-flash",
             "gemini-2.5-flash",
-
-        
-        ],
-    },
-    "cerebras": {
-        "endpoint": "https://ayle.chat/api/cerebras",
-        "models": [
-            "llama3.1-8b",
+            "gemini-2.0-flash",
+            "llama-3.3-70b-versatile",
             "llama-3.3-70b",
+            "tngtech/deepseek-r1t2-chimera:free",
+            "openai/gpt-oss-120b",
+            "qwen-3-235b-a22b-instruct-2507",
+            "llama3.1-8b",
             "llama-4-scout-17b-16e-instruct",
             "qwen-3-32b"
         ],
     },
 }
 
-class ExaChat(Provider):
+class Ayle(Provider):
     """
-    A class to interact with multiple AI APIs through the Exa Chat interface.
+    A class to interact with multiple AI APIs through the Ayle Chat interface.
     """
     required_auth = False
     AVAILABLE_MODELS = [
-        "gemini-2.0-flash",
         "gemini-2.5-flash",
-        
-        # Cerebras Models
-        "llama3.1-8b",
+        "gemini-2.0-flash",
+        "llama-3.3-70b-versatile",
         "llama-3.3-70b",
+        "tngtech/deepseek-r1t2-chimera:free",
+        "openai/gpt-oss-120b",
+        "qwen-3-235b-a22b-instruct-2507",
+        "llama3.1-8b",
         "llama-4-scout-17b-16e-instruct",
-        "qwen-3-32b",
-
+        "qwen-3-32b"
     ]
 
     def __init__(
@@ -59,14 +57,14 @@ class ExaChat(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        model: str = "exaanswer",
+        model: str = "gemini-2.0-flash",
         system_prompt: str = "You are a friendly, helpful AI assistant.",
         temperature: float = 0.5,
         presence_penalty: int = 0,
         frequency_penalty: int = 0,
         top_p: float = 1
     ):
-        """Initializes the ExaChat client."""
+        """Initializes the Ayle client."""
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
             
@@ -138,9 +136,15 @@ class ExaChat(Provider):
         raise ValueError(error_msg)
 
     @staticmethod
-    def _exachat_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
-        """Extracts content from ExaChat stream JSON objects."""
-        if isinstance(chunk, dict):
+    def _ayle_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
+        """Extracts content from Ayle stream."""
+        if isinstance(chunk, str):
+            if chunk.startswith('0:"'):
+                try:
+                    return json.loads(chunk[2:])
+                except:
+                    return None
+        elif isinstance(chunk, dict):
             return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
         return None
 
@@ -162,29 +166,10 @@ class ExaChat(Provider):
 
     def _build_payload(self, conversation_prompt: str) -> Dict[str, Any]:
         """Build the appropriate payload based on the provider."""
-        if self.provider == "exaanswer":
-            return {
-                "query": conversation_prompt,
-                "messages": []
-            }
-        elif self.provider == "gemini":
-            return {
-                "query": conversation_prompt,
-                "model": self.model,
-                "messages": []
-            }
-        elif self.provider == "cerebras":
-            return {
-                "query": conversation_prompt,
-                "model": self.model,
-                "messages": []
-            }
-        else:  # openrouter or groq
-            return {
-                "query": conversation_prompt + "\n",  # Add newline for openrouter and groq models
-                "model": self.model,
-                "messages": []
-            }
+        return {
+            "messages": [{"role": "user", "content": conversation_prompt}],
+            "model": self.model
+        }
 
     def ask(
         self,
@@ -210,40 +195,47 @@ class ExaChat(Provider):
         processed_stream = sanitize_stream(
             data=response.iter_content(chunk_size=None),
             intro_value=None,
-            to_json=True,
-            content_extractor=self._exachat_extractor,
+            to_json=False,
+            content_extractor=self._ayle_extractor,
             yield_raw_on_error=False,
             raw=raw
         )
+        
         if stream:
-            streaming_text = ""
-            for content_chunk in processed_stream:
-                if content_chunk and isinstance(content_chunk, str):
-                    content_chunk = content_chunk.replace('\\\\', '\\').replace('\\"', '"')
-                if raw:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                    yield content_chunk
-                else:
-                    if content_chunk and isinstance(content_chunk, str):
-                        streaming_text += content_chunk
-                        yield dict(text=content_chunk)
-            self.last_response = {"text": streaming_text}
-            self.conversation.update_chat_history(prompt, streaming_text)
+            return self._ask_stream(prompt, processed_stream, raw)
         else:
-            full_response = ""
-            for content_chunk in processed_stream:
+            return self._ask_non_stream(prompt, processed_stream, raw)
+
+    def _ask_stream(self, prompt: str, processed_stream: Generator, raw: bool) -> Generator:
+        streaming_text = ""
+        for content_chunk in processed_stream:
+            if content_chunk and isinstance(content_chunk, str):
+                content_chunk = content_chunk.replace('\\\\', '\\').replace('\\"', '"')
+            if raw:
                 if content_chunk and isinstance(content_chunk, str):
-                    content_chunk = content_chunk.replace('\\\\', '\\').replace('\\"', '"')
-                if raw:
-                    if content_chunk and isinstance(content_chunk, str):
-                        full_response += content_chunk
-                else:
-                    if content_chunk and isinstance(content_chunk, str):
-                        full_response += content_chunk
-            self.last_response = {"text": full_response}
-            self.conversation.update_chat_history(prompt, full_response)
-            return self.last_response if not raw else full_response
+                    streaming_text += content_chunk
+                yield content_chunk
+            else:
+                if content_chunk and isinstance(content_chunk, str):
+                    streaming_text += content_chunk
+                    yield dict(text=content_chunk)
+        self.last_response = {"text": streaming_text}
+        self.conversation.update_chat_history(prompt, streaming_text)
+
+    def _ask_non_stream(self, prompt: str, processed_stream: Generator, raw: bool) -> Union[Dict[str, Any], str]:
+        full_response = ""
+        for content_chunk in processed_stream:
+            if content_chunk and isinstance(content_chunk, str):
+                content_chunk = content_chunk.replace('\\\\', '\\').replace('\\"', '"')
+            if raw:
+                if content_chunk and isinstance(content_chunk, str):
+                    full_response += content_chunk
+            else:
+                if content_chunk and isinstance(content_chunk, str):
+                    full_response += content_chunk
+        self.last_response = {"text": full_response}
+        self.conversation.update_chat_history(prompt, full_response)
+        return self.last_response if not raw else full_response
 
     def chat(
         self,
@@ -278,32 +270,8 @@ class ExaChat(Provider):
         return text.replace('\\\\', '\\').replace('\\"', '"')
 
 if __name__ == "__main__":
-    # print("-" * 80)
-    # print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    # print("-" * 80)
-    
-    # # Test all available models
-    # working = 0
-    # total = len(ExaChat.AVAILABLE_MODELS)
-    
-    # for model in ExaChat.AVAILABLE_MODELS:
-    #     try:
-    #         test_ai = ExaChat(model=model, timeout=60)
-    #         response = test_ai.chat("Say 'Hello' in one word")
-    #         response_text = response
-            
-    #         if response_text and len(response_text.strip()) > 0:
-    #             status = "✓"
-    #             # Truncate response if too long
-    #             display_text = response_text.strip()[:50] + "..." if len(response_text.strip()) > 50 else response_text.strip()
-    #         else:
-    #             status = "✗"
-    #             display_text = "Empty or invalid response"
-    #         print(f"{model:<50} {status:<10} {display_text}")
-    #     except Exception as e:
-    #         print(f"{model:<50} {'✗':<10} {str(e)}")
     from rich import print
-    ai = ExaChat(model="gemini-2.0-flash")
+    ai = Ayle(model="gemini-2.0-flash")
     response = ai.chat("tell me a joke", stream=True, raw=False)
     for chunk in response:
         print(chunk, end='', flush=True)
