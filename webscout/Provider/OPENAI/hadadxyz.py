@@ -263,7 +263,7 @@ class HadadXYZ(OpenAICompatibleProvider):
         self.chat = Chat(self)
 
     @property
-    def models:
+    def models(self):
         class _ModelList:
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
