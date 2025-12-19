@@ -36,7 +36,6 @@ Currently, the following providers are implemented with OpenAI-compatible interf
 - Venice
 - ExaAI
 - TypeGPT
-- SciraChat
 - LLMChatCo
 - YEPCHAT
 - HeckAI
@@ -530,52 +529,6 @@ for chunk in stream:
 print()  # Add a newline at the end
 ```
 
-### Basic Usage with SciraChat
-
-```python
-from webscout.client import SciraChat
-
-# Initialize the client
-client = SciraChat()
-
-# Create a completion (non-streaming)
-response = client.chat.completions.create(
-    model="scira-default",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Tell me about Python programming."}
-    ]
-)
-
-# Print the response
-print(response.choices[0].message.content)
-```
-
-### Streaming with SciraChat
-
-```python
-from webscout.client import SciraChat
-
-# Initialize the client
-client = SciraChat()
-
-# Create a streaming completion
-stream = client.chat.completions.create(
-    model="scira-default",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Write a short poem about programming."}
-    ],
-    stream=True
-)
-
-# Process the streaming response
-for chunk in stream:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)
-print()  # Add a newline at the end
-```
-
 ### Basic Usage with FreeAIChat
 
 ```python
@@ -969,9 +922,8 @@ Want to add a new OpenAI-compatible provider? Follow these steps:
 - [WiseCat Website](https://wise-cat-groq.vercel.app/)
 - [Venice AI Website](https://venice.ai/)
 - [ExaAI Website](https://o3minichat.exa.ai/)
-- [TypeGPT Website](https://chat.typegpt.net/)
-- [SciraChat Website](https://scira.ai/)
-- [FreeAIChat Website](https://freeaichatplayground.com/)
+- [Sambanova Website](https://sambanova.ai/)
+- [DeepInfra Website](https://deepinfra.com/)
 - [LLMChatCo Website](https://llmchat.co/)
 - [Yep.com Website](https://yep.com/)
 - [HeckAI Website](https://heck.ai/)

@@ -12,6 +12,7 @@ All notable changes to this project will be documented in this file.
 - **feat**: webscout/Provider/Ayle.py - Renamed from ExaChat.py to Ayle.py.
 - **feat**: Removed ChatGPTClone provider (deprecated).
 - **feat**: webscout/Provider/OPENAI/yep.py - Now automatically converts "system" role messages to "user" role for compatibility with YEPCHAT API instead of ignoring them.
+- **removed**: webscout/Provider/OPENAI/scirachat.py - Removed SciraChat provider.
 
 ### 🔧 Improved
 - **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.

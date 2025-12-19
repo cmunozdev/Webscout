@@ -55,7 +55,6 @@ from webscout.Provider.OPENAI.llmchat import LLMChat
 from webscout.Provider.OPENAI.llmchatco import LLMChatCo
 from webscout.Provider.OPENAI.netwrck import Netwrck
 from webscout.Provider.OPENAI.oivscode import oivscode
-from webscout.Provider.OPENAI.scirachat import SciraChat
 from webscout.Provider.OPENAI.sonus import SonusAI
 from webscout.Provider.OPENAI.textpollinations import TextPollinations
 from webscout.Provider.OPENAI.toolbaz import Toolbaz
@@ -123,7 +122,6 @@ __all__ = [
     "LLMChatCo",
     "Netwrck",
     "oivscode",
-    "SciraChat",
     "SonusAI",
     "TextPollinations",
     "Toolbaz",

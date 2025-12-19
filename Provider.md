@@ -101,11 +101,10 @@ These providers are only available in the OpenAI-compatible format and have no s
 | 1 | **ChatGPT** | `webscout/Provider/OPENAI/chatgpt.py` |
 | 2 | **E2B** | `webscout/Provider/OPENAI/e2b.py` |
 | 3 | **FreeAssist** | `webscout/Provider/OPENAI/freeassist.py` |
-| 4 | **SciraChat** | `webscout/Provider/OPENAI/scirachat.py` |
-| 5 | **WriteCream** | `webscout/Provider/OPENAI/writecream.py` |
-| 6 | **Zenmux** | `webscout/Provider/OPENAI/zenmux.py` |
+| 4 | **WriteCream** | `webscout/Provider/OPENAI/writecream.py` |
+| 5 | **Zenmux** | `webscout/Provider/OPENAI/zenmux.py` |
 
-**Total: 6 providers with only OpenAI-compatible implementation**
+**Total: 5 providers with only OpenAI-compatible implementation**
 
 ---
 
@@ -119,17 +118,17 @@ These providers are only available in the OpenAI-compatible format and have no s
 ├─────────────────────────────────────────┼───────┤
 │ Both Normal & OpenAI-Compatible         │  34   │
 │ Only Normal Version                     │  19   │
-│ Only OpenAI-Compatible Version          │   6   │
+│ Only OpenAI-Compatible Version          │   5   │
 ├─────────────────────────────────────────┼───────┤
-│ TOTAL UNIQUE PROVIDERS                  │  59   │
+│ TOTAL UNIQUE PROVIDERS                  │  58   │
 └─────────────────────────────────────────┴───────┘
 ```
 
 ### Implementation Coverage
 
 - **Total Normal Implementations**: 53 (34 hybrid + 19 normal-only)
-- **Total OpenAI Implementations**: 40 (34 hybrid + 6 OpenAI-only)
-- **Providers with Multiple Options**: 34 (57% of all providers)
+- **Total OpenAI Implementations**: 39 (34 hybrid + 5 OpenAI-only)
+- **Providers with Multiple Options**: 34 (58% of all providers)
 
 ---
 
