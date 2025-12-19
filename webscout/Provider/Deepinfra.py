@@ -99,7 +99,9 @@ class DeepInfra(Provider):
     def _deepinfra_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
         """Extracts content from DeepInfra stream JSON objects."""
         if isinstance(chunk, dict):
-            return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+            choices = chunk.get("choices")
+            if choices:
+                return choices[0].get("delta", {}).get("content")
         return None
 
     def __init__(

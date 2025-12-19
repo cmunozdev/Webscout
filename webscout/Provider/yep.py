@@ -200,7 +200,7 @@ class YEPCHAT(Provider):
                     to_json=True,
                     skip_markers=["[DONE]"],
                     yield_raw_on_error=False,
-                    content_extractor=lambda chunk: chunk.get('choices', [{}])[0].get('delta', {}).get('content') if isinstance(chunk, dict) else None,
+                    content_extractor=lambda chunk: chunk.get('choices')[0].get('delta', {}).get('content') if isinstance(chunk, dict) and chunk.get('choices') else None,
                     raw=raw
                 )
                 for content_chunk in processed_stream:

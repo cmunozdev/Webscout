@@ -10,28 +10,6 @@ Features:
 - Intelligent model resolution (auto, provider/model, or model name)
 - Caching of provider instances
 - Full streaming support
-
-Usage:
-    # Chat completions
-    from webscout.client import Client
-    
-    client = Client()
-    response = client.chat.completions.create(
-        model="gpt-4",
-        messages=[{"role": "user", "content": "Hello!"}],
-    )
-    print(response.choices[0].message.content)
-
-    # Image generation
-    from webscout.client import Client
-    
-    client = Client()
-    response = client.images.generate(
-        model="flux",
-        prompt="a white siamese cat playing with a red ball",
-        response_format="url"
-    )
-    print(response.data[0].url)
 """
 
 import time
@@ -43,25 +21,25 @@ import pkgutil
 import difflib
 from typing import List, Dict, Optional, Union, Generator, Any, Type, Tuple, Set
 
-# Import OPENAI providers and utilities
 from webscout.Provider.OPENAI import *
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseCompletions, BaseChat
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletion, 
-    ChatCompletionChunk, 
-    Choice, 
+    ChatCompletion,
+    ChatCompletionChunk,
+    Choice,
     ChoiceDelta,
-    ChatCompletionMessage, 
+    ChatCompletionMessage,
     CompletionUsage
 )
 
-# Import TTI providers and utilities
 from webscout.Provider.TTI import *
 from webscout.Provider.TTI.base import TTICompatibleProvider, BaseImages
 from webscout.Provider.TTI.utils import ImageData, ImageResponse
 
 def load_openai_providers() -> Tuple[Dict[str, Type[OpenAICompatibleProvider]], Set[str]]:
-    """Dynamically loads all OpenAI-compatible provider classes."""
+    """
+    Dynamically loads all OpenAI-compatible provider classes.
+    """
     provider_map = {}
     auth_required_providers = set()
     
@@ -74,13 +52,14 @@ def load_openai_providers() -> Tuple[Dict[str, Type[OpenAICompatibleProvider]], 
                 module = importlib.import_module(f"webscout.Provider.OPENAI.{module_name}")
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and 
+                    if (
+                        isinstance(attr, type) and 
                         issubclass(attr, OpenAICompatibleProvider) and 
                         attr != OpenAICompatibleProvider and
-                        not attr_name.startswith(('Base', '_'))):
+                        not attr_name.startswith(('Base', '_'))
+                    ):
                         
                         provider_map[attr_name] = attr
-                        # Authentication is determined solely by required_auth attribute
                         if hasattr(attr, 'required_auth') and attr.required_auth:
                             auth_required_providers.add(attr_name)
             except Exception: pass
@@ -88,7 +67,9 @@ def load_openai_providers() -> Tuple[Dict[str, Type[OpenAICompatibleProvider]], 
     return provider_map, auth_required_providers
 
 def load_tti_providers() -> Tuple[Dict[str, Type[TTICompatibleProvider]], Set[str]]:
-    """Dynamically loads all TTI provider classes."""
+    """
+    Dynamically loads all TTI provider classes.
+    """
     provider_map = {}
     auth_required_providers = set()
     
@@ -101,10 +82,12 @@ def load_tti_providers() -> Tuple[Dict[str, Type[TTICompatibleProvider]], Set[st
                 module = importlib.import_module(f"webscout.Provider.TTI.{module_name}")
                 for attr_name in dir(module):
                     attr = getattr(module, attr_name)
-                    if (isinstance(attr, type) and 
+                    if (
+                        isinstance(attr, type) and 
                         issubclass(attr, TTICompatibleProvider) and 
                         attr != TTICompatibleProvider and
-                        not attr_name.startswith(('Base', '_'))):
+                        not attr_name.startswith(('Base', '_'))
+                    ):
                         
                         provider_map[attr_name] = attr
                         if hasattr(attr, 'required_auth') and attr.required_auth:
@@ -116,33 +99,36 @@ def load_tti_providers() -> Tuple[Dict[str, Type[TTICompatibleProvider]], Set[st
 OPENAI_PROVIDERS, OPENAI_AUTH_REQUIRED = load_openai_providers()
 TTI_PROVIDERS, TTI_AUTH_REQUIRED = load_tti_providers()
 
-def _get_models_safely(provider_cls: type, instance: Any = None) -> List[str]:
-    """Safely get the list of available models from a provider using models.list().
-    
-    Always uses the standardized models.list() interface which providers implement.
-    This ensures we get the most up-to-date model list, including dynamically fetched models.
-    
-    Args:
-        provider_cls: The provider class
-        instance: Optional pre-created instance. If None, will try to create one.
-    
-    Returns:
-        List of model names as strings, or empty list if not available.
+def _get_models_safely(provider_cls: type, client: Optional['Client'] = None) -> List[str]:
+    """
+    Safely get the list of available models from a provider using models.list().
+    Utilizes client cache if available.
     """
     models = []
     
-    # Get or create an instance to call models.list()
     try:
-        if instance is None:
-            # Try to create an instance
-            try:
-                instance = provider_cls()
-            except Exception:
-                # Some providers may require arguments
-                return []
+        instance = None
+        if client:
+            p_name = provider_cls.__name__
+            if p_name in client._provider_cache:
+                instance = client._provider_cache[p_name]
+            else:
+                try:
+                    init_kwargs = {}
+                    if client.proxies: init_kwargs['proxies'] = client.proxies
+                    if client.api_key: init_kwargs['api_key'] = client.api_key
+                    instance = provider_cls(**init_kwargs)
+                except Exception:
+                    try: instance = provider_cls()
+                    except Exception: pass
+                
+                if instance:
+                    client._provider_cache[p_name] = instance
+        else:
+            try: instance = provider_cls()
+            except Exception: pass
         
-        # Use the standardized models.list() interface
-        if hasattr(instance, "models") and hasattr(instance.models, "list"):
+        if instance and hasattr(instance, "models") and hasattr(instance.models, "list"):
             res = instance.models.list()
             if isinstance(res, list):
                 for m in res:
@@ -150,13 +136,15 @@ def _get_models_safely(provider_cls: type, instance: Any = None) -> List[str]:
                         models.append(m)
                     elif isinstance(m, dict) and "id" in m:
                         models.append(m["id"])
-    except Exception:
+    except Exception: 
         pass
     
     return models
 
 class ClientCompletions(BaseCompletions):
-    """Unified completions interface with automatic provider and model resolution."""
+    """
+    Unified completions interface with automatic provider and model resolution.
+    """
     
     def __init__(self, client: 'Client'):
         self._client = client
@@ -164,37 +152,40 @@ class ClientCompletions(BaseCompletions):
     
     @property
     def last_provider(self) -> Optional[str]:
+        """Returns the name of the last successfully used provider."""
         return self._last_provider
     
     def _get_provider_instance(self, provider_class: Type[OpenAICompatibleProvider], **kwargs) -> OpenAICompatibleProvider:
+        """Retrieves or creates a provider instance, utilizing the client cache."""
+        p_name = provider_class.__name__
+        if p_name in self._client._provider_cache:
+            return self._client._provider_cache[p_name]
+
         init_kwargs = {}
         if self._client.proxies: init_kwargs['proxies'] = self._client.proxies
         if self._client.api_key: init_kwargs['api_key'] = self._client.api_key
         init_kwargs.update(kwargs)
         
-        try: return provider_class(**init_kwargs)
+        try: 
+            instance = provider_class(**init_kwargs)
+            self._client._provider_cache[p_name] = instance
+            return instance
         except Exception:
-            try: return provider_class()
+            try: 
+                instance = provider_class()
+                self._client._provider_cache[p_name] = instance
+                return instance
             except Exception as e: raise RuntimeError(f"Failed to initialize provider {provider_class.__name__}: {e}")
     
     def _fuzzy_resolve_provider_and_model(self, model: str) -> Optional[Tuple[Type[OpenAICompatibleProvider], str]]:
-        """Performs fuzzy search to find the closest model match across all providers."""
+        """
+        Performs enhanced fuzzy search to find the closest model match across all providers.
+        """
         available = self._get_available_providers()
         model_to_provider = {}
         
         for p_name, p_cls in available:
-            # Try to get models from class first (fast path)
-            p_models = _get_models_safely(p_cls)
-            
-            # If empty, try instantiating the provider to get models
-            if not p_models:
-                try:
-                    instance = self._get_provider_instance(p_cls)
-                    p_models = _get_models_safely(p_cls, instance)
-                except Exception:
-                    pass
-            
-            # Add all valid model names to our mapping
+            p_models = _get_models_safely(p_cls, self._client)
             for m in p_models:
                 if m not in model_to_provider:
                     model_to_provider[m] = p_cls
@@ -202,7 +193,20 @@ class ClientCompletions(BaseCompletions):
         if not model_to_provider:
             return None
             
-        matches = difflib.get_close_matches(model, model_to_provider.keys(), n=1, cutoff=0.6)
+        # 1. Exact case-insensitive match
+        for m_name in model_to_provider:
+            if m_name.lower() == model.lower():
+                return model_to_provider[m_name], m_name
+
+        # 2. Substring match
+        for m_name in model_to_provider:
+            if model.lower() in m_name.lower() or m_name.lower() in model.lower():
+                if self._client.print_provider_info:
+                    print(f"\033[1;33mSubstring match: '{model}' -> '{m_name}'\033[0m")
+                return model_to_provider[m_name], m_name
+
+        # 3. Fuzzy match with difflib
+        matches = difflib.get_close_matches(model, model_to_provider.keys(), n=1, cutoff=0.5)
         if matches:
             matched_model = matches[0]
             if self._client.print_provider_info:
@@ -211,50 +215,54 @@ class ClientCompletions(BaseCompletions):
         return None
 
     def _resolve_provider_and_model(self, model: str, provider: Optional[Type[OpenAICompatibleProvider]]) -> Tuple[Type[OpenAICompatibleProvider], str]:
-        """Resolves the best provider and model name based on input."""
-        
-        # 1. Handle Provider/model_name format
+        """
+        Resolves the best provider and model name based on input.
+        """
         if "/" in model:
             p_name, m_name = model.split("/", 1)
             found_p = next((cls for name, cls in OPENAI_PROVIDERS.items() if name.lower() == p_name.lower()), None)
             if found_p:
                 return found_p, m_name
 
-        # 2. If provider is explicitly given
         if provider:
             resolved_model = model
             if model == "auto":
-                p_models = _get_models_safely(provider)
+                p_models = _get_models_safely(provider, self._client)
                 if p_models:
                     resolved_model = random.choice(p_models)
                 else:
-                    resolved_model = "gpt-3.5-turbo"
+                    raise RuntimeError(f"Provider {provider.__name__} has no available models.")
             return provider, resolved_model
 
-        # 3. If model is "auto", select a random available provider
         if model == "auto":
             available = self._get_available_providers()
             if not available:
                 raise RuntimeError("No available chat providers found.")
-            random.shuffle(available)
-            p_name, p_cls = available[0]
-            p_models = _get_models_safely(p_cls)
-            m_name = random.choice(p_models) if p_models else "gpt-3.5-turbo"
-            return p_cls, m_name
+            
+            providers_with_models = []
+            for name, cls in available:
+                p_models = _get_models_safely(cls, self._client)
+                if p_models:
+                    providers_with_models.append((cls, p_models))
+            
+            if providers_with_models:
+                p_cls, p_models = random.choice(providers_with_models)
+                m_name = random.choice(p_models)
+                return p_cls, m_name
+            else:
+                p_name, p_cls = random.choice(available)
+                return p_cls, "gpt-3.5-turbo"
 
-        # 4. Find provider that supports the given model name
         available = self._get_available_providers()
         for p_name, p_cls in available:
-            p_models = _get_models_safely(p_cls)
+            p_models = _get_models_safely(p_cls, self._client)
             if p_models and model in p_models:
                 return p_cls, model
         
-        # 5. Fuzzy match
         fuzzy_result = self._fuzzy_resolve_provider_and_model(model)
         if fuzzy_result:
             return fuzzy_result
 
-        # 6. Last resort: use a random available provider with the given model name
         if available:
             random.shuffle(available)
             return available[0][1], model
@@ -262,6 +270,7 @@ class ClientCompletions(BaseCompletions):
         raise RuntimeError(f"No providers found for model '{model}'")
 
     def _get_available_providers(self) -> List[Tuple[str, Type[OpenAICompatibleProvider]]]:
+        """Returns a list of providers that are currently available to the client."""
         exclude = set(self._client.exclude or [])
         if self._client.api_key:
             return [(name, cls) for name, cls in OPENAI_PROVIDERS.items() if name not in exclude]
@@ -283,7 +292,9 @@ class ClientCompletions(BaseCompletions):
         provider: Optional[Type[OpenAICompatibleProvider]] = None,
         **kwargs: Any
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
-        
+        """
+        Creates a chat completion with automatic failover and intelligent resolution.
+        """
         try:
             resolved_provider, resolved_model = self._resolve_provider_and_model(model, provider)
         except Exception:
@@ -321,7 +332,6 @@ class ClientCompletions(BaseCompletions):
                     except StopIteration: pass
                     except Exception: pass
                 else:
-                    # Check if response is valid and has non-empty content
                     if (response and hasattr(response, "choices") and response.choices and 
                         response.choices[0].message and response.choices[0].message.content and 
                         response.choices[0].message.content.strip()):
@@ -331,14 +341,10 @@ class ClientCompletions(BaseCompletions):
                             print(f"\033[1;34m{resolved_provider.__name__}:{resolved_model}\033[0m\n")
                         return response
                     else:
-                        # Raise exception to trigger failover loop
                         raise ValueError(f"Provider {resolved_provider.__name__} returned empty content")
             except Exception: pass
 
-        # Better failover logic: Prioritize providers with same or similar models
         all_available = self._get_available_providers()
-        
-        # Build prioritized fallback queue
         tier1, tier2, tier3 = [], [], []
         base_model = model.split("/")[-1] if "/" in model else model
         search_models = {base_model, resolved_model} if resolved_model else {base_model}
@@ -346,28 +352,26 @@ class ClientCompletions(BaseCompletions):
         for p_name, p_cls in all_available:
             if p_cls == resolved_provider: continue
             
-            p_models = _get_models_safely(p_cls)
+            p_models = _get_models_safely(p_cls, self._client)
             if not p_models:
-                tier3.append((p_name, p_cls, base_model))
+                fallback_model = base_model if base_model != "auto" else (p_models[0] if p_models else base_model)
+                tier3.append((p_name, p_cls, fallback_model))
                 continue
                 
-            # Tier 1: Exact matches for requested or resolved model
             found_exact = False
             for sm in search_models:
-                if sm in p_models:
+                if sm != "auto" and sm in p_models:
                     tier1.append((p_name, p_cls, sm))
                     found_exact = True
                     break
             if found_exact: continue
             
-            # Tier 2: Fuzzy matches to base model
-            if model != "auto":
-                matches = difflib.get_close_matches(base_model, p_models, n=1, cutoff=0.6)
+            if base_model != "auto":
+                matches = difflib.get_close_matches(base_model, p_models, n=1, cutoff=0.5)
                 if matches:
                     tier2.append((p_name, p_cls, matches[0]))
                     continue
             
-            # Tier 3: Random model from available provider
             tier3.append((p_name, p_cls, random.choice(p_models)))
             
         random.shuffle(tier1)
@@ -395,7 +399,6 @@ class ClientCompletions(BaseCompletions):
                         return chained_gen(first_chunk, response, p_name, p_model)
                     except (StopIteration, Exception): continue
                 
-                # Check if response is valid and has non-empty content
                 if (response and hasattr(response, "choices") and response.choices and 
                     response.choices[0].message and response.choices[0].message.content and 
                     response.choices[0].message.content.strip()):
@@ -414,42 +417,53 @@ class ClientCompletions(BaseCompletions):
         raise RuntimeError(f"All chat providers failed. Errors: {'; '.join(errors[:3])}")
 
 class ClientChat(BaseChat):
+    """
+    Standard chat interface for the client.
+    """
     def __init__(self, client: 'Client'):
         self.completions = ClientCompletions(client)
 
 class ClientImages(BaseImages):
+    """
+    Unified image generation interface with automatic resolution and caching.
+    """
     def __init__(self, client: 'Client'):
         self._client = client
         self._last_provider: Optional[str] = None
     
     @property
     def last_provider(self) -> Optional[str]:
+        """Returns the name of the last successfully used image provider."""
         return self._last_provider
     
     def _get_provider_instance(self, provider_class: Type[TTICompatibleProvider], **kwargs) -> TTICompatibleProvider:
-        try: return provider_class(**kwargs)
+        """Retrieves or creates a TTI provider instance, utilizing the client cache."""
+        p_name = provider_class.__name__
+        if p_name in self._client._provider_cache:
+            return self._client._provider_cache[p_name]
+
+        init_kwargs = {}
+        if self._client.proxies: init_kwargs['proxies'] = self._client.proxies
+        init_kwargs.update(kwargs)
+
+        try: 
+            instance = provider_class(**init_kwargs)
+            self._client._provider_cache[p_name] = instance
+            return instance
         except Exception:
-            try: return provider_class()
+            try: 
+                instance = provider_class()
+                self._client._provider_cache[p_name] = instance
+                return instance
             except Exception as e: raise RuntimeError(f"Failed to initialize TTI provider {provider_class.__name__}: {e}")
     
     def _fuzzy_resolve_provider_and_model(self, model: str) -> Optional[Tuple[Type[TTICompatibleProvider], str]]:
-        """Performs fuzzy search to find the closest model match across all providers."""
+        """Performs enhanced fuzzy search to find the closest image model match across all providers."""
         available = self._get_available_providers()
         model_to_provider = {}
         
         for p_name, p_cls in available:
-            # Try to get models from class first (fast path)
-            p_models = _get_models_safely(p_cls)
-            
-            # If empty, try instantiating the provider to get models
-            if not p_models:
-                try:
-                    instance = self._get_provider_instance(p_cls)
-                    p_models = _get_models_safely(p_cls, instance)
-                except Exception:
-                    pass
-            
-            # Add all valid model names to our mapping
+            p_models = _get_models_safely(p_cls, self._client)
             for m in p_models:
                 if m not in model_to_provider:
                     model_to_provider[m] = p_cls
@@ -457,15 +471,29 @@ class ClientImages(BaseImages):
         if not model_to_provider:
             return None
             
-        matches = difflib.get_close_matches(model, model_to_provider.keys(), n=1, cutoff=0.6)
+        # 1. Exact match
+        for m_name in model_to_provider:
+            if m_name.lower() == model.lower():
+                return model_to_provider[m_name], m_name
+
+        # 2. Substring match
+        for m_name in model_to_provider:
+            if model.lower() in m_name.lower() or m_name.lower() in model.lower():
+                if self._client.print_provider_info:
+                    print(f"\033[1;33mSubstring match (TTI): '{model}' -> '{m_name}'\033[0m")
+                return model_to_provider[m_name], m_name
+
+        # 3. Fuzzy match
+        matches = difflib.get_close_matches(model, model_to_provider.keys(), n=1, cutoff=0.5)
         if matches:
             matched_model = matches[0]
             if self._client.print_provider_info:
-                print(f"\033[1;33mFuzzy match: '{model}' -> '{matched_model}'\033[0m")
+                print(f"\033[1;33mFuzzy match (TTI): '{model}' -> '{matched_model}'\033[0m")
             return model_to_provider[matched_model], matched_model
         return None
 
     def _resolve_provider_and_model(self, model: str, provider: Optional[Type[TTICompatibleProvider]]) -> Tuple[Type[TTICompatibleProvider], str]:
+        """Resolves the best provider and model name for image generation."""
         if "/" in model:
             p_name, m_name = model.split("/", 1)
             found_p = next((cls for name, cls in TTI_PROVIDERS.items() if name.lower() == p_name.lower()), None)
@@ -474,25 +502,36 @@ class ClientImages(BaseImages):
         if provider:
             resolved_model = model
             if model == "auto":
-                p_models = _get_models_safely(provider)
-                resolved_model = random.choice(p_models) if p_models else "flux"
+                p_models = _get_models_safely(provider, self._client)
+                if p_models:
+                    resolved_model = random.choice(p_models)
+                else:
+                    raise RuntimeError(f"TTI Provider {provider.__name__} has no available models.")
             return provider, resolved_model
 
         if model == "auto":
             available = self._get_available_providers()
             if not available:
                 raise RuntimeError("No available image providers found.")
-            random.shuffle(available)
-            p_name, p_cls = available[0]
-            p_models = _get_models_safely(p_cls)
-            return p_cls, random.choice(p_models) if p_models else "flux"
+            
+            providers_with_models = []
+            for name, cls in available:
+                p_models = _get_models_safely(cls, self._client)
+                if p_models:
+                    providers_with_models.append((cls, p_models))
+            
+            if providers_with_models:
+                p_cls, p_models = random.choice(providers_with_models)
+                return p_cls, random.choice(p_models)
+            else:
+                p_name, p_cls = random.choice(available)
+                return p_cls, "flux"
 
         available = self._get_available_providers()
         for p_name, p_cls in available:
-            p_models = _get_models_safely(p_cls)
+            p_models = _get_models_safely(p_cls, self._client)
             if p_models and model in p_models: return p_cls, model
         
-        # Fuzzy match
         fuzzy_result = self._fuzzy_resolve_provider_and_model(model)
         if fuzzy_result:
             return fuzzy_result
@@ -503,6 +542,7 @@ class ClientImages(BaseImages):
         raise RuntimeError(f"No image providers found for model '{model}'")
 
     def _get_available_providers(self) -> List[Tuple[str, Type[TTICompatibleProvider]]]:
+        """Returns a list of image providers that are currently available."""
         exclude = set(self._client.exclude_images or [])
         return [(name, cls) for name, cls in TTI_PROVIDERS.items() if name not in TTI_AUTH_REQUIRED and name not in exclude]
 
@@ -517,7 +557,7 @@ class ClientImages(BaseImages):
         provider: Optional[Type[TTICompatibleProvider]] = None,
         **kwargs: Any
     ) -> ImageResponse:
-        
+        """Generates images with automatic failover and resolution."""
         try: resolved_provider, resolved_model = self._resolve_provider_and_model(model, provider)
         except Exception: resolved_provider, resolved_model = None, model
 
@@ -534,10 +574,7 @@ class ClientImages(BaseImages):
                 return response
             except Exception: pass
         
-        # Better failover logic: Prioritize providers with same or similar models
         all_available = self._get_available_providers()
-        
-        # Build prioritized fallback queue
         tier1, tier2, tier3 = [], [], []
         base_model = model.split("/")[-1] if "/" in model else model
         search_models = {base_model, resolved_model} if resolved_model else {base_model}
@@ -545,28 +582,26 @@ class ClientImages(BaseImages):
         for p_name, p_cls in all_available:
             if p_cls == resolved_provider: continue
             
-            p_models = _get_models_safely(p_cls)
+            p_models = _get_models_safely(p_cls, self._client)
             if not p_models:
-                tier3.append((p_name, p_cls, base_model))
+                fallback_model = base_model if base_model != "auto" else (p_models[0] if p_models else base_model)
+                tier3.append((p_name, p_cls, fallback_model))
                 continue
                 
-            # Tier 1: Exact matches for requested or resolved model
             found_exact = False
             for sm in search_models:
-                if sm in p_models:
+                if sm != "auto" and sm in p_models:
                     tier1.append((p_name, p_cls, sm))
                     found_exact = True
                     break
             if found_exact: continue
             
-            # Tier 2: Fuzzy matches to base model
-            if model != "auto":
-                matches = difflib.get_close_matches(base_model, p_models, n=1, cutoff=0.6)
+            if base_model != "auto":
+                matches = difflib.get_close_matches(base_model, p_models, n=1, cutoff=0.5)
                 if matches:
                     tier2.append((p_name, p_cls, matches[0]))
                     continue
             
-            # Tier 3: Random model from available provider
             tier3.append((p_name, p_cls, random.choice(p_models)))
             
         random.shuffle(tier1)
@@ -588,10 +623,14 @@ class ClientImages(BaseImages):
         raise RuntimeError(f"All image providers failed.")
 
     def create(self, **kwargs) -> ImageResponse:
+        """Alias for generate."""
         return self.generate(**kwargs)
 
 class Client:
-    """Unified Webscout Client for AI providers."""
+    """
+    Unified Webscout Client for AI providers.
+    Manages chat and image generation across multiple free and authenticated providers.
+    """
     
     def __init__(
         self,
@@ -604,6 +643,9 @@ class Client:
         print_provider_info: bool = False,
         **kwargs: Any
     ):
+        """
+        Initialize the Webscout client.
+        """
         self.provider = provider
         self.image_provider = image_provider
         self.api_key = api_key
@@ -613,26 +655,37 @@ class Client:
         self.print_provider_info = print_provider_info
         self.kwargs = kwargs
         
+        self._provider_cache = {}
         self.chat = ClientChat(self)
         self.images = ClientImages(self)
     
     @staticmethod
-    def get_chat_providers() -> List[str]: return list(OPENAI_PROVIDERS.keys())
+    def get_chat_providers() -> List[str]: 
+        """Returns names of all chat providers."""
+        return list(OPENAI_PROVIDERS.keys())
     
     @staticmethod
-    def get_image_providers() -> List[str]: return list(TTI_PROVIDERS.keys())
+    def get_image_providers() -> List[str]: 
+        """Returns names of all image providers."""
+        return list(TTI_PROVIDERS.keys())
     
     @staticmethod
-    def get_free_chat_providers() -> List[str]: return [name for name in OPENAI_PROVIDERS.keys() if name not in OPENAI_AUTH_REQUIRED]
+    def get_free_chat_providers() -> List[str]: 
+        """Returns names of free chat providers."""
+        return [name for name in OPENAI_PROVIDERS.keys() if name not in OPENAI_AUTH_REQUIRED]
     
     @staticmethod
-    def get_free_image_providers() -> List[str]: return [name for name in TTI_PROVIDERS.keys() if name not in TTI_AUTH_REQUIRED]
+    def get_free_image_providers() -> List[str]: 
+        """Returns names of free image providers."""
+        return [name for name in TTI_PROVIDERS.keys() if name not in TTI_AUTH_REQUIRED]
 
 try:
     def run_api(*args, **kwargs):
+        """Runs the FastAPI server."""
         from webscout.server.server import run_api as _run_api
         return _run_api(*args, **kwargs)
     def start_server(**kwargs):
+        """Starts the FastAPI server."""
         from webscout.server.server import run_api as _run_api
         return _run_api(**kwargs)
 except ImportError:

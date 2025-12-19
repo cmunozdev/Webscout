@@ -15,8 +15,13 @@ All notable changes to this project will be documented in this file.
 
 ### 🔧 Improved
 - **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.
+- **refactor**: webscout/Provider/OPENAI/e2b.py - Removed all unwanted `print` statements and ANSI escape codes to make the provider fully silent.
+
 
 ### Fixed
+- **fix**: Fixed `IndexError: list index out of range` in multiple OpenAI-compatible providers (`FreeAssist`, `Yep`, `Sambanova`, `Oivscode`, `Groq`, `DeepInfra`, `Cerebras`, `Algion`, `ChutesAI`) when handling empty `choices` lists from APIs.
+- **fix**: webscout/Provider/OPENAI/textpollinations.py - Added default models list to ensure availability if dynamic fetching fails.
+- **fix**: webscout/client.py - Improved `model="auto"` resolution and fallback logic to prioritize providers with available model lists, ensuring only supported models are passed to providers.
 - **fix**: stream not working in Exachat providers and fixed api endpoints
 
 ## [2025.12.19] - 2025-12-19
@@ -483,12 +488,3 @@ All notable changes to this project will be documented in this file.
 ---
 
 For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
-
-For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
-
-
-
-For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
-
-
-

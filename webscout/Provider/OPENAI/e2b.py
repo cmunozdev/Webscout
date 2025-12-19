@@ -27,9 +27,7 @@ try:
 except ImportError:
     LitAgent = None
 # ANSI escape codes for formatting
-BOLD = "\033[1m"
-RED = "\033[91m"
-RESET = "\033[0m"
+
 
 # Model configurations (moved inside the class later or kept accessible)
 MODEL_PROMPT = {
@@ -1718,21 +1716,21 @@ class Completions(BaseCompletions):
                         continue
 
             except curl_requests.exceptions.RequestException as error:
-                print(f"{RED}Attempt {attempt + 1} failed: {error}{RESET}")
+
                 if attempt == retries - 1:
                     raise ConnectionError(f"E2B API request failed after {retries} attempts: {error}") from error
 
                 # Enhanced retry logic with session rotation on failure
                 if "403" in str(error) or "429" in str(error) or "cloudflare" in str(error).lower():
                     self._client.rotate_session_data(force_rotation=True)
-                    print(f"{RED}Security/rate limit detected. Forcing session rotation...{RESET}")
+
 
                 # Progressive backoff with jitter
                 wait_time = (2 ** attempt) + random.uniform(0, 1)
                 time.sleep(wait_time)
 
             except Exception as error: # Catch other potential errors
-                 print(f"{RED}Attempt {attempt + 1} failed with unexpected error: {error}{RESET}")
+
                  if attempt == retries - 1:
                      raise ConnectionError(f"E2B API request failed after {retries} attempts with unexpected error: {error}") from error
 
@@ -1773,7 +1771,7 @@ class Completions(BaseCompletions):
             return completion
 
         except Exception as e:
-            print(f"{RED}Error during E2B non-stream request: {e}{RESET}")
+
             raise IOError(f"E2B request failed: {e}") from e
 
     def _create_stream_simulation(
@@ -1807,7 +1805,7 @@ class Completions(BaseCompletions):
             yield chunk
 
         except Exception as e:
-            print(f"{RED}Error during E2B stream simulation: {e}{RESET}")
+
             raise IOError(f"E2B stream simulation failed: {e}") from e
 
 
@@ -2021,19 +2019,19 @@ class E2B(OpenAICompatibleProvider):
             # Force session rotation after multiple failures
             self.rotate_session_data(force_rotation=True)
             self._rate_limit_failures = 0
-            print(f"{RED}Multiple rate limit failures detected. Rotating session data...{RESET}")
+
 
         # Calculate wait time with jitter
         base_wait = min(2 ** attempt, 60)  # Cap at 60 seconds
         jitter = random.uniform(0.5, 1.5)
         wait_time = base_wait * jitter
 
-        print(f"{RED}Rate limit detected. Waiting {wait_time:.1f}s before retry {attempt + 1}/{max_retries}...{RESET}")
+
         time.sleep(wait_time)
 
     def refresh_session(self):
         """Manually refresh session data and headers."""
-        print(f"{BOLD}Refreshing session data and headers...{RESET}")
+
         self.rotate_session_data(force_rotation=True)
 
         # Update session headers with new fingerprint
@@ -2043,7 +2041,7 @@ class E2B(OpenAICompatibleProvider):
         # Clear any cached authentication data
         self._rate_limit_failures = 0
 
-        print(f"{BOLD}Session refreshed successfully.{RESET}")
+
 
     def get_session_stats(self):
         """Get current session statistics for debugging."""
@@ -2070,11 +2068,11 @@ class E2B(OpenAICompatibleProvider):
             # Find case-insensitive match
             for available_model in self.AVAILABLE_MODELS:
                 if model.lower() == available_model.lower():
-                    print(f"{BOLD}Warning: Model name case mismatch. Using '{available_model}' for '{model}'.{RESET}")
+
                     return available_model
             # Default if no match found
             default_model = "claude-3.7-sonnet"
-            print(f"{BOLD}{RED}Warning: Model '{model}' not found. Using default '{default_model}'. Available: {', '.join(self.AVAILABLE_MODELS)}{RESET}")
+
             return default_model
 
     def generate_system_prompt(self, model_config: dict, include_latex: bool = True, include_principles: bool = True, custom_time: str | None = None) -> str:
@@ -2225,31 +2223,3 @@ Remember: Your goal is to be maximally helpful and provide the highest quality a
         return self._merge_user_messages(transformed)
 
 
-# Standard test block
-if __name__ == "__main__":
-    print("-" * 80)
-    print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    print("-" * 80)
-    print("\n--- Streaming Simulation Test (claude-opus-4-1-20250805) ---")
-    try:
-        client_stream = E2B()
-        stream = client_stream.chat.completions.create(
-            model="claude-opus-4-1-20250805",
-            messages=[
-                {"role": "user", "content": "hi."}
-            ],
-            stream=True
-        )
-        print("Streaming Response:")
-        full_stream_response = ""
-        for chunk in stream:
-            content = chunk.choices[0].delta.content
-            if content:
-                print(content, end="", flush=True)
-                full_stream_response += content
-        print("\n--- End of Stream ---")
-        print(client_stream.proxies)
-        if not full_stream_response:
-             print(f"{RED}Stream test failed: No content received.{RESET}")
-    except Exception as e:
-        print(f"{RED}Streaming Test Failed: {e}{RESET}")
