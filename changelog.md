@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ## [2025.12.20] - 2025-12-20
 
 ### ✨ Added
+- **feat**: webscout/Provider/TTS/sherpa.py - New SherpaTTS provider using Next-gen Kaldi (Sherpa-ONNX) HF Space API, supporting 50+ languages and multiple ONNX models.
 - **feat**: webscout/Provider/TTS/qwen.py - New Qwen3-TTS provider reverse engineered from Hugging Face Space demo, supporting 40+ high-quality voices and automatic language detection.
 - **feat**: webscout/Provider/HadadXYZ.py - New provider for HadadXYZ HF Space API, supporting 20+ models including DeepSeek-R1, Qwen3, and Llama 4 Maverick.
 - **feat**: webscout/Provider/OPENAI/hadadxyz.py - New OpenAI-compatible HadadXYZ provider.
