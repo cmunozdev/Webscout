@@ -2,135 +2,97 @@
 > Last updated: 2025-12-20
 > Source of truth: [`webscout/cli.py`](../webscout/cli.py)
 
-The Webscout CLI wraps the same search providers that are exposed through the Python API and `webscout.__init__`. Commands are registered with the `swiftcli` framework and share a consistent option style (`-k` for keywords, `-r` for region, etc.). This document captures every command, its parameters, defaults, and the underlying provider call.
+The Webscout CLI provides a unified interface for multiple search engines. All commands now support an `--engine` (or `-e`) option to switch between providers, with DuckDuckGo (`ddg`) as the default.
 
 ## 🧭 Getting Started
 
 ```bash
-# List commands and global help
+# List all available commands
 webscout --help
 
 # Show CLI version
 webscout version
 
-# Run without installation (using uv)
-uv run webscout --help
+# Run a simple search
+webscout text -k "python programming"
 ```
 
-All commands support `--timeout` (default `10` seconds) and DuckDuckGo commands allow `--proxy` for network tunneling.
+The CLI uses **Rich** for beautiful, formatted table outputs and informative panels.
 
-## 🦆 DuckDuckGo Command Group (Default Backend)
+## 🔍 Core Commands
 
-| Command | Description | Underlying Call |
-|---------|-------------|-----------------|
-| `text` | General search with region/safesearch/timelimit filters | `DuckDuckGoSearch.text()` |
-| `answers` | Instant answers (calculator, facts, conversions) | `DuckDuckGoSearch.answers()` |
-| `images` | Image search with advanced filters (size, color, type, layout, license) | `DuckDuckGoSearch.images()` |
-| `videos` | Video search with resolution, duration, license filters | `DuckDuckGoSearch.videos()` |
-| `news` | News articles | `DuckDuckGoSearch.news()` |
-| `maps` | POI/geo search with address or lat/lon inputs | `DuckDuckGoSearch.maps()` |
-| `translate` | Text translation | `DuckDuckGoSearch.translate()` |
-| `suggestions` | Query suggestions/autocomplete | `DuckDuckGoSearch.suggestions()` |
-| `weather` | Rich weather report printed via `_print_weather` | `DuckDuckGoSearch.weather()` |
+| Command | Description | Supported Engines |
+|---------|-------------|-------------------|
+| `text` | General web search | `ddg`, `bing`, `yahoo`, `brave`, `mojeek`, `yandex`, `wikipedia`, `yep` |
+| `images` | Image search | `ddg`, `bing`, `yahoo`, `yep` |
+| `videos` | Video search | `ddg`, `yahoo` |
+| `news` | News search | `ddg`, `bing`, `yahoo` |
+| `weather` | Weather information | `ddg`, `yahoo` |
+| `answers` | Instant answers | `ddg`, `yahoo` |
+| `suggestions`| Query autocomplete | `ddg`, `bing`, `yahoo`, `yep` |
+| `translate` | Text translation | `ddg`, `yahoo` |
+| `maps` | POI / Location search | `ddg`, `yahoo` |
+| `search` | Shortcut for `text` | Use as a general unified command |
 
 ### Common Options
 
 ```text
--k, --keywords      (required) Search query
--r, --region        Region code (default varies by command)
+-k, --keywords      (required) Search query or keywords
+-e, --engine        Search engine to use (default: ddg)
+-m, --max-results   Maximum number of results to display (default: 10)
+-r, --region        Region code (e.g., us, uk, wt-wt)
 -s, --safesearch    on / moderate / off (default: moderate)
--t, --timelimit     d / w / m / y (varies by command)
--m, --max-results   Integer cap (varies by command)
--p, --proxy         Optional proxy URL
---timeout           Request timeout in seconds (default: 10)
+-t, --timelimit     Time filter (d, w, m, y)
 ```
 
-**Maps extras**: `--place`, `--street`, `--city`, `--county`, `--state`, `--country`, `--postalcode`, `--latitude`, `--longitude`, `--radius`.
+## 🌦️ Weather & Info
 
-**Images extras**: `--size`, `--color`, `--type-image`, `--layout`, `--license-image`.
-
-**Videos extras**: `--resolution`, `--duration`, `--license-videos`.
-
-**Translate extras**: `--from` (from language), `--to` (to language).
-
-**Weather extras**: `--language` (language code, default: 'en').
-
-## 🔍 Yep Command Group
-
-| Command | Description | Options |
-|---------|-------------|---------|
-| `yep_text` | Yep text search | `-k`, `-r` (default `all`), `-s` (default `moderate`), `-m` (default: 10) |
-| `yep_images` | Yep image search | Same as `yep_text` |
-| `yep_suggestions` | Query suggestions | `-q` (query), `-r` (default `en-US`) |
-
-## 🔎 Bing Command Group
-
-| Command | Description | Options |
-|---------|-------------|---------|
-| `bing_text` | Bing text search (supports duplicate suppression) | `-k`, `-r` (default `us`), `-s`, `-m`, `-u/--unique` (default: true) |
-| `bing_images` | Bing image search | `-k`, `-r`, `-s`, `-m` (default: 10) |
-| `bing_news` | Bing news search | `-k`, `-r`, `-s`, `-m` (default: 10) |
-| `bing_suggestions` | Bing suggestions | `-q` (query), `-r` (default `en-US`) |
-
-## 📨 Yahoo Command Group
-
-Mirrors DuckDuckGo features but routed through `YahooSearch`.
-
-| Command | Description |
-|---------|-------------|
-| `yahoo_text` | Text search |
-| `yahoo_images` | Image search |
-| `yahoo_videos` | Video search |
-| `yahoo_news` | News search |
-| `yahoo_answers` | Q&A style answers |
-| `yahoo_maps` | Maps/geocode search (same arguments as DuckDuckGo version) |
-| `yahoo_translate` | Translation |
-| `yahoo_suggestions` | Suggestions/autocomplete |
-| `yahoo_weather` | Weather (prints via `_print_weather`) |
-
-**Yahoo-specific options**:
-- All commands support region parameter (default: `us`)
-- `yahoo_text`, `yahoo_images`, `yahoo_videos`, `yahoo_news`: `-k`, `-r`, `-s`, `-m`
-- `yahoo_translate`: `-k`, `--from`, `--to`
-- `yahoo_maps`: same as DuckDuckGo maps
-- `yahoo_weather`: `-l` (location)
-- `yahoo_suggestions`: `-q` (query), `-r` (default: `us`)
-
-## 🌦️ Weather Convenience Commands
-
-The DuckDuckGo `weather` command formats current conditions + 5-day forecast using `_print_weather()`. Yahoo has a similar shortcut (`yahoo_weather`). Both leverage the same CLI formatting so you can quickly compare outputs by swapping commands.
-
-## 🛠️ Tips for Using the CLI
-
-1. **Search backends**: The CLI uses various search providers - DuckDuckGo (default), Bing, Yep, and Yahoo. Each has its own strengths and coverage.
-2. **Common patterns**: Most search commands follow the pattern `-k` for keywords, `-r` for region, `-s` for safesearch, and `-m` for max results.
-3. **Proxy and timeout**: For DuckDuckGo commands, you can use `--proxy` and `--timeout` to handle network issues.
-4. **Provider-specific features**: Bing has unique duplicate suppression with `-u/--unique`, while different providers may have different regional coverage.
-
-## 🧪 Command Examples
+The `weather` command provides a current conditions panel and a 5-day forecast.
 
 ```bash
-# Basic text search
-webscout text -k "python programming"
-
-# Image search with filters
-webscout images -k "mountain landscape" --size large --type-image photo
-
-# News search with time limit
-webscout news -k "AI breakthrough" -t w  # last week
-
-# Weather information
-webscout weather -l "New York"
-
-# Yahoo search alternative
-webscout yahoo_text -k "machine learning" -r us
-
-# Bing with duplicate suppression off
-webscout bing_text -k "climate change" -u false
+webscout weather -l "London" -e yahoo
 ```
+
+## 🧪 Usage Examples
+
+### 1. Multi-Engine Search
+```bash
+# Default (DuckDuckGo)
+webscout text -k "fastapi tutorial"
+
+# Using Brave Search
+webscout text -k "fastapi tutorial" -e brave
+
+# Using Wikipedia
+webscout text -k "Quantum Physics" -e wikipedia
+```
+
+### 2. Media Search
+```bash
+# Find images on Bing
+webscout images -k "cyberpunk art" -e bing
+
+# Find news on Yahoo
+webscout news -k "space exploration" -e yahoo
+```
+
+### 3. Utility Commands
+```bash
+# Translate text via Yahoo
+webscout translate -k "Hola mundo" --to en -e yahoo
+
+# Get suggestions from Yep
+webscout suggestions -q "artificial i" -e yep
+```
+
+## 🛠️ Advanced Options
+
+Certain commands have specific extras:
+- **Maps**: `--place` and `--radius` are supported for refinement.
+- **Translate**: `--from` (optional) and `--to` (default: `en`).
 
 ## 🔗 Related Documentation
 
-- [docs/search.md](search.md) – deeper dive into the search module and Python usage.
-- [docs/architecture.md](architecture.md) – how the CLI slots into the broader architecture.
-- [docs/client.md](client.md) – if you need programmatic control beyond the CLI.
+- [docs/search.md](search.md) – Technical documentation for the Python Search API.
+- [docs/architecture.md](architecture.md) – How the search module is structured.
+- [docs/client.md](client.md) – Using the unified `Webscout` client.

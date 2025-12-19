@@ -1,593 +1,274 @@
-import sys
-from .swiftcli import CLI, option
-from .search import DuckDuckGoSearch, YepSearch, BingSearch, YahooSearch
+from .swiftcli import CLI, option, table_output, panel_output
+from .search import (
+    DuckDuckGoSearch, 
+    YepSearch, 
+    BingSearch, 
+    YahooSearch,
+    Brave,
+    Mojeek,
+    Yandex,
+    Wikipedia
+)
 from .version import __version__
+from rich.console import Console
+from rich.table import Table
+from rich.panel import Panel
+from rich import print as rprint
+import sys
 
-# Alias for backward compatibility
-WEBS = DuckDuckGoSearch
+console = Console()
 
+# Engine mapping
+ENGINES = {
+    "ddg": DuckDuckGoSearch,
+    "duckduckgo": DuckDuckGoSearch,
+    "bing": BingSearch,
+    "yahoo": YahooSearch,
+    "brave": Brave,
+    "mojeek": Mojeek,
+    "yandex": Yandex,
+    "wikipedia": Wikipedia,
+    "yep": YepSearch
+}
 
-def _print_data(data):
-    """Prints data in a simple formatted way."""
-    if data:
-        for i, e in enumerate(data, start=1):
-            print(f"\nResult {i}:")
-            print("-" * 50)
-            for k, v in e.items():
-                if v:
-                    k = "language" if k == "detected_language" else k
-                    print(f"{k:15}: {v}")
-            print("-" * 50)
+def _get_engine(name):
+    cls = ENGINES.get(name.lower())
+    if not cls:
+        rprint(f"[bold red]Error: Engine '{name}' not supported.[/bold red]")
+        rprint(f"Available engines: {', '.join(sorted(set(e for e in ENGINES.keys())))}")
+        sys.exit(1)
+    return cls()
+
+def _print_data(data, title="Search Results"):
+    """Prints data in a beautiful table."""
+    if not data:
+        rprint("[bold yellow]No results found.[/bold yellow]")
+        return
+
+    table = Table(title=title, show_header=True, header_style="bold magenta", show_lines=True)
+    
+    if isinstance(data, list) and len(data) > 0:
+        if isinstance(data[0], dict):
+            keys = list(data[0].keys())
+            table.add_column("#", style="dim", width=4)
+            for key in keys:
+                table.add_column(key.capitalize())
+                
+            for i, item in enumerate(data, 1):
+                row = [str(i)]
+                for key in keys:
+                    val = item.get(key, "")
+                    if key == "body" and val and len(str(val)) > 200:
+                        val = str(val)[:197] + "..."
+                    row.append(str(val))
+                table.add_row(*row)
+        else:
+            table.add_column("#", style="dim", width=4)
+            table.add_column("Result")
+            for i, item in enumerate(data, 1):
+                table.add_row(str(i), str(item))
+    else:
+        rprint(f"[bold blue]Result:[/bold blue] {data}")
+        return
+
+    console.print(table)
 
 def _print_weather(data):
-    """Prints weather data in a clean format."""
-    current = data["current"]
+    """Prints weather data in a clean panel."""
+    current = data.get("current")
+    if not current:
+        rprint(f"[bold blue]Weather data:[/bold blue] {data}")
+        return
     
-    print(f"\nCurrent Weather in {data['location']}:")
-    print("-" * 50)
-    print(f"Temperature: {current['temperature_c']}°C")
-    print(f"Feels Like: {current['feels_like_c']}°C")
-    print(f"Humidity: {current['humidity']}%")
-    print(f"Wind: {current['wind_speed_ms']} m/s")
-    print(f"Direction: {current['wind_direction']}°")
-    print("-" * 50)
+    weather_info = (
+        f"[bold blue]Location:[/bold blue] {data['location']}\n"
+        f"[bold blue]Temperature:[/bold blue] {current['temperature_c']}°C (Feels like {current['feels_like_c']}°C)\n"
+        f"[bold blue]Condition:[/bold blue] {current['condition']}\n"
+        f"[bold blue]Humidity:[/bold blue] {current['humidity']}%\n"
+        f"[bold blue]Wind:[/bold blue] {current['wind_speed_ms']} m/s {current['wind_direction']}°"
+    )
     
-    print("\n5-Day Forecast:")
-    print("-" * 50)
-    print(f"{'Date':10} {'Condition':15} {'High':8} {'Low':8}")
-    print("-" * 50)
+    panel = Panel(weather_info, title="Current Weather", border_style="green")
+    console.print(panel)
     
-    for day in data["daily_forecast"][:5]:
-        print(f"{day['date']:10} {day['condition']:15} {day['max_temp_c']:8.1f}°C {day['min_temp_c']:8.1f}°C")
-    print("-" * 50)
+    if "daily_forecast" in data:
+        forecast_table = Table(title="5-Day Forecast", show_header=True, header_style="bold cyan")
+        forecast_table.add_column("Date")
+        forecast_table.add_column("Condition")
+        forecast_table.add_column("High")
+        forecast_table.add_column("Low")
+        
+        for day in data["daily_forecast"][:5]:
+            forecast_table.add_row(
+                day['date'],
+                day['condition'],
+                f"{day['max_temp_c']:.1f}°C",
+                f"{day['min_temp_c']:.1f}°C"
+            )
+        console.print(forecast_table)
 
-# Initialize CLI app
 app = CLI(name="webscout", help="Search the web with a simple UI", version=__version__)
 
 @app.command()
 def version():
     """Show the version of webscout."""
-    print(f"webscout version: {__version__}")
-
-
+    rprint(f"[bold cyan]webscout version:[/bold cyan] {__version__}")
 
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="wt-wt")
+@option("--engine", "-e", help="Search engine (ddg, bing, yahoo, brave, etc.)", default="ddg")
+@option("--region", "-r", help="Region for search results", default=None)
 @option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
 @option("--timelimit", "-t", help="Time limit for results", default=None)
-@option("--backend", "-b", help="Search backend to use", default="api")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=25)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def text(keywords: str, region: str, safesearch: str, timelimit: str, backend: str, max_results: int, proxy: str = None, timeout: int = 10):
-    """Perform a text search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+def text(keywords: str, engine: str, region: str, safesearch: str, timelimit: str, max_results: int):
+    """Perform a text search."""
     try:
-        results = webs.text(keywords, region, safesearch, timelimit, backend, max_results)
-        _print_data(results)
+        search_engine = _get_engine(engine)
+        # Handle region defaults if not provided
+        if region is None:
+            region = "wt-wt" if engine.lower() in ["ddg", "duckduckgo"] else "us"
+        
+        # Most engines use .text(), some use .search() or .run()
+        if hasattr(search_engine, 'text'):
+            results = search_engine.text(keywords, region=region, safesearch=safesearch, max_results=max_results)
+        elif hasattr(search_engine, 'run'):
+            results = search_engine.run(keywords, region=region, safesearch=safesearch, max_results=max_results)
+        else:
+            results = search_engine.search(keywords, max_results=max_results)
+            
+        _print_data(results, title=f"{engine.upper()} Text Search: {keywords}")
     except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def answers(keywords: str, proxy: str = None, timeout: int = 10):
-    """Perform an answers search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
+@option("--engine", "-e", help="Search engine (ddg, bing, yahoo)", default="ddg")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+def images(keywords: str, engine: str, max_results: int):
+    """Perform an images search."""
     try:
-        results = webs.answers(keywords)
-        _print_data(results)
+        search_engine = _get_engine(engine)
+        results = search_engine.images(keywords, max_results=max_results)
+        _print_data(results, title=f"{engine.upper()} Image Search: {keywords}")
     except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="wt-wt")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--timelimit", "-t", help="Time limit for results", default=None)
-@option("--size", "-size", help="Image size", default=None)
-@option("--color", "-c", help="Image color", default=None)
-@option("--type-image", "-type", help="Image type", default=None)
-@option("--layout", "-l", help="Image layout", default=None)
-@option("--license-image", "-lic", help="Image license", default=None)
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=90)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def images(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    timelimit: str,
-    size: str,
-    color: str,
-    type_image: str,
-    layout: str,
-    license_image: str,
-    max_results: int,
-    proxy: str = None,
-    timeout: int = 10,
-):
-    """Perform an images search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
+@option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+def videos(keywords: str, engine: str, max_results: int):
+    """Perform a videos search."""
     try:
-        results = webs.images(keywords, region, safesearch, timelimit, size, color, type_image, layout, license_image, max_results)
-        _print_data(results)
+        search_engine = _get_engine(engine)
+        results = search_engine.videos(keywords, max_results=max_results)
+        _print_data(results, title=f"{engine.upper()} Video Search: {keywords}")
     except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="wt-wt")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--timelimit", "-t", help="Time limit for results", default=None)
-@option("--resolution", "-res", help="Video resolution", default=None)
-@option("--duration", "-d", help="Video duration", default=None)
-@option("--license-videos", "-lic", help="Video license", default=None)
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=50)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def videos(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    timelimit: str,
-    resolution: str,
-    duration: str,
-    license_videos: str,
-    max_results: int,
-    proxy: str = None,
-    timeout: int = 10,
-):
-    """Perform a videos search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
+@option("--engine", "-e", help="Search engine (ddg, bing, yahoo)", default="ddg")
+@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
+def news(keywords: str, engine: str, max_results: int):
+    """Perform a news search."""
     try:
-        results = webs.videos(keywords, region, safesearch, timelimit, resolution, duration, license_videos, max_results)
-        _print_data(results)
+        search_engine = _get_engine(engine)
+        results = search_engine.news(keywords, max_results=max_results)
+        _print_data(results, title=f"{engine.upper()} News Search: {keywords}")
     except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="wt-wt")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--timelimit", "-t", help="Time limit for results", default=None)
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=25)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def news(keywords: str, region: str, safesearch: str, timelimit: str, max_results: int, proxy: str = None, timeout: int = 10):
-    """Perform a news search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
-    try:
-        results = webs.news(keywords, region, safesearch, timelimit, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--place", "-P", help="Simplified search - if set, the other parameters are not used")
-@option("--street", "-s", help="House number/street")
-@option("--city", "-c", help="City of search")
-@option("--county", "-county", help="County of search")
-@option("--state", "-state", help="State of search")
-@option("--country", "-country", help="Country of search")
-@option("--postalcode", "-post", help="Postal code of search")
-@option("--latitude", "-lat", help="Geographic coordinate (north-south position)")
-@option("--longitude", "-lon", help="Geographic coordinate (east-west position); if latitude and longitude are set, the other parameters are not used")
-@option("--radius", "-r", help="Expand the search square by the distance in kilometers", type=int, default=0)
-@option("--max-results", "-m", help="Number of results", type=int, default=50)
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def maps(
-    keywords: str,
-    place: str,
-    street: str,
-    city: str,
-    county: str,
-    state: str,
-    country: str,
-    postalcode: str,
-    latitude: str,
-    longitude: str,
-    radius: int,
-    max_results: int,
-    proxy: str = None,
-    timeout: int = 10,
-):
-    """Perform a maps search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
-    try:
-        results = webs.maps(
-            keywords,
-            place,
-            street,
-            city,
-            county,
-            state,
-            country,
-            postalcode,
-            latitude,
-            longitude,
-            radius,
-            max_results,
-        )
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Text for translation", required=True)
-@option("--from", "-f", help="Language to translate from (defaults automatically)")
-@option("--to", "-t", help="Language to translate to (default: 'en')", default="en")
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def translate(keywords: str, from_: str, to: str, proxy: str = None, timeout: int = 10):
-    """Perform translation using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
-    try:
-        results = webs.translate(keywords, from_, to)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="wt-wt")
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def suggestions(keywords: str, region: str, proxy: str = None, timeout: int = 10):
-    """Perform a suggestions search using DuckDuckGo API."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
-    try:
-        results = webs.suggestions(keywords, region)
-        _print_data(results)
-    except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--location", "-l", help="Location to get weather for", required=True)
-@option("--language", "-lang", help="Language code (e.g. 'en', 'es')", default="en")
-@option("--proxy", "-p", help="Proxy URL to use for requests")
-@option("--timeout", "-timeout", help="Timeout value for requests", type=int, default=10)
-def weather(location: str, language: str, proxy: str = None, timeout: int = 10):
-    """Get weather information for a location from DuckDuckGo."""
-    webs = WEBS(proxy=proxy, timeout=timeout)
+@option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
+def weather(location: str, engine: str):
+    """Get weather information."""
     try:
-        results = webs.weather(location, language)
+        search_engine = _get_engine(engine)
+        results = search_engine.weather(location)
         _print_weather(results)
     except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="all")
-@option("--safesearch", "-s", help="SafeSearch setting (on, moderate, off)", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def yep_text(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-):
-    """Perform a text search using Yep Search."""
-    yep = YepSearch()
-    
+@option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
+def answers(keywords: str, engine: str):
+    """Perform an answers search."""
     try:
-        results = yep.text(
-            keywords=keywords,
-            region=region,
-            safesearch=safesearch,
-            max_results=max_results
-        )
-        
-        _print_data(results)
+        search_engine = _get_engine(engine)
+        results = search_engine.answers(keywords)
+        _print_data(results, title=f"{engine.upper()} Answers: {keywords}")
     except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="all")
-@option("--safesearch", "-s", help="SafeSearch setting (on, moderate, off)", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def yep_images(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-):
-    """Perform an image search using Yep Search."""
-    yep = YepSearch()
-    
-    try:
-        results = yep.images(
-            keywords=keywords,
-            region=region,
-            safesearch=safesearch,
-            max_results=max_results
-        )
-        
-        _print_data(results)
-    except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--query", "-q", help="Search query", required=True)
-@option("--region", "-r", help="Region for suggestions", default="en-US")
-def yep_suggestions(
-    query: str,
-    region: str,
-):
-    """Get search suggestions from Yep Search."""
-    yep = YepSearch()
-    
+@option("--engine", "-e", help="Search engine (ddg, bing, yahoo, yep)", default="ddg")
+def suggestions(query: str, engine: str):
+    """Get search suggestions."""
     try:
-        results = yep.suggestions(query=query, region=region)
+        search_engine = _get_engine(engine)
+        # Some engines use 'keywords', some 'query'
+        if engine.lower() in ["bing", "yep"]:
+            results = search_engine.suggestions(query)
+        else:
+            results = search_engine.suggestions(query)
         
-        # Format suggestions for printing
-        formatted_results = []
-        for i, suggestion in enumerate(results, 1):
-            formatted_results.append({"position": i, "suggestion": suggestion})
+        # Format suggestions
+        if isinstance(results, list) and results and isinstance(results[0], dict):
+            # Bing format
+            results = [r.get("suggestion", str(r)) for r in results]
             
-        _print_data(formatted_results)
+        _print_data(results, title=f"{engine.upper()} Suggestions: {query}")
     except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-@option("--unique", "-u", help="Remove duplicate results", type=bool, default=True)
-def bing_text(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-    unique: bool = True,
-):
-    """Perform a text search using Bing."""
-    bing = BingSearch()
-    try:
-        results = bing.text(keywords, region, safesearch, max_results, unique=unique)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def bing_images(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-):
-    """Perform an images search using Bing."""
-    bing = BingSearch()
-    try:
-        results = bing.images(keywords, region, safesearch, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def bing_news(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-):
-    """Perform a news search using Bing."""
-    bing = BingSearch()
-    try:
-        results = bing.news(keywords, region, safesearch, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--query", "-q", help="Search query", required=True)
-@option("--region", "-r", help="Region for suggestions", default="en-US")
-def bing_suggestions(
-    query: str,
-    region: str,
-):
-    """Get search suggestions from Bing."""
-    bing = BingSearch()
-    try:
-        results = bing.suggestions(query, region)
-        # Format suggestions for printing
-        formatted_results = []
-        for i, suggestion in enumerate(results, 1):
-            formatted_results.append({"position": i, "suggestion": suggestion["suggestion"]})
-            
-        _print_data(formatted_results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=25)
-def yahoo_text(keywords: str, region: str, safesearch: str, max_results: int):
-    """Perform a text search using Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.text(keywords, region, safesearch, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=90)
-def yahoo_images(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-):
-    """Perform an images search using Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.images(keywords, region, safesearch, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=50)
-def yahoo_videos(
-    keywords: str,
-    region: str,
-    safesearch: str,
-    max_results: int,
-):
-    """Perform a videos search using Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.videos(keywords, region, safesearch, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--region", "-r", help="Region for search results", default="us")
-@option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
-@option("--max-results", "-m", help="Maximum number of results", type=int, default=25)
-def yahoo_news(keywords: str, region: str, safesearch: str, max_results: int):
-    """Perform a news search using Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.news(keywords, region, safesearch, max_results)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-def yahoo_answers(keywords: str):
-    """Perform an answers search using Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.answers(keywords)
-        _print_data(results)
-    except Exception as e:
-        raise e
-
-@app.command()
-@option("--keywords", "-k", help="Search keywords", required=True)
-@option("--place", "-l", help="Simplified search - if set, the other parameters are not used")
-@option("--street", "-s", help="House number/street")
-@option("--city", "-c", help="City of search")
-@option("--county", "-county", help="County of search")
-@option("--state", "-state", help="State of search")
-@option("--country", "-country", help="Country of search")
-@option("--postalcode", "-post", help="Postal code of search")
-@option("--latitude", "-lat", help="Geographic coordinate (north-south position)")
-@option("--longitude", "-lon", help="Geographic coordinate (east-west position); if latitude and longitude are set, the other parameters are not used")
-@option("--radius", "-r", help="Expand the search square by the distance in kilometers", type=int, default=0)
-@option("--max-results", "-m", help="Number of results", type=int, default=50)
-def yahoo_maps(
-    keywords: str,
-    place: str,
-    street: str,
-    city: str,
-    county: str,
-    state: str,
-    country: str,
-    postalcode: str,
-    latitude: str,
-    longitude: str,
-    radius: int,
-    max_results: int,
-):
-    """Perform a maps search using Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.maps(
-            keywords,
-            place,
-            street,
-            city,
-            county,
-            state,
-            country,
-            postalcode,
-            latitude,
-            longitude,
-            radius,
-            max_results,
-        )
-        _print_data(results)
-    except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
 @option("--keywords", "-k", help="Text for translation", required=True)
-@option("--from", "-f", help="Language to translate from (defaults automatically)")
-@option("--to", "-t", help="Language to translate to (default: 'en')", default="en")
-def yahoo_translate(keywords: str, from_: str, to: str):
-    """Perform translation using Yahoo."""
-    yahoo = YahooSearch()
+@option("--from", "-f", help="Language to translate from", default=None)
+@option("--to", "-t", help="Language to translate to", default="en")
+@option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
+def translate(keywords: str, from_: str, to: str, engine: str):
+    """Perform translation."""
     try:
-        results = yahoo.translate(keywords, from_, to)
-        _print_data(results)
+        search_engine = _get_engine(engine)
+        results = search_engine.translate(keywords, from_lang=from_, to_lang=to)
+        _print_data(results, title=f"{engine.upper()} Translation: {keywords}")
     except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
 @app.command()
-@option("--query", "-q", help="Search query", required=True)
-@option("--region", "-r", help="Region for suggestions", default="us")
-def yahoo_suggestions(query: str, region: str):
-    """Perform a suggestions search using Yahoo."""
-    yahoo = YahooSearch()
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--place", "-p", help="Place name")
+@option("--radius", "-r", help="Search radius (km)", type=int, default=0)
+@option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
+def maps(keywords: str, place: str, radius: int, engine: str):
+    """Perform a maps search."""
     try:
-        results = yahoo.suggestions(query, region)
-        formatted_results = []
-        for i, suggestion in enumerate(results, 1):
-            formatted_results.append({"position": i, "suggestion": suggestion})
-            
-        _print_data(formatted_results)
+        search_engine = _get_engine(engine)
+        results = search_engine.maps(keywords, place=place, radius=radius)
+        _print_data(results, title=f"{engine.upper()} Maps Search: {keywords}")
     except Exception as e:
-        raise e
+        rprint(f"[bold red]Error:[/bold red] {str(e)}")
 
+# Keep search for compatibility/convenience
 @app.command()
-@option("--location", "-l", help="Location to get weather for", required=True)
-def yahoo_weather(location: str):
-    """Get weather information for a location from Yahoo."""
-    yahoo = YahooSearch()
-    try:
-        results = yahoo.weather(location)
-        _print_weather(results)
-    except Exception as e:
-        raise e
+@option("--keywords", "-k", help="Search keywords", required=True)
+@option("--engine", "-e", help="Search engine", default="ddg")
+@option("--max-results", "-m", help="Maximum results", type=int, default=10)
+def search(keywords: str, engine: str, max_results: int):
+    """Unified search command across all engines."""
+    text.run(keywords=keywords, engine=engine, max_results=max_results)
 
 def main():
     """Main entry point for the CLI."""
     try:
         app.run()
     except Exception as e:
-        sys.exit(1)
-    """Main entry point for the CLI."""
-    try:
-        app.run()
-    except Exception as e:
+        rprint(f"[bold red]CLI Error:[/bold red] {str(e)}")
         sys.exit(1)
 
 if __name__ == "__main__":

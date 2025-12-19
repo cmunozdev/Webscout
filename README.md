@@ -31,6 +31,8 @@
 - [📚 Documentation Hub](docs/README.md)
 - [🔄 OpenAI-Compatible API Server](docs/openai-api-server.md)
 - [🕸️ Scout: HTML Parser & Web Crawler](docs/scout.md)
+- [🎭 Awesome Prompts Manager](docs/awesome-prompts.md)
+- [🔗 GitAPI: GitHub Data Extraction](docs/gitapi.md)
 - [🤖 AI Models and Voices](#-ai-models-and-voices)
 - [💬 AI Chat Providers](#-ai-chat-providers)
 - [👨‍💻 Advanced AI Interfaces](#-advanced-ai-interfaces)
@@ -97,9 +99,9 @@
 <summary><b>Developer Tools</b></summary>
 <p>
 
-- **[GitAPI](webscout/Extra/GitToolkit/gitapi):** Powerful GitHub data extraction toolkit without authentication requirements for public data
+- **[GitAPI](docs/gitapi.md):** Powerful GitHub data extraction toolkit without authentication requirements for public data
 - **[SwiftCLI](webscout/swiftcli/Readme.md):** A powerful and elegant CLI framework for beautiful command-line interfaces
-- **[LitPrinter](webscout/docs/litprinter.md):** Styled console output with rich formatting and colors
+- **[LitPrinter](docs/litprinter.md):** Styled console output with rich formatting and colors
 - **[LitAgent](webscout/litagent/Readme.md):** Modern user agent generator that keeps your requests undetectable
 - **[Scout](docs/scout.md):** Advanced web parsing and crawling library with intelligent HTML/XML parsing
 - **[GGUF Conversion](webscout/Extra/gguf.md):** Convert and quantize Hugging Face models to GGUF format
@@ -114,7 +116,7 @@
 <p>
 
 - **[Tempmail](webscout/Extra/tempmail/README.md) & Temp Number:** Generate temporary email addresses and phone numbers
-- **[Awesome Prompts](webscout/Extra/Act.md):** Curated collection of system prompts for specialized AI personas
+- **[Awesome Prompts Manager](docs/awesome-prompts.md):** Curated collection of system prompts for specialized AI personas with comprehensive management capabilities
 </p>
 </details>
 

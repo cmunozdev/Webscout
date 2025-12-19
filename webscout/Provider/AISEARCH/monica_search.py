@@ -115,6 +115,9 @@ class Monica(AISearch):
 
         def for_stream():
             try:
+                # Set cookies for the session
+                self.session.cookies.set("monica_home_theme", "auto")
+
                 with self.session.post(
                     self.api_endpoint,
                     json=payload,
@@ -165,6 +168,9 @@ class Monica(AISearch):
 
         def for_non_stream():
             try:
+                # Set cookies for the session
+                self.session.cookies.set("monica_home_theme", "auto")
+
                 with self.session.post(
                     self.api_endpoint,
                     json=payload,
