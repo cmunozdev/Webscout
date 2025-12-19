@@ -6,6 +6,8 @@ All notable changes to this project will be documented in this file.
 ## [2025.12.20] - 2025-12-20
 
 ### ✨ Added
+- **feat**: webscout/Provider/HadadXYZ.py - New provider for HadadXYZ HF Space API, supporting 20+ models including DeepSeek-R1, Qwen3, and Llama 4 Maverick.
+- **feat**: webscout/Provider/OPENAI/hadadxyz.py - New OpenAI-compatible HadadXYZ provider.
 - **feat**: webscout/Provider/OPENAI/llmchat.py - New OpenAI-compatible LLMChat provider with support for 47+ models including Llama 3.3, DeepSeek R1, and Qwen3.
 - **feat**: webscout/Provider/llmchat.py - Updated model list with latest models from llmchat.in.
 - **feat**: webscout/Provider/OPENAI/ayle.py - Renamed from exachat.py to ayle.py and updated class/references to Ayle.
@@ -20,6 +22,8 @@ All notable changes to this project will be documented in this file.
 
 
 ### Fixed
+- **fix**: webscout/Provider/HadadXYZ.py & webscout/Provider/OPENAI/hadadxyz.py - Fixed streaming support by switching to line-based stream processing and improved `sanitize_stream` integration.
+- **fix**: webscout/Provider/HadadXYZ.py - Fixed streaming support by switching to line-based stream processing and improved `sanitize_stream` integration.
 - **fix**: Fixed `IndexError: list index out of range` in multiple OpenAI-compatible providers (`FreeAssist`, `Yep`, `Sambanova`, `Oivscode`, `Groq`, `DeepInfra`, `Cerebras`, `Algion`, `ChutesAI`) when handling empty `choices` lists from APIs.
 - **fix**: webscout/Provider/OPENAI/textpollinations.py - Added default models list to ensure availability if dynamic fetching fails.
 - **fix**: webscout/client.py - Improved `model="auto"` resolution and fallback logic to prioritize providers with available model lists, ensuring only supported models are passed to providers.

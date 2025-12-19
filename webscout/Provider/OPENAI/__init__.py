@@ -33,6 +33,7 @@ from webscout.Provider.OPENAI.utils import (
 
 # Provider implementations
 from webscout.Provider.OPENAI.DeepAI import DeepAI
+from webscout.Provider.OPENAI.hadadxyz import HadadXYZ
 from webscout.Provider.OPENAI.K2Think import K2Think
 from webscout.Provider.OPENAI.PI import PiAI
 from webscout.Provider.OPENAI.TogetherAI import TogetherAI
@@ -99,6 +100,7 @@ __all__ = [
     "count_tokens",
     # Provider implementations
     "DeepAI",
+    "HadadXYZ",
     "K2Think",
     "PiAI",
     "TogetherAI",

@@ -57,8 +57,9 @@ These providers have both standard and OpenAI-compatible implementations, giving
 | 32 | **Meta** | `webscout/Provider/meta.py` | `webscout/Provider/OPENAI/meta.py` |
 | 33 | **TypliAI** | `webscout/Provider/TypliAI.py` | `webscout/Provider/OPENAI/typliai.py` |
 | 34 | **LLMChat** | `webscout/Provider/llmchat.py` | `webscout/Provider/OPENAI/llmchat.py` |
+| 35 | **HadadXYZ** | `webscout/Provider/HadadXYZ.py` | `webscout/Provider/OPENAI/hadadxyz.py` |
 
-**Total: 34 providers with dual implementations**
+**Total: 35 providers with dual implementations**
 
 ---
 
@@ -116,19 +117,19 @@ These providers are only available in the OpenAI-compatible format and have no s
 ┌─────────────────────────────────────────┬───────┐
 │ Category                                │ Count │
 ├─────────────────────────────────────────┼───────┤
-│ Both Normal & OpenAI-Compatible         │  34   │
+│ Both Normal & OpenAI-Compatible         │  35   │
 │ Only Normal Version                     │  19   │
 │ Only OpenAI-Compatible Version          │   5   │
 ├─────────────────────────────────────────┼───────┤
-│ TOTAL UNIQUE PROVIDERS                  │  58   │
+│ TOTAL UNIQUE PROVIDERS                  │  59   │
 └─────────────────────────────────────────┴───────┘
 ```
 
 ### Implementation Coverage
 
-- **Total Normal Implementations**: 53 (34 hybrid + 19 normal-only)
-- **Total OpenAI Implementations**: 39 (34 hybrid + 5 OpenAI-only)
-- **Providers with Multiple Options**: 34 (58% of all providers)
+- **Total Normal Implementations**: 54 (35 hybrid + 19 normal-only)
+- **Total OpenAI Implementations**: 40 (35 hybrid + 5 OpenAI-only)
+- **Providers with Multiple Options**: 35 (59% of all providers)
 
 ---
 
