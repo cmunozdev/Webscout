@@ -28,8 +28,7 @@ MODEL_CONFIGS = {
         "endpoint": "https://ayle.chat/api/chat",
         "models": [
             "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "llama-3.3-70b-versatile",
+            "llama-3.3-70b-versatile", 
             "llama-3.3-70b",
             "tngtech/deepseek-r1t2-chimera:free",
             "openai/gpt-oss-120b",
@@ -227,8 +226,7 @@ class Ayle(OpenAICompatibleProvider):
     required_auth = False
     AVAILABLE_MODELS = [
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "llama-3.3-70b-versatile",
+        "llama-3.3-70b-versatile", 
         "llama-3.3-70b",
         "tngtech/deepseek-r1t2-chimera:free",
         "openai/gpt-oss-120b",
@@ -320,7 +318,7 @@ if __name__ == "__main__":
 
     # Test a subset of models to avoid excessive API calls
     test_models = [
-        "gemini-2.0-flash",
+        "gemini-2.5-flash",
     ]
 
     for model in test_models:

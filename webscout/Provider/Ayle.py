@@ -15,8 +15,7 @@ MODEL_CONFIGS = {
         "endpoint": "https://ayle.chat/api/chat",
         "models": [
             "gemini-2.5-flash",
-            "gemini-2.0-flash",
-            "llama-3.3-70b-versatile",
+            "llama-3.3-70b-versatile", 
             "llama-3.3-70b",
             "tngtech/deepseek-r1t2-chimera:free",
             "openai/gpt-oss-120b",
@@ -35,8 +34,7 @@ class Ayle(Provider):
     required_auth = False
     AVAILABLE_MODELS = [
         "gemini-2.5-flash",
-        "gemini-2.0-flash",
-        "llama-3.3-70b-versatile",
+        "llama-3.3-70b-versatile", 
         "llama-3.3-70b",
         "tngtech/deepseek-r1t2-chimera:free",
         "openai/gpt-oss-120b",
@@ -57,7 +55,7 @@ class Ayle(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        model: str = "gemini-2.0-flash",
+        model: str = "gemini-2.5-flash",
         system_prompt: str = "You are a friendly, helpful AI assistant.",
         temperature: float = 0.5,
         presence_penalty: int = 0,
@@ -271,7 +269,7 @@ class Ayle(Provider):
 
 if __name__ == "__main__":
     from rich import print
-    ai = Ayle(model="gemini-2.0-flash")
+    ai = Ayle(model="gemini-2.5-flash")
     response = ai.chat("tell me a joke", stream=True, raw=False)
     for chunk in response:
         print(chunk, end='', flush=True)

@@ -16,10 +16,12 @@ All notable changes to this project will be documented in this file.
 - **feat**: webscout/Provider/OPENAI/yep.py - Now automatically converts "system" role messages to "user" role for compatibility with YEPCHAT API instead of ignoring them.
 - **removed**: webscout/Provider/OPENAI/scirachat.py - Removed SciraChat provider.
 
-### 🔧 Improved
+### 🛠️ Improved
 - **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.
 - **refactor**: webscout/Provider/OPENAI/e2b.py - Removed all unwanted `print` statements and ANSI escape codes to make the provider fully silent.
 
+### 🚮 Removed
+- **removed**: `gemini-2.0-flash` from Ayle provider model lists (`webscout/Provider/Ayle.py`, `webscout/Provider/OPENAI/ayle.py`).
 
 ### Fixed
 - **fix**: webscout/Provider/HadadXYZ.py & webscout/Provider/OPENAI/hadadxyz.py - Fixed streaming support by switching to line-based stream processing and improved `sanitize_stream` integration.
