@@ -206,13 +206,17 @@ class webpilotai(AISearch):
 
         def for_non_stream():
             full_SearchResponse = ""
+            search_results = []
+            
             for chunk in for_stream():
                 if raw:
-                    yield chunk
+                    search_results.append(chunk)
                 else:
                     full_SearchResponse += str(chunk)
             
-            if not raw:
+            if raw:
+                return search_results
+            else:
                 # Format the SearchResponse for better readability
                 formatted_SearchResponse = self.format_SearchResponse(full_SearchResponse)
                 self.last_response = SearchResponse(formatted_SearchResponse)

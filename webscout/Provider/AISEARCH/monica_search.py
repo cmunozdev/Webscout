@@ -177,11 +177,13 @@ class Monica(AISearch):
             
             for chunk in for_stream():
                 if raw:
-                    yield chunk
+                    search_results.append(chunk)
                 else:
                     full_response += str(chunk)
             
-            if not raw:
+            if raw:
+                return search_results
+            else:
                 # Process the full response to clean up formatting
                 formatted_response = self.format_response(full_response)
                 self.last_response = SearchResponse(formatted_response)

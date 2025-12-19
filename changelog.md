@@ -7,16 +7,13 @@ All notable changes to this project will be documented in this file.
 
 ### ✨ Added
 - **feat**: webscout/Provider/TTI/venice.py - Major update to Venice AI TTI provider with new headers and payload structure from recent reverse engineering. Added support for `z-image-turbo` and `stable-diffusion-3.5-large`.
-- **feat**: webscout/Provider/TTI/together.py - Fixed TogetherImage provider by updating the API key activation flow and adding more robust fetching from multiple endpoints.
+- **feat**: webscout/Provider/TTI/together.py - Refactored TogetherImage provider to require a user-provided API key, removing the brittle auto-authentication logic. This aligns it with the TogetherAI chat providers.
 - **feat**: webscout/Provider/TTI/pollinations.py - Expanded supported models list to include `flux-pro`, `flux-realism`, `flux-anime`, and `any-dark`.
 
 ### 🛠️ Improved
-- **refactor**: webscout/Provider/TTI/ - Updated all TTI providers with explicit `required_auth` flags and current `working` status.
-- **refactor**: webscout/Provider/TTI/bing.py - Added `dalle` and `gpt4o` to available models.
-- **docs**: webscout/Provider/TTI/README.md - Updated documentation with accurate status for all 13 TTI providers.
-
-### 🚮 Removed
-- **status**: Marked `AIArta`, `InfipAI`, `PixelMuse`, `PiclumenAI`, `GPT1Image`, `ImagenAI`, and `MonoChatAI` as currently non-working due to API changes or site deactivations.
+- **refactor**: webscout/Provider/TTI/ - Cleaned up the TTI module by removing 8 non-functional or login-required providers (`AIArta`, `BingImageAI`, `GPT1Image`, `ImagenAI`, `InfipAI`, `MonoChatAI`, `PiclumenAI`, `PixelMuse`).
+- **refactor**: webscout/client.py - Updated unified client to support authenticated TTI providers in auto-failover mode when an API key is provided.
+- **docs**: webscout/Provider/TTI/README.md - Updated documentation to reflect the current set of 5 functional TTI providers.
 
 ## [2025.12.20] - 2025-12-20
 
@@ -48,13 +45,9 @@ All notable changes to this project will be documented in this file.
 - **removed**: `gradio_client` dependency from pyproject.toml as it's no longer needed.
 - **removed**: `gemini-2.0-flash` from Ayle provider model lists (`webscout/Provider/Ayle.py`, `webscout/Provider/OPENAI/ayle.py`).
 
-### Fixed
-- **fix**: webscout/Provider/HadadXYZ.py & webscout/Provider/OPENAI/hadadxyz.py - Fixed streaming support by switching to line-based stream processing and improved `sanitize_stream` integration.
-- **fix**: webscout/Provider/HadadXYZ.py - Fixed streaming support by switching to line-based stream processing and improved `sanitize_stream` integration.
-- **fix**: Fixed `IndexError: list index out of range` in multiple OpenAI-compatible providers (`FreeAssist`, `Yep`, `Sambanova`, `Oivscode`, `Groq`, `DeepInfra`, `Cerebras`, `Algion`, `ChutesAI`) when handling empty `choices` lists from APIs.
-- **fix**: webscout/Provider/OPENAI/textpollinations.py - Added default models list to ensure availability if dynamic fetching fails.
-- **fix**: webscout/client.py - Improved `model="auto"` resolution and fallback logic to prioritize providers with available model lists, ensuring only supported models are passed to providers.
-- **fix**: stream not working in Exachat providers and fixed api endpoints
+### 🐛 Fixed
+- **fix**: webscout/client.py - Removed hardcoded default models ("gpt-3.5-turbo" for chat, "flux" for images) in auto-resolution, now raises RuntimeError when no models are available from any provider.
+- **fix**: docs/client.md - Updated documentation to reflect removal of hardcoded defaults in auto-resolution.
 
 ## [2025.12.19] - 2025-12-19
 

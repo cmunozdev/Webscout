@@ -1,11 +1,12 @@
-# Unified Python Client (`webscout/client.py`)
+# Webscout Python API Client (`webscout/client.py`)
 > Last updated: 2025-12-20
 > Maintained by: Webscout Core Team
 
-The unified client provides a single entry point for interacting with any OpenAI-compatible or text-to-image (TTI) provider that ships with Webscout. It handles provider discovery, model lookup, automatic failover, and streaming so callers can focus on prompts rather than plumbing.
+The Webscout Python API Client is a Python-based client library that provides OpenAI-compatible API access to any provider within the Webscout ecosystem. It allows you to use any Webscout provider with models formatted in OpenAI-compatible format, making it easy to integrate with existing OpenAI-based applications. The client handles provider discovery, model lookup, automatic failover, and streaming so you can focus on your application logic rather than provider-specific plumbing.
 
 ## ✨ Highlights
 
+- **Python-native API**: A pure Python client library for Webscout providers using OpenAI-compatible format.
 - **Auto-discovery** of OpenAI-compatible (`webscout/Provider/OPENAI`) and TTI (`webscout/Provider/TTI`) providers via dynamic imports.
 - **Smart model resolution** supporting explicit provider/model pairs (`Provider/model`), fuzzy matches, and `auto` selection.
 - **Intelligent Auto-resolution**: `model="auto"` selects a random provider that advertises models via `models.list()`, with fallback to default models.
@@ -13,8 +14,9 @@ The unified client provides a single entry point for interacting with any OpenAI
   - Tier 1: Providers that advertise the exact model name
   - Tier 2: Providers with fuzzy-matched model names using `difflib.get_close_matches`
   - Tier 3: Remaining providers with random model selection
-- **Streaming support**: yields `ChatCompletionChunk` objects, preserving provider metadata.
+- **Streaming support**: yields `ChatCompletionChunk` objects with OpenAI-compatible format, preserving provider metadata.
 - **Unified caching**: provider instances are cached per process to avoid repeated authentication or setup cost.
+- **OpenAI-compatible responses**: all responses follow OpenAI API format for easy integration.
 - **Image generation**: supports OpenAI-compatible Images API with consistent response objects.
 
 ## 🚀 Quick Start
@@ -58,8 +60,8 @@ print(img.data[0].url)
 
 - **Explicit pair**: `MODEL="ProviderName/model-id"` chooses an exact provider class and model.
 - **Provider override**: pass `provider=<ProviderClass>` to force a class while leaving `model` as "auto" or a specific value.
-- **Auto resolution for chat**: `model="auto"` selects a random provider with available models, defaulting to "gpt-3.5-turbo" if no models are available.
-- **Auto resolution for images**: `model="auto"` selects a random provider with available models, defaulting to "flux" if no models are available.
+- **Auto resolution for chat**: `model="auto"` selects a random provider with available models, raising an error if no models are available.
+- **Auto resolution for images**: `model="auto"` selects a random provider with available models, raising an error if no models are available.
 - **Fuzzy matching**: if a model name isn't found, `_fuzzy_resolve_provider_and_model` uses:
   1. Exact case-insensitive matching
   2. Substring matching (model name contained in or contains available model name)
@@ -148,6 +150,6 @@ These introspection helpers pull data from the global `OPENAI_PROVIDERS` and `TT
 ## 🔗 Related Docs
 
 - [docs/models.md](models.md) – learn how the model registry enumerates provider/model pairs.
-- [docs/openai-api-server.md](openai-api-server.md) – the FastAPI server uses similar provider resolution strategy.
+- [docs/openai-api-server.md](openai-api-server.md) – the FastAPI server serves models in OpenAI-compatible API format, which can be used where OpenAI API can be used; the client provides local Python access to the same providers.
 - [docs/architecture.md](architecture.md) – see where the client fits relative to CLI and server layers.
 - [docs/providers/](providers/) – detailed documentation for individual provider implementations.
