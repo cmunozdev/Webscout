@@ -632,7 +632,6 @@ class Completions(BaseCompletions):
                             continue
 
         except Exception as e:
-            print(f"{RED}Error during ChatGPT streaming request: {e}{RESET}")
             raise IOError(f"ChatGPT request failed: {e}") from e
 
     def _create_non_streaming(
