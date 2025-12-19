@@ -4,7 +4,7 @@
 
 ## Overview
 
-Webscout provides comprehensive access to multiple search engines through a unified, easy-to-use API. The search module supports various search engines including DuckDuckGo, Yep, and individual engines like Bing, Brave, Yahoo, Yandex, Wikipedia, and more.
+Webscout provides comprehensive access to multiple search engines through a unified, easy-to-use API. The search module supports various search engines including DuckDuckGo, Yep, and individual engines like Bing, Brave, Yahoo, Yandex, Wikipedia, and more. For CLI usage, see [docs/cli.md](cli.md); the commands there call the same classes documented below.
 
 ## Quick Start
 

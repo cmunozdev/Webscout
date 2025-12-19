@@ -191,6 +191,12 @@ class Images(BaseImages):
 
 
 class PixelMuse(TTICompatibleProvider):
+    """PixelMuse TTI Provider - Supports several models and converts images from WebP."""
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = False  # Currently not working - requires login as of 2025-12-19
+
     AVAILABLE_MODELS = ["flux-schnell", "imagen-3-fast", "imagen-3", "recraft-v3"]
 
     def __init__(self):

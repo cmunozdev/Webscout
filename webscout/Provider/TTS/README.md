@@ -18,9 +18,8 @@ Webscout's TTS Providers offer a versatile and powerful text-to-speech conversio
 ## 📦 Supported TTS Providers
 
 1. **ElevenlabsTTS**
-2. **GesseritTTS**
-3. **MurfAITTS**
-4. **ParlerTTS**
+2. **MurfAITTS**
+3. **ParlerTTS**
 5. **DeepgramTTS**
 6. **StreamElementsTTS**
 7. **SpeechMaTTS**
@@ -81,11 +80,6 @@ audio_file = tts.tts(text, verbose=True)
 
 - Supports multiple English voices
 - Multilingual text-to-speech
-
-### GesseritTTS
-
-- Offers unique voice characteristics
-- Supports voice description customization
 
 ### MurfAITTS
 

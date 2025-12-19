@@ -174,6 +174,12 @@ class Images(BaseImages):
 
 
 class PiclumenAI(TTICompatibleProvider):
+    """PiclumenAI TTI Provider - Returns JPEG images directly from the API."""
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = False  # Currently not working - requires login as of 2025-12-19
+
     AVAILABLE_MODELS = ["piclumen-v1"]
 
     def __init__(self):

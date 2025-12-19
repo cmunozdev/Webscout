@@ -119,6 +119,10 @@ class ImagenAI(TTICompatibleProvider):
     to generate images from text prompts.
     """
 
+    # Provider status
+    required_auth: bool = False  # No authentication required (optional API key)
+    working: bool = False  # Currently not working - domain unreachable as of 2025-12-19
+
     AVAILABLE_MODELS = ["imagen_3_5", "imagen_3"]
 
     def __init__(self, api_key: Optional[str] = None):

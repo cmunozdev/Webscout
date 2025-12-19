@@ -248,6 +248,12 @@ class Images(BaseImages):
 
 
 class AIArta(TTICompatibleProvider):
+    """AIArta TTI Provider - Uses Firebase authentication tokens for image generation."""
+
+    # Provider status
+    required_auth: bool = False  # Auto-authenticates via Firebase anonymous auth
+    working: bool = False  # Currently not working - requires login as of 2025-12-19
+
     url = "https://ai-arta.com"
     auth_url = "https://www.googleapis.com/identitytoolkit/v3/relyingparty/signupNewUser?key=AIzaSyB3-71wG0fIt0shj0ee4fvx1shcjJHGrrQ"
     token_refresh_url = "https://securetoken.googleapis.com/v1/token?key=AIzaSyB3-71wG0fIt0shj0ee4fvx1shcjJHGrrQ"

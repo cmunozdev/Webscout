@@ -271,6 +271,10 @@ class ClaudeOnlineTTI(TTICompatibleProvider):
     Supports high-quality image generation with various styles and sizes.
     """
 
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = True  # Currently working
+
     AVAILABLE_MODELS = ["claude-imagine"]
 
     def __init__(self):

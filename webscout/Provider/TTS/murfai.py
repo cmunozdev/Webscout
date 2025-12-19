@@ -22,13 +22,14 @@ class MurfAITTS(BaseTTSProvider):
     - Multiple output formats (mp3, wav, aac, flac, opus, pcm)
     - Streaming support
     """
+    required_auth = False
     
     # Override supported models for MurfAI (set to None as requested)
     SUPPORTED_MODELS = None
     
     # Override supported voices with real MurfAI voice names
     SUPPORTED_VOICES = [
-        "Hazel"     # English (UK) female voice
+        "Hazel", "Marcus", "Samantha", "Natalie", "Michelle", "Ken", "Clint", "Amit", "Priya"
     ]
     
     # Override supported formats
@@ -44,7 +45,15 @@ class MurfAITTS(BaseTTSProvider):
     
     # Voice mapping from real names to MurfAI voice IDs
     voice_mapping: dict[str, str] = {
-        "Hazel": "en-UK-hazel"
+        "Hazel": "en-UK-hazel",
+        "Marcus": "en-US-marcus",
+        "Samantha": "en-US-samantha",
+        "Natalie": "en-US-natalie",
+        "Michelle": "en-US-michelle",
+        "Ken": "en-US-ken",
+        "Clint": "en-US-clint",
+        "Amit": "en-IN-amit",
+        "Priya": "en-IN-priya"
     }
 
     def __init__(self, timeout: int = 20, proxies: dict = None):
@@ -111,14 +120,14 @@ class MurfAITTS(BaseTTSProvider):
                     # Check if the request was successful
                     if response.ok and response.status_code == 200:
                         if verbose:
-                            print(f"[debug] Chunk {part_number} processed successfully")
+                            ic.configureOutput(prefix='DEBUG| '); ic(f"Chunk {part_number} processed successfully")
                         return part_number, response.content
                     else:
                         if verbose:
-                            print(f"[debug] No data received for chunk {part_number}. Retrying...")
+                            ic.configureOutput(prefix='DEBUG| '); ic(f"No data received for chunk {part_number}. Retrying...")
                 except requests.RequestException as e:
                     if verbose:
-                        print(f"[debug] Error for chunk {part_number}: {e}. Retrying...")
+                        ic.configureOutput(prefix='DEBUG| '); ic(f"Error for chunk {part_number}: {e}. Retrying...")
                     time.sleep(1)
         try:
             # Using ThreadPoolExecutor to handle requests concurrently
@@ -136,25 +145,25 @@ class MurfAITTS(BaseTTSProvider):
                         audio_chunks[part_number] = audio_data  # Store the audio data in correct sequence
                     except Exception as e:
                         if verbose:
-                            print(f"[debug] Failed to generate audio for chunk {chunk_num}: {e}")
+                            ic.configureOutput(prefix='DEBUG| '); ic(f"Failed to generate audio for chunk {chunk_num}: {e}")
 
             # Combine audio chunks in the correct sequence
             combined_audio = BytesIO()
             for part_number in sorted(audio_chunks.keys()):
                 combined_audio.write(audio_chunks[part_number])
                 if verbose:
-                    print(f"[debug] Added chunk {part_number} to the combined file.")
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Added chunk {part_number} to the combined file.")
 
             # Save the combined audio data to a single file
             with open(filename, 'wb') as f:
                 f.write(combined_audio.getvalue())
             if verbose:
-                print(f"[debug] Final Audio Saved as {filename}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Final Audio Saved as {filename}")
             return filename.as_posix()
 
         except requests.exceptions.RequestException as e:
             if verbose:
-                print(f"[debug] Failed to perform the operation: {e}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Failed to perform the operation: {e}")
             raise exceptions.FailedToGenerateResponseError(
                 f"Failed to perform the operation: {e}"
             )
@@ -234,7 +243,7 @@ if __name__ == "__main__":
     murfai = MurfAITTS()
     text = "This is a test of the MurfAITTS text-to-speech API. It supports multiple sentences and advanced logging."
 
-    print("[debug] Generating audio...")
+    ic.configureOutput(prefix='DEBUG| '); ic("Generating audio...")
     try:
         audio_file = murfai.create_speech(
             input=text,
@@ -243,6 +252,6 @@ if __name__ == "__main__":
             response_format="mp3",
             verbose=True
         )
-        print(f"Audio saved to: {audio_file}")
+        ic.configureOutput(prefix='INFO| '); ic(f"Audio saved to: {audio_file}")
     except Exception as e:
-        print(f"Error: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")

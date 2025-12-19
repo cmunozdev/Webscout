@@ -156,11 +156,15 @@ class Images(BaseImages):
 class InfipAI(TTICompatibleProvider):
     """
     Infip AI provider for text-to-image generation.
-    
+
     This provider interfaces with the Infip API to generate images from text prompts.
     It supports multiple models and aspect ratios for flexible image creation.
     """
-    
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = False  # Currently not working - new API is heavily protected as of 2025-12-19
+
     AVAILABLE_MODELS = ["img3", "img4", "uncen"]
 
     def __init__(self, **kwargs):

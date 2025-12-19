@@ -3,27 +3,49 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.12.21] - 2025-12-21
+
+### ✨ Added
+- **feat**: webscout/Provider/TTI/venice.py - Major update to Venice AI TTI provider with new headers and payload structure from recent reverse engineering. Added support for `z-image-turbo` and `stable-diffusion-3.5-large`.
+- **feat**: webscout/Provider/TTI/together.py - Fixed TogetherImage provider by updating the API key activation flow and adding more robust fetching from multiple endpoints.
+- **feat**: webscout/Provider/TTI/pollinations.py - Expanded supported models list to include `flux-pro`, `flux-realism`, `flux-anime`, and `any-dark`.
+
+### 🛠️ Improved
+- **refactor**: webscout/Provider/TTI/ - Updated all TTI providers with explicit `required_auth` flags and current `working` status.
+- **refactor**: webscout/Provider/TTI/bing.py - Added `dalle` and `gpt4o` to available models.
+- **docs**: webscout/Provider/TTI/README.md - Updated documentation with accurate status for all 13 TTI providers.
+
+### 🚮 Removed
+- **status**: Marked `AIArta`, `InfipAI`, `PixelMuse`, `PiclumenAI`, `GPT1Image`, `ImagenAI`, and `MonoChatAI` as currently non-working due to API changes or site deactivations.
+
 ## [2025.12.20] - 2025-12-20
 
 ### ✨ Added
 - **feat**: webscout/Provider/TTS/sherpa.py - New SherpaTTS provider using Next-gen Kaldi (Sherpa-ONNX) HF Space API, supporting 50+ languages and multiple ONNX models.
 - **feat**: webscout/Provider/TTS/qwen.py - New Qwen3-TTS provider reverse engineered from Hugging Face Space demo, supporting 40+ high-quality voices and automatic language detection.
-- **feat**: webscout/Provider/HadadXYZ.py - New provider for HadadXYZ HF Space API, supporting 20+ models including DeepSeek-R1, Qwen3, and Llama 4 Maverick.
-- **feat**: webscout/Provider/OPENAI/hadadxyz.py - New OpenAI-compatible HadadXYZ provider.
-- **feat**: webscout/Provider/OPENAI/llmchat.py - New OpenAI-compatible LLMChat provider with support for 47+ models including Llama 3.3, DeepSeek R1, and Qwen3.
-- **feat**: webscout/Provider/llmchat.py - Updated model list with latest models from llmchat.in.
-- **feat**: webscout/Provider/OPENAI/ayle.py - Renamed from exachat.py to ayle.py and updated class/references to Ayle.
-- **feat**: webscout/Provider/Ayle.py - Renamed from ExaChat.py to Ayle.py.
-- **feat**: Removed ChatGPTClone provider (deprecated).
-- **feat**: webscout/Provider/OPENAI/yep.py - Now automatically converts "system" role messages to "user" role for compatibility with YEPCHAT API instead of ignoring them.
-- **removed**: webscout/Provider/OPENAI/scirachat.py - Removed SciraChat provider.
+- **feat**: webscout/Provider/TTS/deepgram.py - Updated to support Aura-2 next-gen voices and latest API endpoint.
+- **feat**: webscout/Provider/TTS/elevenlabs.py - Added support for ElevenLabs API keys.
+- **feat**: webscout/server/routes.py - Added `/monitor/health` endpoint for Docker health checks, returning service status and version information.
 
 ### 🛠️ Improved
-- **refactor**: webscout/Provider/TTS/__init__.py - Added QwenTTS to the exported TTS providers.
+- **fix**: webscout/Provider/TTS/freetts.py - Fixed 404 error by updating to the latest synthesis API and polling mechanism.
+- **fix**: webscout/Provider/TTS/parler.py - Switched to manual Gradio polling for improved reliability and timeout handling.
+- **removed**: webscout/Provider/TTS/gesserit.py - Removed dead TikTok TTS provider.
+- **refactor**: webscout/Provider/TTS/__init__.py - Added QwenTTS and SherpaTTS to the exported TTS providers.
 - **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.
 - **refactor**: webscout/Provider/OPENAI/e2b.py - Removed all unwanted `print` statements and ANSI escape codes to make the provider fully silent.
+- **refactor**: webscout/Provider/TTS/ - Updated all TTS providers to use `ic` from litprinter instead of `print` for debugging, following the pattern established in deepgram.py:
+  - Updated `murfai.py`, `openai_fm.py`, `parler.py`, `qwen.py`, `sherpa.py`, `streamElements.py`, `base.py`, `freetts.py`, `speechma.py`
+  - All debug statements now use `ic.configureOutput(prefix='DEBUG| '); ic(f"Debug message")` pattern
+- **refactor**: Docker configuration files for better dynamic configuration support:
+  - Updated `.dockerignore` to properly exclude documentation while keeping essential files
+  - Enhanced `docker-compose.yml` with accurate environment variable documentation
+  - Improved `docker-compose.no-auth.yml` to reflect actual server capabilities
+  - Updated `Dockerfile` with proper health check endpoint and dynamic configuration defaults
+  - Improved `docs/DOCKER.md` documentation with accurate environment variable information
 
 ### 🚮 Removed
+- **removed**: `gradio_client` dependency from pyproject.toml as it's no longer needed.
 - **removed**: `gemini-2.0-flash` from Ayle provider model lists (`webscout/Provider/Ayle.py`, `webscout/Provider/OPENAI/ayle.py`).
 
 ### Fixed
@@ -498,3 +520,7 @@ All notable changes to this project will be documented in this file.
 ---
 
 For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
+---
+
+For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
+

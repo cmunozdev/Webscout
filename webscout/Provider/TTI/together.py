@@ -38,20 +38,39 @@ class Images(BaseImages):
         if hasattr(self._client, '_api_key_cache') and self._client._api_key_cache:
             return self._client._api_key_cache
 
-        try:
-            activation_endpoint = "https://www.codegeneration.ai/activate-v2"
-            response = requests.get(
-                activation_endpoint,
-                headers={"Accept": "application/json"},
-                timeout=30
-            )
-            response.raise_for_status()
-            activation_data = response.json()
-            api_key = activation_data["openAIParams"]["apiKey"]
-            self._client._api_key_cache = api_key
-            return api_key
-        except Exception as e:
-            raise Exception(f"Failed to get activation key: {e}")
+        endpoints = [
+            "https://www.codegeneration.ai/activate-v2",
+            "https://www.codegeneration.ai/api/get/together"
+        ]
+        
+        last_error = None
+        for endpoint in endpoints:
+            try:
+                response = requests.get(
+                    endpoint,
+                    headers={
+                        "Accept": "application/json",
+                        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36"
+                    },
+                    timeout=30
+                )
+                if response.status_code == 200:
+                    activation_data = response.json()
+                    # Support multiple JSON structures
+                    api_key = None
+                    if "openAIParams" in activation_data:
+                        api_key = activation_data["openAIParams"].get("apiKey")
+                    elif "apiKey" in activation_data:
+                        api_key = activation_data["apiKey"]
+                    
+                    if api_key:
+                        self._client._api_key_cache = api_key
+                        return api_key
+            except Exception as e:
+                last_error = e
+                continue
+        
+        raise Exception(f"Failed to get activation key from all endpoints. Last error: {last_error}")
 
     def build_headers(self, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Build headers with API authorization using consistent fingerprint"""
@@ -65,15 +84,17 @@ class Images(BaseImages):
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "accept": "application/json",
-            "accept-language": fp["accept_language"],
-            "user-agent": fp["user_agent"],
-            "sec-ch-ua": fp["sec_ch_ua"],
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "cross-site",
+            "Accept": "application/json",
+            "Accept-Language": fp["accept_language"],
+            "User-Agent": fp["user_agent"],
+            "Sec-CH-UA": fp["sec_ch_ua"],
+            "Sec-CH-UA-Mobile": "?0",
+            "Sec-CH-UA-Platform": f'"{fp["platform"]}"',
+            "Origin": "https://www.codegeneration.ai",
+            "Referer": "https://www.codegeneration.ai/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
         }
         if extra:
             headers.update(extra)
@@ -237,9 +258,13 @@ class Images(BaseImages):
 class TogetherImage(TTICompatibleProvider):
     """
     Together.xyz Text-to-Image provider
-    Updated: 2025-08-01 10:42:41 UTC by OEvortex
-    Supports FLUX and other image generation models
+    Updated: 2025-12-19 12:10:00 UTC
+    Supports FLUX and other image generation models via Together.xyz API
     """
+
+    # Provider status
+    required_auth: bool = False  # Auto-authenticates via codegeneration.ai
+    working: bool = True  # Working as of 2025-12-19
 
     # Image models from Together.xyz API (filtered for image type only)
     AVAILABLE_MODELS = []

@@ -115,12 +115,18 @@ class TTICompatibleProvider(ABC):
     Requires a nested 'images.create' structure.
     All subclasses automatically get proxy support via ProxyAutoMeta.
 
+    Class Attributes:
+        required_auth (bool): Whether this provider requires authentication (API key, cookie, etc.)
+        working (bool): Whether this provider is currently working/operational
+
     Available proxy helpers:
     - self.get_proxied_session() - returns a requests.Session with proxies
     - self.get_proxied_curl_session() - returns a curl_cffi.Session with proxies
     - self.get_proxied_curl_async_session() - returns a curl_cffi.AsyncSession with proxies
     """
     images: BaseImages
+    required_auth: bool = False  # Default: no auth required
+    working: bool = True  # Default: provider is working
 
     @abstractmethod
     def __init__(self, **kwargs: Any):

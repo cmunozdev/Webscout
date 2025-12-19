@@ -193,6 +193,12 @@ class Images(BaseImages):
 
 
 class MagicStudioAI(TTICompatibleProvider):
+    """MagicStudio AI TTI Provider - Generates images through MagicStudio's public endpoint."""
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = True  # Currently working
+
     AVAILABLE_MODELS = ["magicstudio"]
 
     def __init__(self):

@@ -28,6 +28,7 @@
 - [🌟 Key Features](#-features)
 - [⚙️ Installation](#️-installation)
 - [🖥️ Command Line Interface](#️-command-line-interface)
+- [📚 Documentation Hub](docs/README.md)
 - [🔄 OpenAI-Compatible API Server](docs/openai-api-server.md)
 - [🕸️ Scout: HTML Parser & Web Crawler](docs/scout.md)
 - [🤖 AI Models and Voices](#-ai-models-and-voices)

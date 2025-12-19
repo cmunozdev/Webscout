@@ -199,7 +199,14 @@ class Images(BaseImages):
         return ImageResponse(created=int(_time()), data=result_data)
 
 class BingImageAI(TTICompatibleProvider):
-    AVAILABLE_MODELS = ["bing"]
+    """Bing Image Creator TTI Provider - Requires Microsoft _U cookie for authentication."""
+
+    # Provider status
+    required_auth: bool = True  # Requires _U cookie from bing.com
+    working: bool = True  # Works with valid cookie
+
+    AVAILABLE_MODELS = ["bing", "dalle", "gpt4o"]
+
     def __init__(self, cookie: Optional[str] = None):
         self.session = requests.Session()
         self.user_agent = LitAgent().random()

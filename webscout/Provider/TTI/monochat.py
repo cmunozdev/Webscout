@@ -172,6 +172,12 @@ class Images(BaseImages):
 
 
 class MonoChatAI(TTICompatibleProvider):
+    """MonoChat AI TTI Provider - Supports multiple image generation models."""
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = False  # Currently not working - site dead as of 2025-12-19
+
     AVAILABLE_MODELS = ["nextlm-image-1", "gpt-image-1", "dall-e-3", "dall-e-2"]
 
     def __init__(self):

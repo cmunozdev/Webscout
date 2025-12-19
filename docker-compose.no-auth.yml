@@ -12,11 +12,12 @@ services:
   webscout-api:
     environment:
       # Enable no-auth mode for development/demos
-      - WEBSCOUT_NO_AUTH=true
-      - WEBSCOUT_NO_RATE_LIMIT=true
+      # Note: These environment variables may not be fully supported by the server yet
+      # Server currently defaults to no authentication
       - WEBSCOUT_LOG_LEVEL=debug
       - WEBSCOUT_DEBUG=true
-      # FastAPI metadata (new)
+      - WEBSCOUT_REQUEST_LOGGING=true
+      # FastAPI metadata
       - WEBSCOUT_API_TITLE=Webscout OpenAI API
       - WEBSCOUT_API_DESCRIPTION=OpenAI API compatible interface for various LLM providers with enhanced authentication
       - WEBSCOUT_API_VERSION=0.2.0
@@ -35,9 +36,9 @@ services:
   webscout-api-production:
     environment:
       # WARNING: Only use no-auth in production if you understand the security implications
-      - WEBSCOUT_NO_AUTH=true
-      - WEBSCOUT_NO_RATE_LIMIT=false  # Keep rate limiting in production
+      # Note: These environment variables may not be fully supported by the server yet
       - WEBSCOUT_LOG_LEVEL=info
+      - WEBSCOUT_REQUEST_LOGGING=true
 
     labels:
       - "webscout.mode=no-auth-production"
@@ -49,10 +50,10 @@ services:
   webscout-api-dev:
     environment:
       # Perfect for development
-      - WEBSCOUT_NO_AUTH=true
-      - WEBSCOUT_NO_RATE_LIMIT=true
+      # Note: Authentication settings may not be fully supported by the server yet
       - WEBSCOUT_LOG_LEVEL=debug
       - WEBSCOUT_DEBUG=true
+      - WEBSCOUT_REQUEST_LOGGING=true
 
     labels:
       - "webscout.mode=no-auth-dev"

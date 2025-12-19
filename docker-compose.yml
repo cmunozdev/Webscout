@@ -29,7 +29,7 @@ services:
       - WEBSCOUT_PORT=8000
       - WEBSCOUT_WORKERS=1
       - WEBSCOUT_LOG_LEVEL=info
-      # FastAPI metadata (new)
+      # FastAPI metadata
       - WEBSCOUT_API_TITLE=Webscout OpenAI API
       - WEBSCOUT_API_DESCRIPTION=OpenAI API compatible interface for various LLM providers
       - WEBSCOUT_API_VERSION=0.2.0
@@ -38,15 +38,20 @@ services:
       - WEBSCOUT_API_OPENAPI_URL=/openapi.json
       - WEBSCOUT_DATA_DIR=/app/data
 
+      # Authentication and rate limiting settings
+      # Note: These may not be fully supported by the server yet
+      # Authentication is currently disabled by default in the server
+
       # Optional API configuration
       # - WEBSCOUT_DEFAULT_PROVIDER=ChatGPT
       # - WEBSCOUT_BASE_URL=/api/v1
 
-      # Debug mode (set to true for development)
+      # Debug mode
       - WEBSCOUT_DEBUG=false
+      - WEBSCOUT_REQUEST_LOGGING=true
 
-      # Health check settings
-      - HEALTHCHECK_TIMEOUT=10
+      # Advanced settings
+      - WEBSCOUT_CORS_ORIGINS=*
 
     # Port mapping
     ports:
@@ -62,7 +67,7 @@ services:
 
     # Health check configuration
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:${WEBSCOUT_PORT:-8000}/monitor/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:8000/monitor/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -112,6 +117,14 @@ services:
       - WEBSCOUT_LOG_LEVEL=warning
       - WEBSCOUT_DEBUG=false
       - WEBSCOUT_DATA_DIR=/app/data
+
+      # Authentication settings (production defaults)
+      # Note: These may not be fully supported by the server yet
+      # Server currently defaults to no authentication
+
+      # Security and performance
+      - WEBSCOUT_CORS_ORIGINS=*
+      - WEBSCOUT_REQUEST_LOGGING=true
 
     ports:
       - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"
@@ -164,6 +177,11 @@ services:
       - WEBSCOUT_LOG_LEVEL=debug
       - WEBSCOUT_DEBUG=true
       - WEBSCOUT_DATA_DIR=/app/data
+
+      # Development settings
+      # Note: Authentication settings may not be fully supported by the server yet
+      - WEBSCOUT_CORS_ORIGINS=*
+      - WEBSCOUT_REQUEST_LOGGING=true
 
     ports:
       - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"

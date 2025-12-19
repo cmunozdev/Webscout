@@ -33,6 +33,7 @@ class SherpaTTS(BaseTTSProvider):
     - Speaker ID and Speed control
     - Multiple output formats
     """
+    required_auth = False
     
     BASE_URL = "https://k2-fsa-text-to-speech.hf.space"
     
@@ -152,7 +153,7 @@ class SherpaTTS(BaseTTSProvider):
         filename = pathlib.Path(tempfile.mktemp(suffix=f".{response_format}", dir=self.temp_dir))
         
         if verbose:
-            print(f"[debug] SherpaTTS: Generating speech for '{text[:20]}...' using {language}/{model_choice}")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"SherpaTTS: Generating speech for '{text[:20]}...' using {language}/{model_choice}")
 
         client_kwargs = {"headers": self.headers, "timeout": self.timeout}
         if self.proxy: client_kwargs["proxy"] = self.proxy
@@ -209,12 +210,12 @@ class SherpaTTS(BaseTTSProvider):
                     f.write(audio_response.content)
                 
                 if verbose:
-                    print(f"[debug] Speech generated successfully: {filename}")
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Speech generated successfully: {filename}")
                 
                 return filename.as_posix()
 
         except Exception as e:
-            if verbose: print(f"[debug] Error in SherpaTTS: {e}")
+            if verbose: ic.configureOutput(prefix='DEBUG| '); ic(f"Error in SherpaTTS: {e}")
             raise exceptions.FailedToGenerateResponseError(f"Failed to generate audio: {e}")
 
     def create_speech(self, input: str, **kwargs) -> str:
@@ -250,6 +251,6 @@ if __name__ == "__main__":
     tts = SherpaTTS()
     try:
         path = tts.tts("This is a Sherpa-ONNX test.", verbose=True)
-        print(f"Result: {path}")
+        ic.configureOutput(prefix='INFO| '); ic(f"Result: {path}")
     except Exception as e:
-        print(f"Error: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")

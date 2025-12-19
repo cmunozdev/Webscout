@@ -34,6 +34,7 @@ class QwenTTS(BaseTTSProvider):
     - Multiple output formats
     - Streaming response simulation
     """
+    required_auth = False
     
     BASE_URL = "https://qwen-qwen3-tts-demo.hf.space"
     
@@ -168,7 +169,7 @@ class QwenTTS(BaseTTSProvider):
         session_hash = self._generate_session_hash()
         
         if verbose:
-            print(f"[debug] Joining queue for voice: {voice} ({qwen_voice})")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Joining queue for voice: {voice} ({qwen_voice})")
             
         client_kwargs = {
             "headers": self.headers,
@@ -230,13 +231,13 @@ class QwenTTS(BaseTTSProvider):
                     f.write(audio_response.content)
                 
                 if verbose:
-                    print(f"[debug] Speech generated successfully: {filename}")
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Speech generated successfully: {filename}")
                 
                 return filename.as_posix()
 
         except Exception as e:
             if verbose:
-                print(f"[debug] Error in QwenTTS: {e}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Error in QwenTTS: {e}")
             raise exceptions.FailedToGenerateResponseError(f"Failed to generate audio: {e}")
 
     def create_speech(
@@ -294,8 +295,8 @@ class StreamingResponse:
 if __name__ == "__main__":
     qwen = QwenTTS()
     try:
-        print("Testing Qwen3-TTS...")
+        ic.configureOutput(prefix='DEBUG| '); ic("Testing Qwen3-TTS...")
         path = qwen.create_speech(input="Hello, this is a test.", voice="jennifer", verbose=True)
-        print(f"Saved to {path}")
+        ic.configureOutput(prefix='INFO| '); ic(f"Saved to {path}")
     except Exception as e:
-        print(f"Error: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")

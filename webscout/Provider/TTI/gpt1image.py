@@ -122,6 +122,12 @@ class Images(BaseImages):
 
 
 class GPT1Image(TTICompatibleProvider):
+    """GPT1Image TTI Provider - Uses gpt1image.exomlapi.com for image generation."""
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = False  # Currently not working - domain unreachable as of 2025-12-19
+
     AVAILABLE_MODELS = ["gpt1image"]
 
     def __init__(self):
