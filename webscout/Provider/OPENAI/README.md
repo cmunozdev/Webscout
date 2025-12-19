@@ -31,7 +31,6 @@ Currently, the following providers are implemented with OpenAI-compatible interf
 
 - DeepInfra
 - Glider
-- ChatGPTClone
 - X0GPT
 - WiseCat
 - Venice
@@ -176,52 +175,6 @@ for chunk in stream:
 print()  # Add a newline at the end
 ```
 
-### Basic Usage with ChatGPTClone
-
-```python
-from webscout.client import ChatGPTClone
-
-# Initialize the client
-client = ChatGPTClone()
-
-# Create a completion (non-streaming)
-response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Tell me about Python programming."}
-    ],
-    temperature=0.7
-)
-
-# Print the response
-print(response.choices[0].message.content)
-```
-
-### Streaming with ChatGPTClone
-
-```python
-from webscout.client import ChatGPTClone
-
-# Initialize the client
-client = ChatGPTClone()
-
-# Create a streaming completion
-stream = client.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Write a short poem about programming."}
-    ],
-    stream=True
-)
-
-# Process the streaming response
-for chunk in stream:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)
-print()  # Add a newline at the end
-```
 
 ### Basic Usage with X0GPT
 
@@ -1012,7 +965,6 @@ Want to add a new OpenAI-compatible provider? Follow these steps:
 - [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
 - [DeepInfra Documentation](https://deepinfra.com/docs)
 - [Glider.so Website](https://glider.so/)
-- [ChatGPT Clone Website](https://chatgpt-clone-ten-nu.vercel.app/)
 - [X0GPT Website](https://x0-gpt.devwtf.in/)
 - [WiseCat Website](https://wise-cat-groq.vercel.app/)
 - [Venice AI Website](https://venice.ai/)

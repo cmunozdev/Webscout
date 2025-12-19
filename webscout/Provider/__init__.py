@@ -5,8 +5,8 @@ from webscout.Provider.akashgpt import AkashGPT
 from webscout.Provider.Algion import Algion
 from webscout.Provider.Andi import AndiSearch
 from webscout.Provider.Apriel import Apriel
-from webscout.Provider.cerebras import Cerebras
-from webscout.Provider.ChatGPTClone import ChatGPTClone
+from webscout.Provider.Chatgpt import ChatGPT
+from webscout.Provider.Claude import Claude
 from webscout.Provider.ChatSandbox import ChatSandbox
 from webscout.Provider.ClaudeOnline import ClaudeOnline
 from webscout.Provider.cleeai import Cleeai
@@ -62,9 +62,9 @@ __all__ = [
     "Algion",
     "AndiSearch",
     "Apriel",
-    "Cerebras",
-    "ChatGPTClone",
+    "ChatGPT",
     "ChatSandbox",
+    "Claude",
     "ClaudeOnline",
     "Cleeai",
     "Cohere",

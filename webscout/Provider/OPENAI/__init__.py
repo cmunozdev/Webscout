@@ -42,7 +42,6 @@ from webscout.Provider.OPENAI.akashgpt import AkashGPT
 from webscout.Provider.OPENAI.algion import Algion
 from webscout.Provider.OPENAI.cerebras import Cerebras
 from webscout.Provider.OPENAI.chatgpt import ChatGPT, ChatGPTReversed
-from webscout.Provider.OPENAI.chatgptclone import ChatGPTClone
 from webscout.Provider.OPENAI.chatsandbox import ChatSandbox
 from webscout.Provider.OPENAI.deepinfra import DeepInfra
 from webscout.Provider.OPENAI.e2b import E2B
@@ -111,7 +110,6 @@ __all__ = [
     "Cerebras",
     "ChatGPT",
     "ChatGPTReversed",
-    "ChatGPTClone",
     "ChatSandbox",
     "DeepInfra",
     "E2B",
