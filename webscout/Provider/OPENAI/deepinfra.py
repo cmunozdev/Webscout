@@ -284,7 +284,7 @@ class DeepInfra(OpenAICompatibleProvider):
         fingerprint = agent.generate_fingerprint(browser)
         self.headers = {
             "Accept": fingerprint["accept"],
-            "Accept-Encoding": "gzip, deflate, br, zstd",
+            "Accept-Encoding": "gzip, deflate",
             "Accept-Language": fingerprint["accept_language"],
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",

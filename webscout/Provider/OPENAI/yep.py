@@ -306,7 +306,6 @@ class YEPCHAT(OpenAICompatibleProvider):
         # Initialize headers using the fingerprint
         self.headers = {
             "Accept": fingerprint["accept"],
-            "Accept-Encoding": "gzip, deflate, br, zstd",
             "Accept-Language": fingerprint["accept_language"],
             "Content-Type": "application/json; charset=utf-8",
             "DNT": "1",

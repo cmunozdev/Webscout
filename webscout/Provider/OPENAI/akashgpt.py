@@ -346,7 +346,6 @@ class AkashGPT(OpenAICompatibleProvider):
             "path": "/api/chat",
             "scheme": "https",
             "accept": "*/*",
-            "accept-encoding": "gzip, deflate, br, zstd",
             "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
             "content-type": "application/json",
             "dnt": "1",

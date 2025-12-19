@@ -25,6 +25,7 @@ class LLMChat(Provider):
         "@cf/meta/llama-4-scout-17b-16e-instruct",
         "@cf/mistralai/mistral-small-3.1-24b-instruct",
         "@cf/google/gemma-3-12b-it",
+        "@cf/ibm-granite/granite-4.0-h-micro"
     ]
 
     def __init__(

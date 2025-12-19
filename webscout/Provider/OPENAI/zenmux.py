@@ -245,9 +245,8 @@ class Zenmux(OpenAICompatibleProvider):
         agent = LitAgent()
         fingerprint = agent.generate_fingerprint(browser)
         self.headers = {
-            "Accept": fingerprint.get("accept", "*/*"),
-            "Accept-Encoding": "gzip, deflate, br",
-            "Accept-Language": fingerprint.get("accept_language", "en-US,en;q=0.9"),
+            "Accept": fingerprint["accept"],
+            "Accept-Language": fingerprint["accept_language"],
             "Content-Type": "application/json",
             "DNT": "1",
             "Origin": "https://zenmux.ai",
