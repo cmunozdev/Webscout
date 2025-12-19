@@ -18,6 +18,7 @@ from webscout.Provider.TTS.gesserit import GesseritTTS
 from webscout.Provider.TTS.murfai import MurfAITTS
 from webscout.Provider.TTS.openai_fm import OpenAIFMTTS
 from webscout.Provider.TTS.parler import ParlerTTS
+from webscout.Provider.TTS.qwen import QwenTTS
 from webscout.Provider.TTS.speechma import SpeechMaTTS
 from webscout.Provider.TTS.streamElements import StreamElements
 
@@ -36,6 +37,7 @@ __all__ = [
     "MurfAITTS",
     "OpenAIFMTTS",
     "ParlerTTS",
+    "QwenTTS",
     "SpeechMaTTS",
     "StreamElements",
 ]

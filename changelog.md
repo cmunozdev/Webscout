@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file.
 ## [2025.12.20] - 2025-12-20
 
 ### ✨ Added
+- **feat**: webscout/Provider/TTS/qwen.py - New Qwen3-TTS provider reverse engineered from Hugging Face Space demo, supporting 40+ high-quality voices and automatic language detection.
 - **feat**: webscout/Provider/HadadXYZ.py - New provider for HadadXYZ HF Space API, supporting 20+ models including DeepSeek-R1, Qwen3, and Llama 4 Maverick.
 - **feat**: webscout/Provider/OPENAI/hadadxyz.py - New OpenAI-compatible HadadXYZ provider.
 - **feat**: webscout/Provider/OPENAI/llmchat.py - New OpenAI-compatible LLMChat provider with support for 47+ models including Llama 3.3, DeepSeek R1, and Qwen3.
@@ -17,6 +18,7 @@ All notable changes to this project will be documented in this file.
 - **removed**: webscout/Provider/OPENAI/scirachat.py - Removed SciraChat provider.
 
 ### 🛠️ Improved
+- **refactor**: webscout/Provider/TTS/__init__.py - Added QwenTTS to the exported TTS providers.
 - **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.
 - **refactor**: webscout/Provider/OPENAI/e2b.py - Removed all unwanted `print` statements and ANSI escape codes to make the provider fully silent.
 
