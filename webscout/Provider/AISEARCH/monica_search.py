@@ -1,8 +1,6 @@
 import requests
 import json
-import re
-import uuid
-from typing import Dict, Optional, Generator, Union, Any, List
+from typing import Any, Dict, Generator, Optional, Union
 
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
@@ -11,33 +9,8 @@ from webscout.sanitize import sanitize_stream
 
 
 class Monica(AISearch):
-    """A class to interact with the Monica AI search API.
-
-    Monica provides a powerful search interface that returns AI-generated responses
-    based on web content. It supports both streaming and non-streaming responses.
-
-    Basic Usage:
-        >>> from webscout import Monica
-        >>> ai = Monica()
-        >>> # Non-streaming example
-        >>> response = ai.search("What is Python?")
-        >>> print(response)
-        Python is a high-level programming language...
-
-        >>> # Streaming example
-        >>> for chunk in ai.search("Tell me about AI", stream=True):
-        ...     print(chunk, end="", flush=True)
-        Artificial Intelligence is...
-
-        >>> # Raw response format
-        >>> for chunk in ai.search("Hello", stream=True, raw=True):
-        ...     print(chunk)
-        {'text': 'Hello'}
-        {'text': ' there!'}
-
-    Args:
-        timeout (int, optional): Request timeout in seconds. Defaults to 60.
-        proxies (dict, optional): Proxy configuration for requests. Defaults to None.
+    """
+    A class to interact with the Monica stream search API.
     """
 
     def __init__(
@@ -45,12 +18,8 @@ class Monica(AISearch):
         timeout: int = 60,
         proxies: Optional[dict] = None,
     ):
-        """Initialize the Monica API client.
-
-        Args:
-            timeout (int, optional): Request timeout in seconds. Defaults to 60.
-            proxies (dict, optional): Proxy configuration for requests. Defaults to None.
-        """
+        """Initializes the Monica API client."""
+        import uuid
         self.session = requests.Session()
         self.api_endpoint = "https://monica.so/api/search_v1/search"
         self.stream_chunk_size = 64
@@ -59,6 +28,7 @@ class Monica(AISearch):
         self.client_id = str(uuid.uuid4())
         self.session_id = ""
 
+        # Set initial headers
         self.headers = {
             "accept": "*/*",
             "accept-encoding": "gzip, deflate, br, zstd",
@@ -84,10 +54,6 @@ class Monica(AISearch):
             "x-time-zone": "Asia/Calcutta;-330",
         }
 
-        self.cookies = {
-            "monica_home_theme": "auto",
-        }
-
         self.session.headers.update(self.headers)
         self.proxies = proxies
 
@@ -96,30 +62,38 @@ class Monica(AISearch):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-    ) -> Union[
-        SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None], List[Any]
-    ]:
-        """Search using the Monica API and get AI-generated responses.
-
-        This method sends a search query to Monica and returns the AI-generated response.
-        It supports both streaming and non-streaming modes, as well as raw response format.
+    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None]]:
+        """
+        Sends a prompt to the Monica API and returns the response.
 
         Args:
-            prompt (str): The search query or prompt to send to the API.
-            stream (bool, optional): If True, yields response chunks as they arrive.
-                                   If False, returns complete response. Defaults to False.
-            raw (bool, optional): If True, returns raw response dictionaries with 'text' key.
-                                If False, returns Response objects that convert to text automatically.
-                                Defaults to False.
+            prompt: The search query or prompt to send to the API
+            stream: Whether to stream the response
+            raw: If True, returns unprocessed response chunks without any
+                processing or sanitization. Useful for debugging or custom
+                processing pipelines. Defaults to False.
 
         Returns:
-            Union[Response, Generator[Union[Dict[str, str], Response], None, None]]:
-                - If stream=False: Returns complete response as Response object or list of dicts
-                - If stream=True: Yields response chunks as either Dict or Response objects
+            When raw=False: SearchResponse object (non-streaming) or
+                Generator yielding SearchResponse objects (streaming)
+            When raw=True: Raw string response (non-streaming) or
+                Generator yielding raw string chunks (streaming)
 
-        Raises:
-            APIConnectionError: If the API request fails
+        Examples:
+            >>> ai = Monica()
+            >>> # Get processed response
+            >>> response = ai.search("Hello")
+            >>> print(response)
+
+            >>> # Get raw response
+            >>> raw_response = ai.search("Hello", raw=True)
+            >>> print(raw_response)
+
+            >>> # Stream raw chunks
+            >>> for chunk in ai.search("Hello", stream=True, raw=True):
+            ...     print(chunk, end='', flush=True)
         """
+        import uuid
         task_id = str(uuid.uuid4())
         payload = {
             "pro": False,
@@ -130,13 +104,21 @@ class Monica(AISearch):
             "task_id": task_id,
         }
 
+        def extract_monica_content(data):
+            """Extracts content from Monica stream JSON objects."""
+            if isinstance(data, dict):
+                if "session_id" in data and data["session_id"]:
+                    self.session_id = data["session_id"]
+                if "text" in data and data["text"]:
+                    return data["text"]
+            return None
+
         def for_stream():
             try:
                 with self.session.post(
                     self.api_endpoint,
                     json=payload,
                     stream=True,
-                    cookies=self.cookies,
                     timeout=self.timeout,
                     proxies=self.proxies,
                 ) as response:
@@ -145,84 +127,98 @@ class Monica(AISearch):
                             f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                         )
 
-                    # Process the Server-Sent Events (SSE) stream
-                    for line in response.iter_lines(decode_unicode=True):
-                        if line and line.startswith("data: "):
-                            try:
-                                data = json.loads(line[6:])  # Remove 'data: ' prefix
+                    # Use sanitize_stream with comprehensive features
+                    processed_chunks = sanitize_stream(
+                        data=response.iter_lines(decode_unicode=True),
+                        intro_value="",
+                        to_json=True,
+                        skip_markers=[],
+                        strip_chars=None,
+                        start_marker=None,
+                        end_marker=None,
+                        content_extractor=lambda chunk: extract_monica_content(chunk),
+                        yield_raw_on_error=False,
+                        encoding='utf-8',
+                        encoding_errors='replace',
+                        buffer_size=8192,
+                        line_delimiter=None,
+                        error_handler=None,
+                        skip_regexes=None,
+                        extract_regexes=None,
+                        raw=raw,
+                        output_formatter=None,
+                    )
 
-                                # Save session_id for future requests if present
-                                if "session_id" in data and data["session_id"]:
-                                    self.session_id = data["session_id"]
-
-                                # Only process chunks with text content
-                                if "text" in data and data["text"]:
-                                    text_chunk = data["text"]
-
-                                    if raw:
-                                        yield {"text": text_chunk}
-                                    else:
-                                        yield SearchResponse(text_chunk)
-
-                                # Check if stream is finished
-                                if "finished" in data and data["finished"]:
-                                    break
-
-                            except json.JSONDecodeError:
-                                continue
+                    for content_chunk in processed_chunks:
+                        if content_chunk is not None:
+                            if raw:
+                                yield content_chunk
+                            else:
+                                # Wrap processed content in SearchResponse if not raw
+                                if isinstance(content_chunk, str):
+                                    yield SearchResponse(content_chunk)
+                                else:
+                                    yield content_chunk
 
             except requests.exceptions.RequestException as e:
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
 
         def for_non_stream():
-            full_response_text = ""
-            search_results = []
+            try:
+                with self.session.post(
+                    self.api_endpoint,
+                    json=payload,
+                    stream=False,
+                    timeout=self.timeout,
+                    proxies=self.proxies,
+                ) as response:
+                    if not response.ok:
+                        raise exceptions.APIConnectionError(
+                            f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
+                        )
 
-            for chunk in for_stream():
-                if raw:
-                    search_results.append(chunk)
-                else:
-                    full_response_text += str(chunk)
+                    if raw:
+                        # Return raw response text when raw=True
+                        return response.text
+                    else:
+                        # Process response similar to streaming when raw=False
+                        processed_chunks = sanitize_stream(
+                            data=response.iter_lines(decode_unicode=True),
+                            intro_value="",
+                            to_json=True,
+                            skip_markers=[],
+                            strip_chars=None,
+                            start_marker=None,
+                            end_marker=None,
+                            content_extractor=lambda chunk: extract_monica_content(chunk),
+                            yield_raw_on_error=False,
+                            encoding='utf-8',
+                            encoding_errors='replace',
+                            buffer_size=8192,
+                            line_delimiter=None,
+                            error_handler=None,
+                            skip_regexes=None,
+                            extract_regexes=None,
+                            raw=False,
+                            output_formatter=None,
+                        )
 
-            if raw:
-                return search_results
-            else:
-                # Process the full response to clean up formatting
-                formatted_response = self.format_response(full_response_text)
-                self.last_response = SearchResponse(formatted_response)
-                return self.last_response
+                        full_response = ""
+                        for content_chunk in processed_chunks:
+                            if content_chunk is not None and isinstance(content_chunk, str):
+                                full_response += content_chunk
 
-        if stream:
-            return for_stream()
-        else:
-            return for_non_stream()
+                        self.last_response = SearchResponse(full_response)
+                        return self.last_response
 
-    @staticmethod
-    def format_response(text: str) -> str:
-        """Format the response text for better readability.
+            except requests.exceptions.RequestException as e:
+                raise exceptions.APIConnectionError(f"Request failed: {e}")
 
-        Args:
-            text (str): The raw response text
-
-        Returns:
-            str: Formatted text
-        """
-        # Clean up markdown formatting
-        cleaned_text = text.replace("**", "")
-
-        # Remove any empty lines
-        cleaned_text = re.sub(r"\n\s*\n", "\n\n", cleaned_text)
-
-        # Remove any trailing whitespace
-        cleaned_text = cleaned_text.strip()
-
-        return cleaned_text
+        return for_stream() if stream else for_non_stream()
 
 
 if __name__ == "__main__":
-    from rich import print
-
     ai = Monica()
     response = ai.search("What is Python?", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    for chunks in response:
+        print(chunks, end="", flush=True)

@@ -13,6 +13,7 @@ from webscout.Provider.Cohere import Cohere
 from webscout.Provider.DeepAI import DeepAI
 from webscout.Provider.Deepinfra import DeepInfra
 from webscout.Provider.elmo import Elmo
+from webscout.Provider.EssentialAI import EssentialAI
 from webscout.Provider.ExaAI import ExaAI
 from webscout.Provider.Ayle import Ayle
 from webscout.Provider.Gemini import GEMINI
@@ -68,8 +69,9 @@ __all__ = [
     "Cleeai",
     "Cohere",
     "DeepAI",
-    "DeepInfra",
+    "Deepinfra",
     "Elmo",
+    "EssentialAI",
     "ExaAI",
     "Ayle",
     "GEMINI",

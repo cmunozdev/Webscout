@@ -35,6 +35,7 @@ These providers have both standard and OpenAI-compatible implementations, giving
 | 8 | **ExaAI** | `webscout/Provider/ExaAI.py` | `webscout/Provider/OPENAI/exaai.py` |
 | 9 | **Ayle** | `webscout/Provider/Ayle.py` | `webscout/Provider/OPENAI/ayle.py` |
 | 10 | **Groq** | `webscout/Provider/Groq.py` | `webscout/Provider/OPENAI/groq.py` |
+| 11 | **EssentialAI** | `webscout/Provider/EssentialAI.py` | `webscout/Provider/OPENAI/essentialai.py` |
 | 13 | **HeckAI** | `webscout/Provider/HeckAI.py` | `webscout/Provider/OPENAI/heckai.py` |
 | 14 | **IBM** | `webscout/Provider/IBM.py` | `webscout/Provider/OPENAI/ibm.py` |
 | 15 | **K2Think** | `webscout/Provider/K2Think.py` | `webscout/Provider/OPENAI/K2Think.py` |
@@ -59,7 +60,7 @@ These providers have both standard and OpenAI-compatible implementations, giving
 | 34 | **LLMChat** | `webscout/Provider/llmchat.py` | `webscout/Provider/OPENAI/llmchat.py` |
 | 35 | **HadadXYZ** | `webscout/Provider/HadadXYZ.py` | `webscout/Provider/OPENAI/hadadxyz.py` |
 
-**Total: 35 providers with dual implementations**
+**Total: 36 providers with dual implementations**
 
 ---
 
@@ -117,19 +118,19 @@ These providers are only available in the OpenAI-compatible format and have no s
 ┌─────────────────────────────────────────┬───────┐
 │ Category                                │ Count │
 ├─────────────────────────────────────────┼───────┤
-│ Both Normal & OpenAI-Compatible         │  35   │
+│ Both Normal & OpenAI-Compatible         │  36   │
 │ Only Normal Version                     │  19   │
 │ Only OpenAI-Compatible Version          │   5   │
 ├─────────────────────────────────────────┼───────┤
-│ TOTAL UNIQUE PROVIDERS                  │  59   │
+│ TOTAL UNIQUE PROVIDERS                  │  60   │
 └─────────────────────────────────────────┴───────┘
 ```
 
 ### Implementation Coverage
 
-- **Total Normal Implementations**: 54 (35 hybrid + 19 normal-only)
-- **Total OpenAI Implementations**: 40 (35 hybrid + 5 OpenAI-only)
-- **Providers with Multiple Options**: 35 (59% of all providers)
+- **Total Normal Implementations**: 55 (36 hybrid + 19 normal-only)
+- **Total OpenAI Implementations**: 41 (36 hybrid + 5 OpenAI-only)
+- **Providers with Multiple Options**: 36 (60% of all providers)
 
 ---
 

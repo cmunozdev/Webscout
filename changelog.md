@@ -15,6 +15,7 @@ All notable changes to this project will be documented in this file.
 - **refactor**: webscout/client.py - Updated unified client to support authenticated TTI providers in auto-failover mode when an API key is provided.
 - **docs**: webscout/Provider/TTI/README.md - Updated documentation to reflect the current set of 5 functional TTI providers.
 - **refactor**: webscout/Provider/AISEARCH/PERPLEXED_search.py - Enhanced sanitize_stream usage with comprehensive features including explicit encoding, buffer size, error handling, and all available parameters for robust stream processing.
+- **refactor**: webscout/Provider/AISEARCH/monica_search.py - Updated to use sanitize_stream with content_extractor and output_formatter for clean SSE processing, extracting text and managing session_id without keeping unwanted data in yields.
 
 ### 🛠️ Improved
 - **docs**: docs/cli.md - Updated CLI documentation to reflect all available commands, options, and examples based on actual implementation in webscout/cli.py.
