@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [2025.12.18.1] - 2025-12-18
+## [2025.12.19] - 2025-12-19
 
 ### ✨ Added
   - **feat**: webscout/client.py - Enhanced unified Client interface for AI providers:
@@ -32,6 +32,8 @@ All notable changes to this project will be documented in this file.
   - Added dynamic model fetching with `update_available_models`.
   - Integrated `LitAgent` for dynamic browser fingerprinting.
 
+## [2025.12.18] - 2025-12-18
+
 ### 🚮 Removed
 - **removed**: webscout/Provider/Perplexitylabs.py - Removed PerplexityLabs provider file.
 - **removed**: PerplexityLabs entry from Provider.md documentation and statistics.
@@ -46,6 +48,8 @@ All notable changes to this project will be documented in this file.
 ### 🛠️ Fixed
 - **fix**: webscout/Provider/OPENAI/ - Fixed "Accept-Encoding" issue in multiple providers (`K2Think`, `AkashGPT`, `LLMChatCo`, `Yep`, `Zenmux`, `DeepInfra`) that caused decompression errors and empty responses when using `requests` or `cloudscraper` libraries.
 - **fix**: webscout/Provider/turboseek.py - Updated provider to handle new HTML-based raw stream response format and improved HTML-to-Markdown conversion.
+
+
 ## [2025.12.17] - 2025-12-17
 
 ### ✨ Added
