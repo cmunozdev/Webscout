@@ -1,7 +1,7 @@
 import requests
 import json
 import re
-from typing import Dict, Optional, Generator, Union, Any
+from typing import Dict, Optional, Generator, Union, Any, List
 
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
@@ -49,10 +49,6 @@ class webpilotai(AISearch):
         Args:
             timeout (int, optional): Request timeout in seconds. Defaults to 90.
             proxies (dict, optional): Proxy configuration for requests. Defaults to None.
-        
-        Example:
-            >>> ai = webpilotai(timeout=120)  # Longer timeout
-            >>> ai = webpilotai(proxies={'http': 'http://proxy.com:8080'})  # With proxy
         """
         self.session = requests.Session()
         self.api_endpoint = "https://api.webpilotai.com/rupee/v1/search"
@@ -77,7 +73,7 @@ class webpilotai(AISearch):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None]]:
+    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None], List[Any]]:
         """Search using the webpilotai API and get AI-generated SearchResponses.
         
         This method sends a search query to webpilotai and returns the AI-generated SearchResponse.
@@ -98,24 +94,6 @@ class webpilotai(AISearch):
         
         Raises:
             APIConnectionError: If the API request fails
-        
-        Examples:
-            Basic search:
-            >>> ai = webpilotai()
-            >>> response = ai.search("What is Python?")
-            >>> print(response)
-            Python is a programming language...
-            
-            Streaming SearchResponse:
-            >>> for chunk in ai.search("Tell me about AI", stream=True):
-            ...     print(chunk, end="")
-            Artificial Intelligence...
-            
-            Raw SearchResponse format:
-            >>> for chunk in ai.search("Hello", stream=True, raw=True):
-            ...     print(chunk)
-            {'text': 'Hello'}
-            {'text': ' there!'}
         """
         payload = {
             "q": prompt,
@@ -205,24 +183,26 @@ class webpilotai(AISearch):
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
 
         def for_non_stream():
-            full_SearchResponse = ""
+            full_SearchResponse_text = ""
             search_results = []
-            
             for chunk in for_stream():
                 if raw:
                     search_results.append(chunk)
                 else:
-                    full_SearchResponse += str(chunk)
+                    full_SearchResponse_text += str(chunk)
             
             if raw:
                 return search_results
             else:
                 # Format the SearchResponse for better readability
-                formatted_SearchResponse = self.format_SearchResponse(full_SearchResponse)
+                formatted_SearchResponse = self.format_SearchResponse(full_SearchResponse_text)
                 self.last_response = SearchResponse(formatted_SearchResponse)
-                return self.last_SearchResponse
+                return self.last_response
 
-        return for_stream() if stream else for_non_stream()
+        if stream:
+            return for_stream()
+        else:
+            return for_non_stream()
     
     @staticmethod
     def format_SearchResponse(text: str) -> str:
@@ -254,6 +234,6 @@ if __name__ == "__main__":
     from rich import print
     
     ai = webpilotai()
-    r = ai.search(input(">>> "), stream=True, raw=False)
+    r = ai.search("What is Python?", stream=True, raw=False)
     for chunk in r:
         print(chunk, end="", flush=True)

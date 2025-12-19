@@ -4,6 +4,7 @@ import json
 from typing import TypedDict, List, Iterator, cast, Dict, Optional, Union, Any
 import requests
 import sys
+import re
 
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
@@ -40,8 +41,7 @@ class Genspark(AISearch):
     """
     Strongly typed Genspark AI search API client.
     
-    Updated to filter output to strictly return the AI's textual response, 
-    filtering out status updates and metadata events unless raw=True.
+    Updated to handle Unicode more gracefully and support more result fields.
     """
 
     session: cloudscraper.CloudScraper
@@ -88,9 +88,9 @@ class Genspark(AISearch):
             "Sec-CH-UA": '"Chromium";v="128", "Not;A=Brand";v="24", "Microsoft Edge";v="128"',
             "Sec-CH-UA-Mobile": "?0",
             "Sec-CH-UA-Platform": '"Windows"',
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
             "User-Agent": LitAgent().random(),
         }
         self.cookies = {
@@ -196,7 +196,7 @@ class Genspark(AISearch):
                                         for source in field_value:
                                             if isinstance(source, dict) and source.get("url") and source.get("url") not in self._seen_source_urls:
                                                 self.sources_used.append(cast(SourceDict, source))
-                                                self._seen_source_urls.add(source.get("url"))
+                                                self._seen_source_urls.add(source.get("url") )
                             elif event_type == "result_end":
                                 if result_id in self.result_summary:
                                     self.result_summary[result_id]["ended"] = True
@@ -208,7 +208,7 @@ class Genspark(AISearch):
                                             for paa_item in paa_list:
                                                 if isinstance(paa_item, dict) and paa_item.get("question") not in self._seen_paa_questions:
                                                     self.people_also_ask.append(cast(PeopleAlsoAskDict, paa_item))
-                                                    self._seen_paa_questions.add(paa_item.get("question"))
+                                                    self._seen_paa_questions.add(paa_item.get("question") )
                                     elif search_result_data.get("source") == "agents_guide" and "agents_guide" in search_result_data:
                                         self.agents_guide = search_result_data["agents_guide"]
 
@@ -218,16 +218,17 @@ class Genspark(AISearch):
                             if raw:
                                 yield data
                             else:
-
-                                if event_type == "result_field_delta" and field_name and (
-                                    field_name.startswith("streaming_detail_answer") or 
-                                    field_name.startswith("streaming_simple_answer")
-                                ):
-                                    delta_text = data.get("delta", "")
-                                    # Optional: Remove citation markers like [1], [2] if preferred
-                                    # delta_text = re.sub(r"\[.*?\]\(.*?\)", "", delta_text)
-                                    if delta_text:
-                                        yield SearchResponse(delta_text)
+                                if event_type == "result_field_delta" and field_name:
+                                    # Include common answer field patterns
+                                    if (
+                                        field_name.startswith("streaming_detail_answer") or 
+                                        field_name.startswith("streaming_simple_answer") or
+                                        field_name == "answer" or
+                                        field_name == "content"
+                                    ):
+                                        delta_text = data.get("delta", "")
+                                        if delta_text:
+                                            yield SearchResponse(delta_text)
 
                         except json.JSONDecodeError:
                             continue
@@ -254,6 +255,7 @@ class Genspark(AISearch):
                 self.last_SearchResponse = {"raw_events": all_raw_events_for_this_search}
                 return all_raw_events_for_this_search
             else:
+                # Basic Unicode sanitization for the final response
                 final_text_SearchResponse = SearchResponse(full_SearchResponse_text)
                 self.last_SearchResponse = final_text_SearchResponse
                 return final_text_SearchResponse
@@ -261,16 +263,20 @@ class Genspark(AISearch):
 if __name__ == "__main__":
     ai = Genspark()
     try:
-
         search_result_stream = ai.search("liger-kernal details", stream=True, raw=False)
         
         for chunk in search_result_stream:
             try:
-                print(chunk, end="", flush=True)
+                # Use a more robust way to print Unicode characters on Windows
+                text = str(chunk)
+                sys.stdout.write(text)
+                sys.stdout.flush()
             except UnicodeEncodeError:
-                # Fallback for Windows consoles
-                safe_chunk = str(chunk).encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8')
-                print(safe_chunk, end="", flush=True)
+                # Fallback for Windows consoles that don't support UTF-8
+                safe_chunk = str(chunk).encode('ascii', errors='replace').decode('ascii')
+                sys.stdout.write(safe_chunk)
+                sys.stdout.flush()
+        print()
 
     except KeyboardInterrupt:
         print("\nSearch interrupted by user.")

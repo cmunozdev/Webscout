@@ -19,6 +19,7 @@ from webscout.Provider.TTI.magicstudio import MagicStudioAI
 from webscout.Provider.TTI.pollinations import PollinationsAI
 from webscout.Provider.TTI.together import TogetherImage
 from webscout.Provider.TTI.venice import VeniceAI
+from webscout.Provider.TTI.miragic import MiragicAI
 
 # List of all exported names
 __all__ = [
@@ -34,4 +35,6 @@ __all__ = [
     "PollinationsAI",
     "TogetherImage",
     "VeniceAI",
+    "MiragicAI",
+
 ]

@@ -3,7 +3,7 @@
 All notable changes to this project will be documented in this file.
 
 
-## [2025.12.21] - 2025-12-21
+## [2025.12.20] - 2025-12-20
 
 ### ✨ Added
 - **feat**: webscout/Provider/TTI/venice.py - Major update to Venice AI TTI provider with new headers and payload structure from recent reverse engineering. Added support for `z-image-turbo` and `stable-diffusion-3.5-large`.
@@ -14,14 +14,20 @@ All notable changes to this project will be documented in this file.
 - **refactor**: webscout/Provider/TTI/ - Cleaned up the TTI module by removing 8 non-functional or login-required providers (`AIArta`, `BingImageAI`, `GPT1Image`, `ImagenAI`, `InfipAI`, `MonoChatAI`, `PiclumenAI`, `PixelMuse`).
 - **refactor**: webscout/client.py - Updated unified client to support authenticated TTI providers in auto-failover mode when an API key is provided.
 - **docs**: webscout/Provider/TTI/README.md - Updated documentation to reflect the current set of 5 functional TTI providers.
+- **refactor**: webscout/Provider/AISEARCH/PERPLEXED_search.py - Enhanced sanitize_stream usage with comprehensive features including explicit encoding, buffer size, error handling, and all available parameters for robust stream processing.
 
-## [2025.12.20] - 2025-12-20
+### 🛠️ Improved
+- **docs**: docs/cli.md - Updated CLI documentation to reflect all available commands, options, and examples based on actual implementation in webscout/cli.py.
+- **docs**: README.md - Enhanced CLI section with comprehensive command examples and search provider information.
+- **docs**: docs/openai-api-server.md - Updated documentation to reflect actual server implementation with Docker, configuration, and API endpoint details.
+- **docs**: docs/client.md - Updated to emphasize client as Python-based API using models in OpenAI format, with relationship to server API clarified.
 
 ### ✨ Added
 - **feat**: webscout/Provider/TTS/sherpa.py - New SherpaTTS provider using Next-gen Kaldi (Sherpa-ONNX) HF Space API, supporting 50+ languages and multiple ONNX models.
 - **feat**: webscout/Provider/TTS/qwen.py - New Qwen3-TTS provider reverse engineered from Hugging Face Space demo, supporting 40+ high-quality voices and automatic language detection.
 - **feat**: webscout/Provider/TTS/deepgram.py - Updated to support Aura-2 next-gen voices and latest API endpoint.
 - **feat**: webscout/Provider/TTS/elevenlabs.py - Added support for ElevenLabs API keys.
+- **feat**: webscout/Provider/TTI/miragic.py - New MiragicAI TTI provider reverse engineered from Hugging Face Space, supporting 'flux', 'turbo', and 'gptimage' models with streaming support.
 - **feat**: webscout/server/routes.py - Added `/monitor/health` endpoint for Docker health checks, returning service status and version information.
 
 ### 🛠️ Improved
@@ -44,6 +50,7 @@ All notable changes to this project will be documented in this file.
 ### 🚮 Removed
 - **removed**: `gradio_client` dependency from pyproject.toml as it's no longer needed.
 - **removed**: `gemini-2.0-flash` from Ayle provider model lists (`webscout/Provider/Ayle.py`, `webscout/Provider/OPENAI/ayle.py`).
+- **removed**: webscout/Provider/AISEARCH/stellar_search.py - Removed dead Stellar AI search provider that was causing import errors and service unavailability.
 
 ### 🐛 Fixed
 - **fix**: webscout/client.py - Removed hardcoded default models ("gpt-3.5-turbo" for chat, "flux" for images) in auto-resolution, now raises RuntimeError when no models are available from any provider.

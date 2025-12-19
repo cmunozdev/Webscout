@@ -1,5 +1,5 @@
 # Webscout CLI Reference
-> Last updated: 2025-01-29  
+> Last updated: 2025-12-20
 > Source of truth: [`webscout/cli.py`](../webscout/cli.py)
 
 The Webscout CLI wraps the same search providers that are exposed through the Python API and `webscout.__init__`. Commands are registered with the `swiftcli` framework and share a consistent option style (`-k` for keywords, `-r` for region, etc.). This document captures every command, its parameters, defaults, and the underlying provider call.
@@ -17,7 +17,7 @@ webscout version
 uv run webscout --help
 ```
 
-All commands support `--timeout` (default `10` seconds) and most DuckDuckGo commands allow `--proxy` for network tunneling.
+All commands support `--timeout` (default `10` seconds) and DuckDuckGo commands allow `--proxy` for network tunneling.
 
 ## 🦆 DuckDuckGo Command Group (Default Backend)
 
@@ -37,7 +37,7 @@ All commands support `--timeout` (default `10` seconds) and most DuckDuckGo comm
 
 ```text
 -k, --keywords      (required) Search query
--r, --region        Region code (default: wt-wt)
+-r, --region        Region code (default varies by command)
 -s, --safesearch    on / moderate / off (default: moderate)
 -t, --timelimit     d / w / m / y (varies by command)
 -m, --max-results   Integer cap (varies by command)
@@ -51,22 +51,26 @@ All commands support `--timeout` (default `10` seconds) and most DuckDuckGo comm
 
 **Videos extras**: `--resolution`, `--duration`, `--license-videos`.
 
+**Translate extras**: `--from` (from language), `--to` (to language).
+
+**Weather extras**: `--language` (language code, default: 'en').
+
 ## 🔍 Yep Command Group
 
 | Command | Description | Options |
 |---------|-------------|---------|
-| `yep_text` | Yep text search | `-k`, `-r` (default `all`), `-s` (default `moderate`), `-m` |
+| `yep_text` | Yep text search | `-k`, `-r` (default `all`), `-s` (default `moderate`), `-m` (default: 10) |
 | `yep_images` | Yep image search | Same as `yep_text` |
-| `yep_suggestions` | Query suggestions | `-q` (query), `-r` (default `en-US`)
+| `yep_suggestions` | Query suggestions | `-q` (query), `-r` (default `en-US`) |
 
 ## 🔎 Bing Command Group
 
 | Command | Description | Options |
 |---------|-------------|---------|
-| `bing_text` | Bing text search (supports duplicate suppression) | `-k`, `-r` (default `us`), `-s`, `-m`, `-u/--unique` |
-| `bing_images` | Bing image search | `-k`, `-r`, `-s`, `-m` |
-| `bing_news` | Bing news search | `-k`, `-r`, `-s`, `-m` |
-| `bing_suggestions` | Bing suggestions | `-q`, `-r`
+| `bing_text` | Bing text search (supports duplicate suppression) | `-k`, `-r` (default `us`), `-s`, `-m`, `-u/--unique` (default: true) |
+| `bing_images` | Bing image search | `-k`, `-r`, `-s`, `-m` (default: 10) |
+| `bing_news` | Bing news search | `-k`, `-r`, `-s`, `-m` (default: 10) |
+| `bing_suggestions` | Bing suggestions | `-q` (query), `-r` (default `en-US`) |
 
 ## 📨 Yahoo Command Group
 
@@ -84,25 +88,46 @@ Mirrors DuckDuckGo features but routed through `YahooSearch`.
 | `yahoo_suggestions` | Suggestions/autocomplete |
 | `yahoo_weather` | Weather (prints via `_print_weather`) |
 
-All Yahoo commands re-use the same flags as their DuckDuckGo counterparts (`-k`, `-r`, `-s`, `-m`, etc.).
+**Yahoo-specific options**:
+- All commands support region parameter (default: `us`)
+- `yahoo_text`, `yahoo_images`, `yahoo_videos`, `yahoo_news`: `-k`, `-r`, `-s`, `-m`
+- `yahoo_translate`: `-k`, `--from`, `--to`
+- `yahoo_maps`: same as DuckDuckGo maps
+- `yahoo_weather`: `-l` (location)
+- `yahoo_suggestions`: `-q` (query), `-r` (default: `us`)
 
-## 🌦️ Weather Convenience Command
+## 🌦️ Weather Convenience Commands
 
 The DuckDuckGo `weather` command formats current conditions + 5-day forecast using `_print_weather()`. Yahoo has a similar shortcut (`yahoo_weather`). Both leverage the same CLI formatting so you can quickly compare outputs by swapping commands.
 
-## 🛠️ Tips for Extending the CLI
+## 🛠️ Tips for Using the CLI
 
-1. **Add imports** for new providers at the top of `webscout/cli.py`.
-2. **Decorate a function** with `@app.command()` and chain `@option()` definitions (matching parameter order).
-3. **Keep printing consistent** with `_print_data` (table style) or create a formatter similar to `_print_weather` if you need structured output.
-4. **Surface provider-specific options** as CLI flags (see image/video/map commands for examples of many optional arguments).
-5. **Document the new command** here and in `docs/README.md` so it appears in the navigation hub.
+1. **Search backends**: The CLI uses various search providers - DuckDuckGo (default), Bing, Yep, and Yahoo. Each has its own strengths and coverage.
+2. **Common patterns**: Most search commands follow the pattern `-k` for keywords, `-r` for region, `-s` for safesearch, and `-m` for max results.
+3. **Proxy and timeout**: For DuckDuckGo commands, you can use `--proxy` and `--timeout` to handle network issues.
+4. **Provider-specific features**: Bing has unique duplicate suppression with `-u/--unique`, while different providers may have different regional coverage.
 
-## 🧪 Debugging CLI Calls
+## 🧪 Command Examples
 
-- Use `--timeout` and `--proxy` args to replicate user environments.
-- Wrap logic in `try/except` but re-raise the exception (as the current commands do) to keep stack traces visible during local testing.
-- When comparing CLI results to Python usage, import the same class from `webscout` or `webscout.search` to ensure parity.
+```bash
+# Basic text search
+webscout text -k "python programming"
+
+# Image search with filters
+webscout images -k "mountain landscape" --size large --type-image photo
+
+# News search with time limit
+webscout news -k "AI breakthrough" -t w  # last week
+
+# Weather information
+webscout weather -l "New York"
+
+# Yahoo search alternative
+webscout yahoo_text -k "machine learning" -r us
+
+# Bing with duplicate suppression off
+webscout bing_text -k "climate change" -u false
+```
 
 ## 🔗 Related Documentation
 

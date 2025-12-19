@@ -77,6 +77,8 @@
   - **[OpenAI-Compatible Providers](webscout/Provider/OPENAI/README.md):** Seamlessly integrate with various AI providers using standardized OpenAI-compatible interfaces
   - **Local LLMs:** Run local models with OpenAI-compatible servers (see [Inferno documentation](docs/inferno.md))
 - **[AI Search](webscout/Provider/AISEARCH/README.md):** AI-powered search engines with advanced capabilities
+- **[OpenAI-Compatible API Server](docs/openai-api-server.md):** Run a local API server that serves any Webscout provider through OpenAI-compatible endpoints
+- **[Python Client API](docs/client.md):** Use Webscout providers directly in Python with OpenAI-compatible format
 </p>
 </details>
 
@@ -103,6 +105,7 @@
 - **[GGUF Conversion](webscout/Extra/gguf.md):** Convert and quantize Hugging Face models to GGUF format
 - **[Utility Decorators](docs/decorators.md):** Easily measure function execution time (`timeIt`) and add retry logic (`retry`) to any function
 - **[Stream Sanitization Utilities](docs/sanitize.md):** Advanced tools for cleaning, decoding, and processing data streams
+- **[Command Line Interface](docs/cli.md):** Comprehensive CLI for all search engines and utilities
 </p>
 </details>
 
@@ -209,18 +212,37 @@ webscout --help
 
 ## 🖥️ Command Line Interface
 
-Webscout provides a powerful command-line interface for quick access to its features. You can use it in multiple ways:
+Webscout provides a comprehensive command-line interface with support for multiple search engines and utilities. You can use it in multiple ways:
 
 ### 🚀 Direct Commands (Recommended)
 
 After installing with `uv tool install webscout` or `pip install webscout`:
 
 ```bash
-# Get help
+# Get help and list all commands
 webscout --help
+
+# Show version
+webscout version
 
 # Start API server
 webscout-server
+
+# Web search commands
+webscout text -k "python programming"              # DuckDuckGo text search
+webscout images -k "mountain landscape"            # DuckDuckGo image search
+webscout news -k "AI breakthrough" -t w            # News from last week
+webscout weather -l "New York"                     # Weather information
+webscout translate -k "Hello" -to es               # Translation
+
+# Alternative search engines
+webscout yahoo_text -k "machine learning" -r us    # Yahoo search
+webscout bing_text -k "climate change"             # Bing search
+webscout yep_text -k "latest news"                 # Yep search
+
+# Search with advanced options
+webscout images -k "cat" --size large --type-image photo --license-image any
+webscout maps -k "coffee shop" --city "New York" --radius 5
 ```
 
 ### 🔧 UV Run Commands (No Installation Required)
@@ -228,6 +250,7 @@ webscout-server
 ```bash
 # Run directly with UV (downloads and runs automatically)
 uv run webscout --help
+uv run webscout text -k "latest news"
 uv run --extra api webscout-server
 ```
 
@@ -236,19 +259,19 @@ uv run --extra api webscout-server
 ```bash
 # Traditional Python module execution
 python -m webscout --help
+python -m webscout text -k "search query"
 python -m webscout-server
 ```
 
-<details open>
-<summary><b>🔍 Web Search Commands</b></summary>
-<p>
+### 🌐 Supported Search Providers
 
-Webscout provides comprehensive CLI commands for all search engines. See the [Search Documentation](docs/search.md#command-line-interface) for detailed command reference.
+Webscout CLI supports multiple search backends:
+- **DuckDuckGo** (default): `text`, `images`, `videos`, `news`, `answers`, `maps`, `translate`, `suggestions`, `weather`
+- **Yahoo**: `yahoo_text`, `yahoo_images`, `yahoo_videos`, `yahoo_news`, `yahoo_answers`, `yahoo_maps`, `yahoo_translate`, `yahoo_suggestions`, `yahoo_weather`
+- **Bing**: `bing_text`, `bing_images`, `bing_news`, `bing_suggestions`
+- **Yep**: `yep_text`, `yep_images`, `yep_suggestions`
 
-</p>
-</details>
-
-For detailed information about the OpenAI-compatible API server, including setup, configuration, and usage examples, see the [OpenAI API Server Documentation](docs/openai-api-server.md).
+For detailed command reference and all available options, see [CLI Documentation](docs/cli.md).
 
 <hr/>
 
