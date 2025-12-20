@@ -130,25 +130,27 @@ class ChatHub(Provider):
                     response.raise_for_status()  
                     streaming_text = ""
 
-                    for line in response.iter_lines(decode_unicode=True):
-                        if line:
-                            decoded_line = line.strip()
-                            if decoded_line.startswith('data:'):
-                                data_str = decoded_line[5:].strip()
-                                if data_str == '[DONE]':
-                                    break
-                                try:
-                                    data_json = json.loads(data_str)
-                                    text_delta = data_json.get('textDelta')
-                                    if text_delta:
-                                        streaming_text += text_delta
-                                        resp = dict(text=text_delta) 
-                                        yield resp if raw else resp 
+                    # Use sanitize_stream for processing
+                    processed_stream = sanitize_stream(
+                        data=response.iter_lines(decode_unicode=True),
+                        intro_value="data:",
+                        to_json=True,
+                        content_extractor=lambda x: x.get('textDelta') if isinstance(x, dict) else None,
+                        skip_markers=["[DONE]"],
+                        yield_raw_on_error=False,
+                        raw=raw
+                    )
 
-                                except json.JSONDecodeError:
-                                    continue
+                    for content in processed_stream:
+                        if content:
+                            if raw:
+                                yield content if isinstance(content, str) else json.dumps(content)
+                            else:
+                                streaming_text += content if isinstance(content, str) else ""
+                                yield dict(text=content)
+
                     self.conversation.update_chat_history(prompt, streaming_text)
-                    self.last_response.update({"text": streaming_text})
+                    self.last_response = {"text": streaming_text}
             except requests.exceptions.RequestException as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request error: {e}")
 
@@ -156,7 +158,7 @@ class ChatHub(Provider):
         def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response
+            return self.last_response if not raw else json.dumps(self.last_response)
 
         return for_stream() if stream else for_non_stream()
 
@@ -169,24 +171,30 @@ class ChatHub(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
+        raw: bool = False,
     ) -> Union[str, Generator]:
         """Generate response `str`"""
 
         def for_stream():
             for response in self.ask(
-                prompt, stream=True, optimizer=optimizer, conversationally=conversationally
+                prompt, stream=True, raw=raw, optimizer=optimizer, conversationally=conversationally
             ):
-                yield self.get_message(response)
+                if raw:
+                    yield response
+                else:
+                    yield self.get_message(response)
 
         def for_non_stream():
-            return self.get_message(
-                self.ask(
-                    prompt,
-                    stream=False,  # Pass stream=False
-                    optimizer=optimizer,
-                    conversationally=conversationally,
-                )
+            result = self.ask(
+                prompt,
+                stream=False,
+                raw=raw,
+                optimizer=optimizer,
+                conversationally=conversationally,
             )
+            if raw:
+                return result
+            return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

@@ -1,10 +1,11 @@
 from uuid import uuid4
 import requests
 import json
+from typing import Union, Dict, Any, Generator
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import  Provider
+from webscout.AIutel import AwesomePrompts, sanitize_stream
+from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.search import DuckDuckGoSearch
 from webscout.litagent import LitAgent
@@ -150,27 +151,30 @@ class AndiSearch(Provider):
                 )
 
             streaming_text = ""
-            for value in response.iter_lines(
-                decode_unicode=True,
-                chunk_size=self.stream_chunk_size,
-                delimiter="\n",
-            ):
-                try:
-                    if bool(value):
-                        streaming_text += value + ("\n" if stream else "")
-                        resp = dict(text=streaming_text)
-                        self.last_response.update(resp)
-                        yield value if raw else resp
-                except json.decoder.JSONDecodeError:
-                    pass
-            self.conversation.update_chat_history(
-                prompt, self.get_message(self.last_response)
+            # Use sanitize_stream for processing
+            processed_stream = sanitize_stream(
+                data=response.iter_lines(decode_unicode=True, chunk_size=self.stream_chunk_size, delimiter="\n"),
+                intro_value=None,  # No prefix to strip
+                to_json=False,  # Response is plain text
+                yield_raw_on_error=True,
+                raw=raw
             )
+
+            for content_chunk in processed_stream:
+                if content_chunk:
+                    if raw:
+                        yield content_chunk
+                    else:
+                        streaming_text += content_chunk + "\n"
+                        yield dict(text=content_chunk)
+
+            self.last_response = {"text": streaming_text.strip()}
+            self.conversation.update_chat_history(prompt, streaming_text.strip())
 
         def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response
+            return self.last_response if not raw else json.dumps(self.last_response)
 
         return for_stream() if stream else for_non_stream()
 
@@ -180,32 +184,39 @@ class AndiSearch(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> str:
+        raw: bool = False,
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
             stream (bool, optional): Flag for streaming response. Defaults to False.
             optimizer (str, optional): Prompt optimizer name - `[code, shell_command]`. Defaults to None.
             conversationally (bool, optional): Chat conversationally when using optimizer. Defaults to False.
+            raw (bool, optional): Return raw response chunks. Defaults to False.
         Returns:
             str: Response generated
         """
 
         def for_stream():
             for response in self.ask(
-                prompt, True, optimizer=optimizer, conversationally=conversationally
+                prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally
             ):
-                yield self.get_message(response)
+                if raw:
+                    yield response
+                else:
+                    yield self.get_message(response)
 
         def for_non_stream():
-            return self.get_message(
-                self.ask(
-                    prompt,
-                    False,
-                    optimizer=optimizer,
-                    conversationally=conversationally,
-                )
+            result = self.ask(
+                prompt,
+                False,
+                raw=raw,
+                optimizer=optimizer,
+                conversationally=conversationally,
             )
+            if raw:
+                return result
+            return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

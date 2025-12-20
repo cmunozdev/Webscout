@@ -332,7 +332,7 @@ class Cerebras(Provider):
                 # Non-streaming response is already the full text string
                 self.last_response = {"text": response}
                 self.conversation.update_chat_history(prompt, response)
-                return self.last_response if not raw else response # Return dict or raw string
+                return self.last_response if not raw else json.dumps(self.last_response)
 
         except Exception as e:
             raise exceptions.FailedToGenerateResponseError(f"Error during request: {e}")
@@ -343,19 +343,25 @@ class Cerebras(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
+        raw: bool = False,
     ) -> Union[str, Generator]:
         """Chat with the model."""
         # Ask returns a generator for stream=True, dict/str for stream=False
-        response_gen_or_dict = self.ask(prompt, stream, raw=False, optimizer=optimizer, conversationally=conversationally)
+        response_gen_or_dict = self.ask(prompt, stream, raw=raw, optimizer=optimizer, conversationally=conversationally)
 
         if stream:
             # Wrap the generator from ask() to get message text
             def stream_wrapper():
-                for chunk_dict in response_gen_or_dict:
-                    yield self.get_message(chunk_dict)
+                for chunk in response_gen_or_dict:
+                    if raw:
+                        yield chunk
+                    else:
+                        yield self.get_message(chunk)
             return stream_wrapper()
         else:
-            # Non-streaming response is already a dict
+            # Non-streaming response
+            if raw:
+                return response_gen_or_dict
             return self.get_message(response_gen_or_dict)
 
     def get_message(self, response: str) -> str:
