@@ -40,11 +40,9 @@ def load_providers():
                     p_name = attr_name.upper()
                     provider_map[p_name] = attr
                     
-                    # Check if the provider needs authentication
                     if hasattr(attr, "required_auth") and attr.required_auth:
                         api_key_providers.add(p_name)
                     else:
-                        # Fallback to inspect signature
                         try:
                             sig = inspect.signature(attr.__init__).parameters
                             if any(k in sig for k in ('api_key', 'cookie_file', 'cookie_path', 'access_token')):
@@ -57,20 +55,27 @@ def load_providers():
 
 def _get_models_safely(provider_cls: type) -> List[str]:
     """
-    Safely get the list of available models from a provider.
+    Safely retrieves the list of available models from a provider class.
+
+    This function attempts to find model information through the `AVAILABLE_MODELS`
+    attribute or by calling the `get_models` class method. It handles potential
+    errors gracefully to ensure the loading process is not interrupted.
+
+    Args:
+        provider_cls (type): The provider class to inspect.
+
+    Returns:
+        List[str]: A list of unique model names supported by the provider.
     """
     models = []
     try:
-        # Check for AVAILABLE_MODELS class attribute
         if hasattr(provider_cls, "AVAILABLE_MODELS"):
             val = getattr(provider_cls, "AVAILABLE_MODELS")
             if isinstance(val, list):
                 models.extend(val)
         
-        # Check for get_models class method
         if hasattr(provider_cls, "get_models"):
             try:
-                # Try calling it without arguments (as a classmethod or staticmethod)
                 res = provider_cls.get_models()
                 if isinstance(res, list):
                     models.extend(res)
@@ -130,10 +135,10 @@ class AUTO(Provider):
             print_provider_info (bool): Whether to print the name of the successful provider. Defaults to False.
             **kwargs: Additional keyword arguments for providers.
         """
-        self.provider = None  # type: Provider
-        self.provider_name = None  # type: str
-        self.model = model
-        self.api_key = api_key
+        self.provider: Provider = None
+        self.provider_name: str = None
+        self.model: str = model
+        self.api_key: str = api_key
         self.is_conversation: bool = is_conversation
         self.max_tokens: int = max_tokens
         self.timeout: int = timeout
@@ -145,7 +150,7 @@ class AUTO(Provider):
         self.act: str = act
         self.exclude: list[str] = [e.upper() for e in exclude] if exclude else []
         self.print_provider_info: bool = print_provider_info
-        self.kwargs = kwargs
+        self.kwargs: dict = kwargs
 
 
     @property
@@ -172,14 +177,25 @@ class AUTO(Provider):
         self, model: str
     ) -> Optional[Tuple[Type[Provider], str]]:
         """
-        Performs enhanced fuzzy search to find the closest model match across all providers.
+        Performs an enhanced search to find the closest provider and model match.
+
+        The search follows a three-step priority:
+        1. Exact case-insensitive match.
+        2. Substring match (e.g., 'gpt4' matching 'gpt-4o').
+        3. Fuzzy match using difflib for close string similarity.
+
+        Args:
+            model (str): The model name to search for.
+
+        Returns:
+            Optional[Tuple[Type[Provider], str]]: A tuple containing the provider class 
+                                                  and the resolved model name, or None if no match is found.
         """
         available = [
             (name, cls) for name, cls in provider_map.items()
             if name not in self.exclude
         ]
         
-        # If no API key provided, narrow down to free providers
         if not self.api_key:
              available = [p for p in available if p[0] not in api_key_providers]
 
@@ -193,19 +209,16 @@ class AUTO(Provider):
         if not model_to_provider:
             return None
 
-        # 1. Exact case-insensitive match
         for m_name in model_to_provider:
             if m_name.lower() == model.lower():
                 return model_to_provider[m_name], m_name
 
-        # 2. Substring match
         for m_name in model_to_provider:
             if model.lower() in m_name.lower() or m_name.lower() in model.lower():
                 if self.print_provider_info:
                     print(f"\033[1;33mSubstring match: '{model}' -> '{m_name}'\033[0m")
                 return model_to_provider[m_name], m_name
 
-        # 3. Fuzzy match with difflib
         matches = difflib.get_close_matches(model, model_to_provider.keys(), n=1, cutoff=0.5)
         if matches:
             matched_model = matches[0]
@@ -218,7 +231,19 @@ class AUTO(Provider):
         self, model: str
     ) -> Tuple[Optional[Type[Provider]], str]:
         """
-        Resolves the best provider and model name based on input.
+        Resolves the appropriate provider and model name based on the input string.
+
+        The resolution logic handles:
+        - 'Provider/Model' format for direct targeting.
+        - 'auto' for automatic random selection.
+        - Exact model name matches across all available providers.
+        - Fuzzy resolution as a fallback.
+
+        Args:
+            model (str): The model specification string.
+
+        Returns:
+            Tuple[Optional[Type[Provider]], str]: A tuple of (ProviderClass, ResolvedModelName).
         """
         if "/" in model:
             p_name, m_name = model.split("/", 1)
@@ -232,13 +257,11 @@ class AUTO(Provider):
         if model == "auto":
             return None, "auto"
 
-        # Try to find provider with this model
         available = [
             (name, cls) for name, cls in provider_map.items()
             if name not in self.exclude
         ]
         
-        # If no API key provided, narrow down to free providers
         if not self.api_key:
              available = [p for p in available if p[0] not in api_key_providers]
 
@@ -290,24 +313,20 @@ class AUTO(Provider):
 
         resolved_provider, resolved_model = self._resolve_provider_and_model(self.model)
 
-        # Build the queue of providers to try
         queue = []
         if resolved_provider:
             queue.append((resolved_provider.__name__.upper(), resolved_provider, resolved_model))
         
-        # Get all other available providers for fallback
         all_available = [
             (name, cls) for name, cls in provider_map.items()
             if name not in self.exclude and (resolved_provider is None or cls != resolved_provider)
         ]
         
-        # If no API key provided, narrow down to free providers
         if not self.api_key:
              all_available = [p for p in all_available if p[0] not in api_key_providers]
         
         random.shuffle(all_available)
 
-        # Prioritize providers that support the model
         model_prio = []
         others = []
         
@@ -318,7 +337,6 @@ class AUTO(Provider):
             else:
                 m = resolved_model
                 if resolved_model != "auto" and p_models:
-                    # If model not in provider models, pick a random one from that provider
                     m = random.choice(p_models)
                 elif resolved_model == "auto" and p_models:
                     m = random.choice(p_models)
@@ -328,10 +346,8 @@ class AUTO(Provider):
         queue.extend(model_prio)
         queue.extend(others)
 
-        # Try providers in the queue
         for provider_name, provider_class, model_to_use in queue:
             try:
-                # Initialize provider
                 sig = inspect.signature(provider_class.__init__).parameters
                 init_kwargs = {
                     "is_conversation": self.is_conversation,
@@ -350,12 +366,10 @@ class AUTO(Provider):
                 if 'api_key' in sig and self.api_key:
                     init_kwargs['api_key'] = self.api_key
                 
-                # Add any other self.kwargs
                 for k, v in self.kwargs.items():
                     if k in sig or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()):
                         init_kwargs[k] = v
 
-                # Final filter for safety
                 if not any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()):
                     init_kwargs = {k: v for k, v in init_kwargs.items() if k in sig}
 
@@ -384,7 +398,6 @@ class AUTO(Provider):
                     return chained_gen()
 
                 if not stream and inspect.isgenerator(response):
-                    # Handle providers that return a generator even when stream=False
                     try:
                         while True:
                             next(response)
@@ -393,7 +406,6 @@ class AUTO(Provider):
                     except Exception:
                         continue
 
-                # Print provider info if enabled
                 if self.print_provider_info:
                     model = getattr(self.provider, "model", None)
                     provider_class_name = self.provider.__class__.__name__
@@ -405,7 +417,6 @@ class AUTO(Provider):
             except Exception:
                 continue
 
-        # If we get here, all providers failed
         raise AllProvidersFailure("All providers failed to process the request")
 
     def chat(
@@ -433,7 +444,18 @@ class AUTO(Provider):
         else:
             return self._chat_non_stream(prompt, optimizer, conversationally)
 
-    def _chat_stream(self, prompt, optimizer, conversationally):
+    def _chat_stream(self, prompt: str, optimizer: str, conversationally: bool) -> Generator[str, None, None]:
+        """
+        Internal helper for streaming chat responses.
+
+        Args:
+            prompt (str): The user's prompt.
+            optimizer (str): Name of the optimizer.
+            conversationally (bool): Whether to apply optimizer conversationally.
+
+        Yields:
+            str: Message chunks extracted from the provider's stream.
+        """
         response = self.ask(
             prompt,
             stream=True,
@@ -443,7 +465,18 @@ class AUTO(Provider):
         for chunk in response:
             yield self.get_message(chunk)
 
-    def _chat_non_stream(self, prompt, optimizer, conversationally):
+    def _chat_non_stream(self, prompt: str, optimizer: str, conversationally: bool) -> str:
+        """
+        Internal helper for non-streaming chat responses.
+
+        Args:
+            prompt (str): The user's prompt.
+            optimizer (str): Name of the optimizer.
+            conversationally (bool): Whether to apply optimizer conversationally.
+
+        Returns:
+            str: The full message text extracted from the provider's response.
+        """
         response = self.ask(
             prompt,
             stream=False,

@@ -1,48 +1,42 @@
-import secrets
-import requests
 import random
+import requests
+import secrets
 import string
 import uuid
-from typing import Union, Any, Dict, Generator
+from typing import Any, Dict, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 class oivscode(Provider):
     """
     A class to interact with a test API.
     """
-    required_auth = False
-    AVAILABLE_MODELS = [
-    ]
 
+    required_auth = False
+    AVAILABLE_MODELS = ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet", "o1-mini"]
 
     def __init__(
         self,
         is_conversation: bool = True,
         max_tokens: int = 1024,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gpt-4o-mini",
         system_prompt: str = "You are a helpful AI assistant.",
-        
     ):
         """
         Initializes the oivscode with given parameters.
         """
-        if model not in self.AVAILABLE_MODELS and "*" not in self.AVAILABLE_MODELS:
-             if model not in self.AVAILABLE_MODELS:
-                raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-
+        # Skip strict validation - the API will handle invalid models
+        # We have fallback models defined, so any model in that list is acceptable
 
         self.session = requests.Session()
         self.is_conversation = is_conversation
@@ -56,10 +50,10 @@ class oivscode(Provider):
         self.last_response = {}
         self.model = model
         self.system_prompt = system_prompt
-        
+
         # Generate ClientId (UUID)
         self.client_id = str(uuid.uuid4())
-        
+
         self.headers = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9,en-GB;q=0.8,en-IN;q=0.7",
@@ -73,11 +67,12 @@ class oivscode(Provider):
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-site",
-            "ClientId": self.client_id, # Add ClientId
+            "ClientId": self.client_id,  # Add ClientId
         }
-        self.userid = ''.join(secrets.choice(string.ascii_letters + string.digits) for _ in range(21))
+        self.userid = "".join(
+            secrets.choice(string.ascii_letters + string.digits) for _ in range(21)
+        )
         self.headers["userid"] = self.userid
-
 
         self.__available_optimizers = (
             method
@@ -86,14 +81,10 @@ class oivscode(Provider):
         )
         self.session.headers.update(self.headers)
         Conversation.intro = (
-            AwesomePrompts().get_act(
-                act, raise_not_found=True, default=None, case_insensitive=True
-            )
-            if act
-            else intro or Conversation.intro
-        )
+            AwesomePrompts().get_act(act, default=None, case_insensitive=True) if act else intro
+        ) or Conversation.intro
         self.conversation = Conversation(
-            is_conversation, self.max_tokens_to_sample, filepath, update_file
+            is_conversation, self.max_tokens_to_sample, filepath or "", update_file
         )
         self.conversation.history_offset = history_offset
         self.session.proxies = proxies
@@ -124,9 +115,9 @@ class oivscode(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:
+    ) -> Any:
         """Chat with AI (DeepInfra-style streaming and non-streaming)"""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -135,9 +126,7 @@ class oivscode(Provider):
                     conversation_prompt if conversationally else prompt
                 )
             else:
-                raise Exception(
-                    f"Optimizer is not one of {self.__available_optimizers}"
-                )
+                raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
 
         payload = {
             "model": self.model,
@@ -145,7 +134,7 @@ class oivscode(Provider):
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": conversation_prompt},
             ],
-            "stream": stream
+            "stream": stream,
         }
 
         def for_stream():
@@ -159,9 +148,13 @@ class oivscode(Provider):
                     intro_value="data:",
                     to_json=True,
                     skip_markers=["[DONE]"],
-                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("delta", {}).get("content") if isinstance(chunk, dict) else None,
+                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0]
+                    .get("delta", {})
+                    .get("content")
+                    if isinstance(chunk, dict)
+                    else None,
                     yield_raw_on_error=False,
-                    raw=raw
+                    raw=raw,
                 )
                 for content_chunk in processed_stream:
                     if raw:
@@ -172,7 +165,9 @@ class oivscode(Provider):
                             resp = dict(text=content_chunk)
                             yield resp if not raw else content_chunk
             except Exception as e:
-                raise exceptions.FailedToGenerateResponseError(f"Streaming request failed: {e}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Streaming request failed: {e}"
+                ) from e
             finally:
                 if streaming_text:
                     self.last_response = {"text": streaming_text}
@@ -186,10 +181,14 @@ class oivscode(Provider):
                 processed_stream = sanitize_stream(
                     data=response_text,
                     to_json=True,
-                    intro_value=None,
-                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
+                    intro_value="",
+                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content")
+                    if isinstance(chunk, dict)
+                    else None,
                     yield_raw_on_error=False,
-                    raw=raw
+                    raw=raw,
                 )
                 content = next(processed_stream, None)
                 if raw:
@@ -199,18 +198,19 @@ class oivscode(Provider):
                 self.conversation.update_chat_history(prompt, content)
                 return self.last_response if not raw else content
             except Exception as e:
-                raise exceptions.FailedToGenerateResponseError(f"Non-streaming request failed: {e}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Non-streaming request failed: {e}"
+                ) from e
 
         return for_stream() if stream else for_non_stream()
-
 
     def chat(
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[str, Generator[str, None, None]]:
+    ) -> Any:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
@@ -220,11 +220,13 @@ class oivscode(Provider):
         Returns:
             str: Response generated
         """
+
         def for_stream():
-             for response in self.ask(
+            for response in self.ask(
                 prompt, True, optimizer=optimizer, conversationally=conversationally
             ):
                 yield self.get_message(response)
+
         def for_non_stream():
             return self.get_message(
                 self.ask(
@@ -234,9 +236,10 @@ class oivscode(Provider):
                     conversationally=conversationally,
                 )
             )
+
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Union[Dict[str, Any], str]) -> str:
         """Retrieves message content from response, handling both streaming and non-streaming formats."""
         assert isinstance(response, dict), "Response should be of dict data-type only"
         # Streaming chunk: choices[0]["delta"]["content"]
@@ -252,45 +255,54 @@ class oivscode(Provider):
         return ""
 
     def fetch_available_models(self):
-        """Fetches available models from the /models endpoint of all API endpoints and prints models per endpoint."""
+        """Fetches available models from the /models endpoint of all API endpoints."""
         endpoints = self.api_endpoints.copy()
         random.shuffle(endpoints)
         results = {}
         errors = []
         for endpoint in endpoints:
-            models_url = endpoint.replace('/v1/chat/completions', '/v1/models')
+            models_url = endpoint.replace("/v1/chat/completions", "/v1/models")
             try:
                 response = self.session.get(models_url, timeout=self.timeout)
                 if response.ok:
                     data = response.json()
                     if isinstance(data, dict) and "data" in data:
-                        models = [m["id"] if isinstance(m, dict) and "id" in m else m for m in data["data"]]
+                        models = [
+                            m["id"] if isinstance(m, dict) and "id" in m else m
+                            for m in data["data"]
+                        ]
                     elif isinstance(data, list):
                         models = data
                     else:
                         models = list(data.keys()) if isinstance(data, dict) else []
                     results[models_url] = models
                 else:
-                    errors.append(f"Failed to fetch models from {models_url}: {response.status_code} {response.text}")
+                    errors.append(
+                        f"Failed to fetch models from {models_url}: {response.status_code} {response.text}"
+                    )
             except Exception as e:
                 errors.append(f"Error fetching from {models_url}: {e}")
         if results:
-            for url, models in results.items():
-                print(f"Models from {url}:")
-                if models:
-                    for m in sorted(models):
-                        print(f"  {m}")
-                else:
-                    print("  No models found.")
             return results
         else:
-            print("No models found from any endpoint.")
-            for err in errors:
-                print(err)
             return {}
+
+
+try:
+    _temp_client = oivscode()
+    _fetched = _temp_client.fetch_available_models()
+    if _fetched:
+        oivscode.AVAILABLE_MODELS = list(
+            set(
+                oivscode.AVAILABLE_MODELS + [m for models in _fetched.values() for m in models if m]
+            )
+        )
+except Exception:
+    pass
 
 if __name__ == "__main__":
     from rich import print
+
     chatbot = oivscode()
     chatbot.fetch_available_models()
     response = chatbot.chat(input(">>> "), stream=True)

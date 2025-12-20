@@ -89,7 +89,12 @@ class LXMLParser:
             Tag: Converted Scout Tag
         """
         # Create Tag with name and attributes
-        tag = Tag(element.tag, dict(element.attrib))
+        # Strip namespaces like {http://www.w3.org/1999/xhtml}div
+        tag_name = element.tag
+        if '}' in tag_name:
+            tag_name = tag_name.split('}', 1)[1]
+            
+        tag = Tag(tag_name, dict(element.attrib))
         
         # Add text content
         if element.text:

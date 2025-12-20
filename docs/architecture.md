@@ -1,5 +1,5 @@
 # Webscout Architecture Overview
-> Last updated: 2025-01-29  
+> Last updated: 2025-12-20  
 > Relates to: `webscout/cli.py`, `webscout/client.py`, `webscout/server/`, `webscout/search/`, `webscout/Provider/`, `webscout/Extra/`
 
 Webscout bundles multiple user-facing entry points (CLI, Python client, and an OpenAI-compatible API server) on top of a shared set of engines, providers, and utilities. This document maps how these layers interact so you can reason about changes confidently.

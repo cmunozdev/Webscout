@@ -53,7 +53,9 @@ from .decorators.output import (
     progress,
     panel_output,
     format_output,
-    pager_output
+    pager_output,
+    json_output,
+    yaml_output
 )
 
 
@@ -91,5 +93,6 @@ __all__ = [
     'panel_output',
     'format_output',
     'pager_output',
-
+    'json_output',
+    'yaml_output'
 ]

@@ -6,6 +6,7 @@ from typing import Dict, Optional, Generator, Union, Any, List
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
 from webscout.litagent import LitAgent
+from webscout.sanitize import sanitize_stream
 
 
 class webpilotai(AISearch):
@@ -53,7 +54,7 @@ class webpilotai(AISearch):
         self.session = requests.Session()
         self.api_endpoint = "https://api.webpilotai.com/rupee/v1/search"
         self.timeout = timeout
-        self.last_SearchResponse = {}
+        self.last_response = {}
         
         # The 'Bearer null' is part of the API's expected headers
         self.headers = {
@@ -102,8 +103,6 @@ class webpilotai(AISearch):
         
         def for_stream():
             full_SearchResponse_content = ""
-            current_event_name = None
-            current_data_buffer = []
             
             try:
                 with self.session.post(
@@ -118,64 +117,27 @@ class webpilotai(AISearch):
                             f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                         )
                     
-                    # Process the stream line by line
-                    for line in response.iter_lines(decode_unicode=True):
-                        if not line:  # Empty line indicates end of an event
-                            if current_data_buffer:
-                                # Process the completed event
-                                full_data = "\n".join(current_data_buffer)
-                                if current_event_name == "message":
-                                    try:
-                                        data_payload = json.loads(full_data)
-                                        # Check structure based on the API SearchResponse
-                                        if data_payload.get('type') == 'data':
-                                            content_chunk = data_payload.get('data', {}).get('content', "")
-                                            if content_chunk:
-                                                full_SearchResponse_content += content_chunk
-                                                
-                                                # Yield the new content chunk
-                                                if raw:
-                                                    yield {"text": content_chunk}
-                                                else:
-                                                    yield SearchResponse(content_chunk)
-                                    except json.JSONDecodeError:
-                                        pass
-                                    except Exception as e:
-                                        # Handle exceptions gracefully in stream processing
-                                        pass
-                                
-                                # Reset for the next event
-                                current_event_name = None
-                                current_data_buffer = []
-                            continue
-                        
-                        # Parse SSE fields
-                        if line.startswith('event:'):
-                            current_event_name = line[len('event:'):].strip()
-                        elif line.startswith('data:'):
-                            data_part = line[len('data:'):]
-                            # Remove leading space if present (common in SSE)
-                            if data_part.startswith(' '):
-                                data_part = data_part[1:]
-                            current_data_buffer.append(data_part)
-                    
-                    # Process any remaining data in buffer if stream ended without blank line
-                    if current_data_buffer and current_event_name == "message":
-                        try:
-                            full_data = "\n".join(current_data_buffer)
-                            data_payload = json.loads(full_data)
-                            if data_payload.get('type') == 'data':
-                                content_chunk = data_payload.get('data', {}).get('content', "")
-                                if content_chunk and len(content_chunk) > len(full_SearchResponse_content):
-                                    delta = content_chunk[len(full_SearchResponse_content):]
-                                    full_SearchResponse_content += delta
-                                    
-                                    if raw:
-                                        yield {"text": delta}
-                                    else:
-                                        yield SearchResponse(delta)
-                        except (json.JSONDecodeError, Exception):
-                            pass
+                    def extract_webpilot_content(data):
+                        if isinstance(data, dict):
+                            if data.get('type') == 'data':
+                                return data.get('data', {}).get('content', "")
+                        return None
+
+                    processed_chunks = sanitize_stream(
+                        data=response.iter_content(chunk_size=1024),
+                        to_json=True,
+                        extract_regexes=[r"(\{.*\})"],
+                        content_extractor=lambda chunk: extract_webpilot_content(chunk),
+                        yield_raw_on_error=False,
+                        encoding='utf-8',
+                        encoding_errors='replace',
+                        line_delimiter="\n",
+                        raw=raw,
+                        output_formatter=None if raw else lambda x: SearchResponse(x) if isinstance(x, str) else x,
+                    )
+
+                    for chunk in processed_chunks:
+                        yield chunk
                 
             except requests.exceptions.Timeout:
                 raise exceptions.APIConnectionError("Request timed out")
@@ -183,20 +145,18 @@ class webpilotai(AISearch):
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
 
         def for_non_stream():
-            full_SearchResponse_text = ""
-            search_results = []
+            full_content = ""
             for chunk in for_stream():
                 if raw:
-                    search_results.append(chunk)
+                    full_content += str(chunk)
                 else:
-                    full_SearchResponse_text += str(chunk)
+                    full_content += str(chunk)
             
             if raw:
-                return search_results
+                return full_content
             else:
-                # Format the SearchResponse for better readability
-                formatted_SearchResponse = self.format_SearchResponse(full_SearchResponse_text)
-                self.last_response = SearchResponse(formatted_SearchResponse)
+                formatted_response = self.format_SearchResponse(full_content)
+                self.last_response = SearchResponse(formatted_response)
                 return self.last_response
 
         if stream:

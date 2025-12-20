@@ -62,6 +62,7 @@ class Algion(Provider):
             raise Exception(f"Failed to fetch models: {str(e)}")
 
     required_auth = False
+    AVAILABLE_MODELS = ["gpt-4o", "gpt-4o-mini", "claude-3-5-sonnet", "o1-mini"]
 
 
     @staticmethod
@@ -383,7 +384,9 @@ class Algion(Provider):
         return response["text"]
 
 try:
-    Algion.AVAILABLE_MODELS = Algion.get_models()
+    fetched_models = Algion.get_models()
+    if fetched_models:
+        Algion.AVAILABLE_MODELS = list(set(Algion.AVAILABLE_MODELS + fetched_models))
 except Exception:
     pass
 

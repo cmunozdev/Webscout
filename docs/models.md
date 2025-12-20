@@ -1,5 +1,5 @@
 # Model Registry (`webscout/models.py`)
-> Last updated: 2025-01-29  
+> Last updated: 2025-12-20  
 > Maintained by: Webscout Core Team
 
 `webscout/models.py` exposes a lightweight discovery layer so you can inspect the Large Language Model (LLM), Text-to-Speech (TTS), and Text-to-Image (TTI) offerings that ship with Webscout. The registry powers documentation examples (README, docs/search.md, etc.) and is useful when building UI selectors or performing health checks across providers.

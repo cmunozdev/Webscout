@@ -1,5 +1,5 @@
 # Webscout Documentation Hub
-> Last updated: 2025-01-29  
+> Last updated: 2025-12-20  
 > Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
 Welcome to the central entry point for everything you need to know about Webscout. This hub is organized around the actual modules that live inside the repository so you can quickly jump from high-level concepts to concrete implementation details.
@@ -21,6 +21,7 @@ Welcome to the central entry point for everything you need to know about Webscou
 | GGUF tooling | Model conversion helpers (`webscout/Extra/gguf.py`) | [docs/gguf.md](gguf.md) |
 | Inferno local LLMs | Run local servers compatible with Webscout providers | [docs/inferno.md](inferno.md) |
 | LitPrinter | Debug printing companion shipped with Webscout | [docs/litprinter.md](litprinter.md) |
+| LitAgent | Advanced User Agent & IP rotation toolkit | [docs/litagent.md](litagent.md) |
 | Weather toolkit | Weather + ASCII weather helpers inside `webscout/Extra` | [docs/weather.md](weather.md) |
 | Provider matrix | Complete list of providers and locations | [Provider.md](../Provider.md) |
 

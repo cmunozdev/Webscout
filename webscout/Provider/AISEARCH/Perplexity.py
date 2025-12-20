@@ -8,6 +8,7 @@ from curl_cffi import requests
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
 from webscout.litagent import LitAgent
+from webscout.sanitize import sanitize_stream
 
 
 class Perplexity(AISearch):
@@ -237,42 +238,41 @@ class Perplexity(AISearch):
 
                 def stream_response():
                     full_text = ""
-                    for chunk in resp.iter_lines(delimiter=b"\r\n\r\n"):
-                        content = chunk.decode("utf-8")
-                        if content.startswith("event: message\r\n"):
-                            try:
-                                data_str = content[len("event: message\r\ndata: ") :]
-                                content_json = json.loads(data_str)
+                    def extract_perplexity_content(data):
+                        nonlocal full_text
+                        current_answer = self._extract_answer(data)
+                        if current_answer and len(current_answer) > len(full_text):
+                            delta = current_answer[len(full_text):]
+                            full_text = current_answer
+                            return delta
+                        return None
 
-                                # Extract answer delta
-                                current_answer = self._extract_answer(content_json)
-                                if current_answer and len(current_answer) > len(full_text):
-                                    delta = current_answer[len(full_text) :]
-                                    full_text = current_answer
-                                    if raw:
-                                        yield {"text": delta}
-                                    else:
-                                        yield SearchResponse(delta)
-                            except:
-                                pass
-                        elif content.startswith("event: end_of_stream\r\n"):
-                            return
+                    processed_chunks = sanitize_stream(
+                        data=resp.iter_content(chunk_size=1024),
+                        to_json=True,
+                        extract_regexes=[r"data:\s*({.*})"],
+                        content_extractor=lambda chunk: extract_perplexity_content(chunk),
+                        yield_raw_on_error=False,
+                        encoding='utf-8',
+                        encoding_errors='replace',
+                        line_delimiter="\r\n\r\n",
+                        raw=raw,
+                        output_formatter=None if raw else lambda x: SearchResponse(x) if isinstance(x, str) else x,
+                    )
+
+                    yield from processed_chunks
 
                 if stream:
                     return stream_response()
                 else:
-                    results = []
+                    if raw:
+                        return resp.text
+                    
                     full_response_text = ""
                     for chunk in stream_response():
-                        if raw:
-                            results.append(chunk)
-                        else:
-                            full_response_text += str(chunk)
+                        full_response_text += str(chunk)
 
-                    if raw:
-                        return results
-                    else:
-                        return SearchResponse(full_response_text)
+                    return SearchResponse(full_response_text)
 
             except requests.RequestsError as e:
                 if attempt < max_retries - 1:

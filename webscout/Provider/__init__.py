@@ -35,7 +35,7 @@ from webscout.Provider.llmchatco import LLMChatCo
 from webscout.Provider.meta import Meta
 from webscout.Provider.Netwrck import Netwrck
 from webscout.Provider.oivscode import oivscode
-from webscout.Provider.Openai import OPENAI
+from .Openai import OPENAI
 from webscout.Provider.PI import PiAI
 from webscout.Provider.QwenLM import QwenLM
 from webscout.Provider.Sambanova import Sambanova

@@ -356,8 +356,8 @@ class IAsk(AISearch):
             buffer = ""
             async for chunk in stream_generator():
                 buffer += chunk
-            self.last_response = {"text": buffer}
-            return SearchResponse(buffer) if not raw else {"text": buffer}
+            self.last_response = SearchResponse(buffer)
+            return buffer if raw else self.last_response
 
         # For streaming, create an async generator that yields chunks
         async def process_stream():
@@ -365,10 +365,10 @@ class IAsk(AISearch):
             async for chunk in stream_generator():
                 buffer += chunk
                 if raw:
-                    yield {"text": chunk}
+                    yield chunk
                 else:
                     yield SearchResponse(chunk)
-            self.last_response = {"text": buffer}
+            self.last_response = SearchResponse(buffer)
 
         # Return the async generator
         return process_stream()

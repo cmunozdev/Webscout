@@ -239,23 +239,29 @@ class Scout:
         Returns:
             Dict[str, Any]: Extracted metadata
         """
+        title_tag = self.find('title')
+        desc_tag = self.find('meta', attrs={'name': 'description'})
+        keywords_tag = self.find('meta', attrs={'name': 'keywords'})
+
         metadata = {
-            'title': self.find('title').texts()[0] if self.find('title').texts() else None,
-            'description': self.find('meta', attrs={'name': 'description'}).attrs('content')[0] if self.find('meta', attrs={'name': 'description'}).attrs('content') else None,
-            'keywords': self.find('meta', attrs={'name': 'keywords'}).attrs('content')[0].split(',') if self.find('meta', attrs={'name': 'keywords'}).attrs('content') else [],
+            'title': title_tag.get_text(strip=True) if title_tag else None,
+            'description': desc_tag.get('content') if desc_tag else None,
+            'keywords': keywords_tag.get('content').split(',') if keywords_tag and keywords_tag.get('content') else [],
             'og_metadata': {},
             'twitter_metadata': {}
         }
 
         # Open Graph metadata
         for meta in self.find_all('meta', attrs={'property': re.compile(r'^og:')}):
-            key = meta.attrs('property')[0][3:]
-            metadata['og_metadata'][key] = meta.attrs('content')[0]
+            key = meta.get('property')
+            if key and key.startswith('og:'):
+                metadata['og_metadata'][key[3:]] = meta.get('content')
 
         # Twitter Card metadata
         for meta in self.find_all('meta', attrs={'name': re.compile(r'^twitter:')}):
-            key = meta.attrs('name')[0][8:]
-            metadata['twitter_metadata'][key] = meta.attrs('content')[0]
+            key = meta.get('name')
+            if key and key.startswith('twitter:'):
+                metadata['twitter_metadata'][key[8:]] = meta.get('content')
 
         return metadata
 
@@ -286,21 +292,12 @@ class Scout:
 
         return json.dumps(_tag_to_dict(self._soup), indent=indent)
 
-    def find(self, name=None, attrs={}, recursive=True, text=None, class_=None, **kwargs) -> ScoutSearchResult:
+    def find(self, name=None, attrs={}, recursive=True, text=None, class_=None, **kwargs) -> Optional[Tag]:
         """
-        Find the first matching element.
-
-        Args:
-            name (str, optional): Tag name to search for
-            attrs (dict, optional): Attributes to match
-            recursive (bool, optional): Search recursively
-            text (str, optional): Text content to match
-
-        Returns:
-            ScoutSearchResult: First matching element
+        Find the first matching element. Returns a single Tag or None.
+        Highly compatible with BeautifulSoup.
         """
-        result = self._soup.find(name, attrs, recursive, text, limit=1, class_=class_, **kwargs)
-        return ScoutSearchResult([result]) if result else ScoutSearchResult([])
+        return self._soup.find(name, attrs, recursive, text, limit=1, class_=class_, **kwargs)
 
     def find_all(self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs) -> ScoutSearchResult:
         """
@@ -540,22 +537,22 @@ class Scout:
         """
         return self._soup.select_one(selector)
 
-    def get_text(self, separator=' ', strip=False, types=None) -> str:
+    def get_text(self, separator='', strip=False, types=None) -> str:
         """
         Extract all text from the parsed document.
-
-        Args:
-            separator (str, optional): Text separator
-            strip (bool, optional): Strip whitespace
-            types (list, optional): Types of content to extract
-
-        Returns:
-            str: Extracted text
+        Standard behavior like BeautifulSoup.
         """
-        tokenizer = SentenceTokenizer()
-        text = self._soup.get_text(separator, strip, types)
-        sentences = tokenizer.tokenize(text)
-        return "\n\n".join(sentences)
+        return self._soup.get_text(separator, strip, types)
+
+    @property
+    def text(self) -> str:
+        """BS4 compatible text property."""
+        return self.get_text()
+
+    @property
+    def string(self) -> Optional[str]:
+        """BS4 compatible string property."""
+        return self._soup.string
 
     def get_text_robust(self, separator=' ', strip=False, types=None, encoding_fallbacks=None) -> str:
         """Extract text robustly, trying multiple encodings if needed."""
@@ -747,12 +744,18 @@ class Scout:
         """Return the previous element in document order before the root tag."""
         return self._soup.previous_element
 
-    def fetch_and_parse(self, url: str, requests_session=None, **kwargs) -> 'Scout':
-        """Fetch HTML from a URL using requests and parse it with Scout."""
-        import requests
-        session = requests_session or requests.Session()
-        resp = session.get(url, **kwargs)
-        return Scout(resp.content, features=self.features)
+    def fetch_and_parse(self, url: str, session=None, **kwargs) -> 'Scout':
+        """Fetch HTML from a URL and parse it with Scout. Prefers curl_cffi."""
+        try:
+            from curl_cffi import requests as curleq
+            s = session or curleq.Session()
+            resp = s.get(url, **kwargs)
+            return Scout(resp.content, features=self.features)
+        except ImportError:
+            import requests
+            s = session or requests.Session()
+            resp = s.get(url, **kwargs)
+            return Scout(resp.content, features=self.features)
 
     def tables_to_dataframe(self, table_index=0, pandas_module=None):
         """Convert the nth table in the document to a pandas DataFrame."""

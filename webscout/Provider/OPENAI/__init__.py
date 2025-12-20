@@ -48,6 +48,7 @@ from webscout.Provider.OPENAI.deepinfra import DeepInfra
 from webscout.Provider.OPENAI.e2b import E2B
 from webscout.Provider.OPENAI.elmo import Elmo
 from webscout.Provider.OPENAI.exaai import ExaAI
+from webscout.Provider.OPENAI.freeassist import FreeAssist
 from webscout.Provider.OPENAI.ayle import Ayle
 from webscout.Provider.OPENAI.groq import Groq
 from webscout.Provider.OPENAI.heckai import HeckAI
@@ -116,6 +117,7 @@ __all__ = [
     "E2B",
     "Elmo",
     "ExaAI",
+    "FreeAssist",
     "Ayle",
     "Groq",
     "HeckAI",

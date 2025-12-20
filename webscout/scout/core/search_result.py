@@ -7,10 +7,10 @@ from ..element import Tag
 from .text_analyzer import ScoutTextAnalyzer
 
 
-class ScoutSearchResult:
+class ScoutSearchResult(list):
     """
-    Represents a search result with advanced querying capabilities.
-    Enhanced with more intelligent filtering and processing.
+    Represents a search result that behaves like a list but with advanced 
+    querying capabilities. Highly compatible with BeautifulSoup ResultSet.
     """
     def __init__(self, results: List[Tag]):
         """
@@ -19,78 +19,31 @@ class ScoutSearchResult:
         Args:
             results (List[Tag]): List of matching tags
         """
-        self._results = results
-    
-    def __len__(self) -> int:
-        return len(self._results)
-    
-    def __iter__(self) -> Iterator[Tag]:
-        return iter(self._results)
-    
-    def __getitem__(self, index: Union[int, slice]) -> Union[Tag, List[Tag]]:
-        return self._results[index]
+        super().__init__(results)
     
     def texts(self, separator=' ', strip=True) -> List[str]:
-        """
-        Extract texts from all results.
-        
-        Args:
-            separator (str, optional): Text separator
-            strip (bool, optional): Strip whitespace
-        
-        Returns:
-            List[str]: List of extracted texts
-        """
-        return [tag.get_text(separator, strip) for tag in self._results]
+        """Extract texts from all results."""
+        return [tag.get_text(separator, strip) for tag in self]
     
     def attrs(self, attr_name: str) -> List[Any]:
-        """
-        Extract a specific attribute from all results.
-        
-        Args:
-            attr_name (str): Attribute name to extract
-        
-        Returns:
-            List[Any]: List of attribute values
-        """
-        return [tag.get(attr_name) for tag in self._results]
+        """Extract a specific attribute from all results."""
+        return [tag.get(attr_name) for tag in self]
     
     def filter(self, predicate: Callable[[Tag], bool]) -> 'ScoutSearchResult':
-        """
-        Filter results using a predicate function.
-        
-        Args:
-            predicate (Callable[[Tag], bool]): Filtering function
-        
-        Returns:
-            ScoutSearchResult: Filtered search results
-        """
-        return ScoutSearchResult([tag for tag in self._results if predicate(tag)])
+        """Filter results using a predicate function."""
+        return ScoutSearchResult([tag for tag in self if predicate(tag)])
     
     def map(self, transform: Callable[[Tag], Any]) -> List[Any]:
-        """
-        Transform results using a mapping function.
-        
-        Args:
-            transform (Callable[[Tag], Any]): Transformation function
-        
-        Returns:
-            List[Any]: Transformed results
-        """
-        return [transform(tag) for tag in self._results]
+        """Transform results using a mapping function."""
+        return [transform(tag) for tag in self]
     
     def analyze_text(self) -> Dict[str, Any]:
-        """
-        Perform text analysis on search results.
-        
-        Returns:
-            Dict[str, Any]: Text analysis results
-        """
+        """Perform text analysis on search results."""
         texts = self.texts(strip=True)
         full_text = ' '.join(texts)
         
         return {
-            'total_results': len(self._results),
+            'total_results': len(self),
             'word_count': ScoutTextAnalyzer.count_words(full_text),
             'entities': ScoutTextAnalyzer.extract_entities(full_text)
         }

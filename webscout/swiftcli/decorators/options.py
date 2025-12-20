@@ -14,15 +14,17 @@ def option(
     is_flag: bool = False,
     multiple: bool = False,
     count: bool = False,
-    prompt: bool = False,
+    prompt: Union[bool, str] = False,
     hide_input: bool = False,
-    confirmation_prompt: bool = False,
+    confirmation_prompt: Union[bool, str] = False,
     prompt_required: bool = True,
     show_default: bool = True,
     choices: Optional[List[Any]] = None,
     case_sensitive: bool = True,
     callback: Optional[Callable] = None,
-    hidden: bool = False
+    hidden: bool = False,
+    validation: Optional[Dict[str, Any]] = None,
+    mutually_exclusive: Optional[List[str]] = None
 ) -> Callable:
     """
     Decorator to add an option to a command.
@@ -38,22 +40,25 @@ def option(
         is_flag: Whether option is a boolean flag
         multiple: Whether option can be specified multiple times
         count: Whether option counts occurrences
-        prompt: Whether to prompt for value if not provided
+        prompt: Whether to prompt for value if not provided (can be string for prompt text)
         hide_input: Whether to hide input when prompting
-        confirmation_prompt: Whether to prompt for confirmation
+        confirmation_prompt: Whether to prompt for confirmation (can be string for prompt text)
         prompt_required: Whether prompt is required
         show_default: Whether to show default in help
         choices: List of valid choices
         case_sensitive: Whether choices are case sensitive
         callback: Function to process/validate value
         hidden: Whether to hide from help output
+        validation: Dictionary of validation rules (min_length, max_length, pattern, etc.)
+        mutually_exclusive: List of option names that are mutually exclusive with this option
         
     Example:
         @command()
         @option("--count", "-c", type=int, default=1)
         @option("--format", type=str, choices=["json", "yaml"])
         @option("--verbose", is_flag=True)
-        def process(count: int, format: str, verbose: bool):
+        @option("--name", validation={{'min_length': 3, 'max_length': 20}})
+        def process(count: int, format: str, verbose: bool, name: str):
             '''Process data'''
             if verbose:
                 print(f"Processing {count} items as {format}")
@@ -80,7 +85,9 @@ def option(
             'choices': choices,
             'case_sensitive': case_sensitive,
             'callback': callback,
-            'hidden': hidden
+            'hidden': hidden,
+            'validation': validation,
+            'mutually_exclusive': mutually_exclusive
         })
         return f
     return decorator

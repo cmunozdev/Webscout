@@ -110,11 +110,13 @@ class SentenceTokenizer:
 
         # Protect URLs and emails
         for pattern in [self.URL_PATTERN, self.EMAIL_PATTERN]:
-            for match in re.finditer(pattern, protected):
+            def _replace(m):
+                nonlocal counter
                 placeholder = f'__PROTECTED_{counter}__'
-                placeholders[placeholder] = match.group()
-                protected = protected.replace(match.group(), placeholder)
+                placeholders[placeholder] = m.group()
                 counter += 1
+                return placeholder
+            protected = re.sub(pattern, _replace, protected)
 
         # Protect quoted content
         stack = []

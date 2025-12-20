@@ -205,34 +205,51 @@ class Tag:
             # Check tag name with case-insensitive and regex support
             if name:
                 if isinstance(name, str):
-                    if tag.name.lower() != name.lower():
+                    if name != '*' and tag.name.lower() != name.lower():
                         return False
                 elif isinstance(name, re.Pattern):
                     if not name.search(tag.name):
                         return False
+                elif isinstance(name, (list, tuple)):
+                    if tag.name.lower() not in [n.lower() for n in name]:
+                        return False
 
             # Check attributes with more flexible matching
-            for k, v in attrs.items():
+            # Handle class_ parameter if provided
+            search_attrs = dict(attrs)
+            if class_ is not None:
+                search_attrs['class'] = class_
+
+            for k, v in search_attrs.items():
+                tag_attr = tag.attrs.get(k)
+                
                 if k == 'class':
-                    tag_classes = tag.get('class', [])
-                    # Support multiple classes separated by space or comma
+                    # Support multiple classes and whole-word matching
+                    tag_classes = tag_attr
+                    if isinstance(tag_classes, str):
+                        tag_classes = [c.strip() for c in re.split(r'[ ,]+', tag_classes) if c.strip()]
+                    elif not isinstance(tag_classes, list):
+                        tag_classes = []
+                    
                     if isinstance(v, str):
-                        v_classes = [cls.strip() for cls in re.split(r'[ ,]+', v) if cls.strip()]
+                        v_classes = [c.strip() for c in re.split(r'[ ,]+', v) if c.strip()]
                         if not all(cls in tag_classes for cls in v_classes):
                             return False
                     elif isinstance(v, list):
                         if not all(cls in tag_classes for cls in v):
                             return False
+                    elif isinstance(v, re.Pattern):
+                        if not any(v.search(cls) for cls in tag_classes):
+                            return False
                     else:
-                        return False
-                elif k == 'id':
-                    if tag.get('id') != v:
                         return False
                 else:
                     # Regex or exact match for other attributes
-                    tag_attr = tag.attrs.get(k)
                     if v is True:
                         if tag_attr is None:
+                            return False
+                    elif v is False:
+                        if tag_attr is not None:
                             return False
                     elif isinstance(v, re.Pattern):
                         if tag_attr is None or not v.search(str(tag_attr)):
@@ -243,10 +260,12 @@ class Tag:
             # Check text content
             if text:
                 tag_text = tag.get_text(strip=True)
-                if isinstance(text, str) and text.lower() not in tag_text.lower():
-                    return False
-                elif isinstance(text, re.Pattern) and not text.search(tag_text):
-                    return False
+                if isinstance(text, str):
+                    if text not in tag_text:
+                        return False
+                elif isinstance(text, re.Pattern):
+                    if not text.search(tag_text):
+                        return False
 
             return True
 
@@ -642,6 +661,11 @@ class Tag:
         """
         return self.get_text()
 
+    @property
+    def text(self):
+        """BS4 compatible text property."""
+        return self.get_text()
+
     @string.setter
     def string(self, value):
         """
@@ -790,14 +814,28 @@ class Tag:
         def _prettify(tag, indent=0):
             result = ' ' * indent + f'<{tag.name}'
             for k, v in tag.attrs.items():
+                if isinstance(v, list):
+                    v = ' '.join(v)
                 result += f' {k}="{v}"'
+            
+            # Implementation of self-closing tags
+            self_closing = {'br', 'img', 'input', 'hr', 'meta', 'link', 'base', 'area', 'col', 'embed', 'keygen', 'source', 'track', 'wbr'}
+            
+            if tag.name.lower() in self_closing and not tag.contents:
+                result += ' />\n'
+                return result
+                
             result += '>\n'
 
             for content in tag.contents:
                 if isinstance(content, Tag):
                     result += _prettify(content, indent + 2)
+                elif isinstance(content, NavigableString):
+                    if content.strip():
+                        result += ' ' * (indent + 2) + str(content) + '\n'
                 else:
-                    result += ' ' * (indent + 2) + str(content) + '\n'
+                    if str(content).strip():
+                        result += ' ' * (indent + 2) + str(content) + '\n'
 
             result += ' ' * indent + f'</{tag.name}>\n'
             return result

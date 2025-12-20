@@ -247,7 +247,10 @@ class oivscode(OpenAICompatibleProvider):
         self.headers["userid"] = self.userid
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
-        self.AVAILABLE_MODELS = list(set(m for models in self.fetch_available_models().values() for m in models if m))
+        self.AVAILABLE_MODELS = ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet", "gemini-1.5-flash"]
+        fetched = self.fetch_available_models()
+        if fetched:
+             self.AVAILABLE_MODELS = list(set(self.AVAILABLE_MODELS + [m for models in fetched.values() for m in models if m]))
 
     def fetch_available_models(self):
         endpoints = self.api_endpoints.copy()

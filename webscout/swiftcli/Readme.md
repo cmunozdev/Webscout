@@ -19,6 +19,12 @@
 - 🔌 **Plugin System**: Extend functionality easily
 - 🌍 **Environment Support**: Load config from env vars and files
 - 🚀 **Modern Python**: Async support, type hints, and more
+- 🔍 **Advanced Validation**: Argument and option validation with patterns, ranges, and choices
+- 🔗 **Command Chaining**: Chain commands together with result passing
+- 🏷️ **Command Aliases**: Create shortcuts for frequently used commands
+- 🐚 **Shell Completion**: Generate completion scripts for bash, zsh, and fish
+- 📋 **Mutually Exclusive Options**: Prevent conflicting option combinations
+- 📄 **Multiple Output Formats**: JSON, YAML, and custom formatters
 
 ## 📦 Installation
 
@@ -57,6 +63,93 @@ $ python app.py list-items --count 3
 │ 2  │ Active   │
 │ 3  │ Inactive │
 └────┴──────────┘
+```
+
+## 🎯 Advanced Validation
+
+SwiftCLI now supports comprehensive argument and option validation:
+
+```python
+@app.command()
+@option("--name", type=str, validation={'min_length': 3, 'max_length': 20})
+@option("--age", type=int, validation={'min': 18, 'max': 120})
+@option("--email", type=str, validation={'pattern': r'^[^@]+@[^@]+\.[^@]+$'})
+@argument("action", validation={'choices': ["create", "update", "delete"]})
+def user_management(name: str, age: int, email: str, action: str):
+    """Manage users with validation"""
+    return {"name": name, "age": age, "email": email, "action": action}
+```
+
+## 📄 Multiple Output Formats
+
+Choose from table, JSON, or YAML output:
+
+```python
+# JSON output
+@app.command()
+@json_output(indent=2)
+def get_data():
+    return {"status": "success", "data": [1, 2, 3]}
+
+# YAML output
+@app.command()
+@yaml_output()
+def get_config():
+    return {"database": {"host": "localhost", "port": 5432}}
+```
+
+## 🏷️ Command Aliases
+
+Create shortcuts for frequently used commands:
+
+```python
+app.alias("list", "ls")
+app.alias("show", "display")
+```
+
+## 🐚 Shell Completion
+
+Generate completion scripts for your shell:
+
+```python
+# Generate completion scripts
+with open("completion.bash", "w") as f:
+    f.write(app.generate_completion_script('bash'))
+
+with open("completion.zsh", "w") as f:
+    f.write(app.generate_completion_script('zsh'))
+
+with open("completion.fish", "w") as f:
+    f.write(app.generate_completion_script('fish'))
+```
+
+## 🔗 Command Chaining
+
+Enable command chaining for complex workflows:
+
+```python
+app.enable_chaining(True)
+
+@app.command()
+def step1():
+    return {"data": "from step1"}
+
+@app.command()
+def step2(data: dict):
+    return {"result": f"Processed {data['data']}"}
+```
+
+## 📋 Mutually Exclusive Options
+
+Prevent conflicting option combinations:
+
+```python
+@app.command()
+@option("--verbose", is_flag=True, mutually_exclusive=["quiet"])
+@option("--quiet", is_flag=True, mutually_exclusive=["verbose"])
+def process(verbose: bool, quiet: bool):
+    """Process with mutually exclusive options"""
+    pass
 ```
 
 ## 📚 Documentation

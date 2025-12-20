@@ -45,7 +45,7 @@ class Completions(BaseCompletions):
         Mimics openai.chat.completions.create
         """
         # Extract system message using get_system_prompt utility
-        system_prompt = get_system_prompt(messages) or self._client.system_prompt
+        system_prompt = get_system_prompt(messages) or getattr(self._client, 'system_prompt', 'You are a helpful assistant.')
 
         # Format the conversation using format_prompt utility
         # Use add_special_tokens=True to format as "User: ... Assistant: ..."
@@ -84,6 +84,8 @@ class Completions(BaseCompletions):
     ) -> Generator[ChatCompletionChunk, None, None]:
         """Implementation for streaming chat completions."""
         try:
+            from webscout.AIbase import sanitize_stream
+            
             # Make the streaming request
             response = self._client.session.post(
                 self._client.api_endpoint, 
@@ -100,14 +102,17 @@ class Completions(BaseCompletions):
 
             streaming_text = ""
             
-            for chunk in response.iter_content(chunk_size=None):
-                if not chunk:
-                    continue
-                
-                chunk_str = chunk.decode('utf-8', errors='replace')
-                content = self._client._typefully_extractor(chunk_str)
-                
-                if content:
+            processed_stream = sanitize_stream(
+                data=response.iter_lines(),
+                intro_value="data:",
+                to_json=True,
+                skip_markers=["[DONE]"],
+                content_extractor=lambda d: d.get("delta") if isinstance(d, dict) else None,
+                yield_raw_on_error=False
+            )
+
+            for content in processed_stream:
+                if content and isinstance(content, str):
                     streaming_text += content
                     
                     # Create the delta object
@@ -155,10 +160,8 @@ class Completions(BaseCompletions):
             yield chunk
 
         except CurlError as e:
-            print(f"{RED}Error during Typefully streaming request (CurlError): {e}{RESET}")
             raise IOError(f"Typefully streaming request failed (CurlError): {e}") from e
         except Exception as e:
-            print(f"{RED}Error during Typefully streaming request: {e}{RESET}")
             raise IOError(f"Typefully streaming request failed: {e}") from e
 
     def _create_non_streaming(
@@ -172,6 +175,8 @@ class Completions(BaseCompletions):
     ) -> ChatCompletion:
         """Implementation for non-streaming chat completions."""
         try:
+            from webscout.AIbase import sanitize_stream
+            
             # Make the non-streaming request
             response = self._client.session.post(
                 self._client.api_endpoint, 
@@ -186,16 +191,18 @@ class Completions(BaseCompletions):
             if not response.ok:
                 raise IOError(f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}")
 
-            # Collect the full response
+            # Collect the full response using sanitize_stream
             full_text = ""
-            for chunk in response.iter_content(chunk_size=None):
-                if not chunk:
-                    continue
-                
-                chunk_str = chunk.decode('utf-8', errors='replace')
-                content = self._client._typefully_extractor(chunk_str)
-                
-                if content:
+            processed_stream = sanitize_stream(
+                data=response.iter_lines(),
+                intro_value="data:",
+                to_json=True,
+                skip_markers=["[DONE]"],
+                content_extractor=lambda d: d.get("delta") if isinstance(d, dict) else None,
+                yield_raw_on_error=False
+            )
+            for content in processed_stream:
+                if content and isinstance(content, str):
                     full_text += content
 
             # Format the text (replace escaped newlines)
@@ -271,7 +278,9 @@ class TypefullyAI(OpenAICompatibleProvider):
     def __init__(
         self,
         timeout: int = 30,
-
+        system_prompt: str = "You are a helpful assistant.",
+        output_length: int = 2048,
+        proxies: Optional[Dict[str, str]] = None
     ):
         """
         Initialize the TypefullyAI client.
@@ -283,6 +292,9 @@ class TypefullyAI(OpenAICompatibleProvider):
             output_length: Maximum length of the generated output
         """
         self.timeout = timeout
+        self.system_prompt = system_prompt
+        self.output_length = output_length
+        self.proxies = proxies
         self.api_endpoint = "https://typefully.com/tools/ai/api/completion"
 
         # Initialize curl_cffi Session
