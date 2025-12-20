@@ -1,5 +1,5 @@
 import json
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, Generator, List, Optional, Union
 
 from curl_cffi import CurlError
 
@@ -7,7 +7,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -51,7 +51,7 @@ class GROQ(Provider):
     ]
 
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from Groq API.
 
         Args:
@@ -100,12 +100,12 @@ class GROQ(Provider):
         top_p: float = 1,
         model: str = "mixtral-8x7b-32768",
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: Optional[str] = None,
     ):
         """Instantiates GROQ
@@ -214,10 +214,10 @@ class GROQ(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,  # Add tools parameter
-    ) -> dict:
+    ) -> Response:
         """Chat with AI
 
         Args:
@@ -304,15 +304,19 @@ class GROQ(Provider):
                 raise exceptions.FailedToGenerateResponseError(f"Error: {str(e)}")
 
             # Handle tool calls if any
-            if 'tool_calls' in self.last_response.get('choices', [{}])[0].get('message', {}):
-                tool_calls = self.last_response['choices'][0]['message']['tool_calls']
+            first_choice = self.last_response.get('choices', [{}])[0]
+            message = first_choice.get('message', {})
+            if 'tool_calls' in message:
+                tool_calls = message.get('tool_calls', [])
                 for tool_call in tool_calls:
+                    if not isinstance(tool_call, dict):
+                        continue
                     function_name = tool_call.get('function', {}).get('name')
                     arguments = json.loads(tool_call.get('function', {}).get('arguments', "{}"))
                     if function_name in self.available_functions:
                         tool_response = self.available_functions[function_name](**arguments)
                         messages.append({
-                            "tool_call_id": tool_call['id'],
+                            "tool_call_id": tool_call.get('id'),
                             "role": "tool",
                             "name": function_name,
                             "content": tool_response
@@ -389,15 +393,19 @@ class GROQ(Provider):
                 raise exceptions.FailedToGenerateResponseError(f"Error: {str(e)}")
 
             # Handle tool calls if any
-            if 'tool_calls' in resp.get('choices', [{}])[0].get('message', {}):
-                tool_calls = resp['choices'][0]['message']['tool_calls']
+            first_choice = resp.get('choices', [{}])[0]
+            message = first_choice.get('message', {})
+            if 'tool_calls' in message:
+                tool_calls = message.get('tool_calls', [])
                 for tool_call in tool_calls:
+                    if not isinstance(tool_call, dict):
+                        continue
                     function_name = tool_call.get('function', {}).get('name')
                     arguments = json.loads(tool_call.get('function', {}).get('arguments', "{}"))
                     if function_name in self.available_functions:
                         tool_response = self.available_functions[function_name](**arguments)
                         messages.append({
-                            "tool_call_id": tool_call['id'],
+                            "tool_call_id": tool_call.get('id'),
                             "role": "tool",
                             "name": function_name,
                             "content": tool_response
@@ -434,10 +442,10 @@ class GROQ(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
-    ) -> str:
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
@@ -468,16 +476,17 @@ class GROQ(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Retrieves message only from response
 
         Args:
-            response (dict): Response generated by `self.ask`
+            response (Response): Response generated by `self.ask`
 
         Returns:
             str: Message extracted
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         try:
             # Check delta first for streaming
             if response.get("choices") and response["choices"][0].get("delta") and response["choices"][0]["delta"].get("content"):

@@ -313,7 +313,7 @@ class DeepAI(OpenAICompatibleProvider):
         self.session.cookies.update(self.cookies)
 
 
-    def refresh_identity(self, browser: str = None, impersonate: str = "chrome120"):
+    def refresh_identity(self, browser: Optional[str] = None, impersonate: str = "chrome120"):
         """Refreshes the browser identity fingerprint and curl_cffi session."""
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = LitAgent().generate_fingerprint(browser)
@@ -338,7 +338,7 @@ class DeepAI(OpenAICompatibleProvider):
         return self.fingerprint
 
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from DeepAI API.
 
         Args:
@@ -471,4 +471,8 @@ if __name__ == "__main__":
         messages=[{"role": "user", "content": "Hello!"}],
         stream=False
     )
-    print(response.choices[0].message.content)
+    if isinstance(response, ChatCompletion):
+        print(response.choices[0].message.content)
+    else:
+        for chunk in response:
+            print(chunk.choices[0].delta.content, end="")

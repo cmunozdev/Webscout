@@ -257,7 +257,7 @@ class Sambanova(OpenAICompatibleProvider):
     AVAILABLE_MODELS = []
 
     @classmethod
-    def get_models(cls, api_key: str = None) -> List[str]:
+    def get_models(cls, api_key: Optional[str] = None) -> List[str]:
         """Fetch available models from Sambanova API."""
         if not api_key:
             raise ValueError("API key is required to fetch models.")
@@ -339,7 +339,7 @@ class Sambanova(OpenAICompatibleProvider):
         self.chat = Chat(self)
 
     @classmethod
-    def update_available_models(cls, api_key: str = None):
+    def update_available_models(cls, api_key: Optional[str] = None):
         """Update the available models list from Sambanova API."""
         if api_key:
             models = cls.get_models(api_key)
@@ -372,16 +372,23 @@ if __name__ == "__main__":
             max_tokens=100,
             stream=False
         )
-        print(f"Response: {response.choices[0].message.content}")
+        if isinstance(response, ChatCompletion):
+            print(f"Response: {response.choices[0].message.content}")
+        else:
+            print(f"Response: {response}")
 
         # Test streaming
         print("\nStreaming response:")
-        for chunk in client.chat.completions.create(
+        stream_resp = client.chat.completions.create(
             model="Meta-Llama-3.1-8B-Instruct",
             messages=[{"role": "user", "content": "Say hello briefly"}],
             max_tokens=100,
             stream=True
-        ):
-            if chunk.choices[0].delta.content:
-                print(chunk.choices[0].delta.content, end="", flush=True)
+        )
+        if hasattr(stream_resp, "__iter__") and not isinstance(stream_resp, (str, bytes, ChatCompletion)):
+            for chunk in stream_resp:
+                if chunk.choices[0].delta.content:
+                    print(chunk.choices[0].delta.content, end="", flush=True)
+        else:
+            print(stream_resp)
         print()

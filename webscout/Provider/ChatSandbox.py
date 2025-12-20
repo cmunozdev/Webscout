@@ -5,7 +5,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
@@ -49,12 +49,12 @@ class ChatSandbox(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
     ):
         """
         Initializes the ChatSandbox API with given parameters.
@@ -135,9 +135,10 @@ class ChatSandbox(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the ChatSandbox API and returns the response.
 
@@ -219,9 +220,9 @@ class ChatSandbox(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> str:
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the ChatSandbox API.
 
@@ -257,12 +258,12 @@ class ChatSandbox(Provider):
                 )
             )
 
-    def get_message(self, response: Dict[str, Any]) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extract the message from the API response.
 
         Args:
-            response (Dict[str, Any]): The API response.
+            response (Response): The API response.
 
         Returns:
             str: The extracted message.
@@ -303,7 +304,11 @@ if __name__ == "__main__":
         try:
             test_ai = ChatSandbox(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word")
-            response_text = response
+
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                response_text = "".join(list(response))
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

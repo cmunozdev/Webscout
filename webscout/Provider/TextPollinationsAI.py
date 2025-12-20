@@ -5,7 +5,7 @@ from typing import Any, Dict, Generator, List, Optional, Union
 import requests
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent as Lit
 
@@ -43,12 +43,12 @@ class TextPollinationsAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 8096,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "openai",
         system_prompt: str = "You are a helpful AI assistant.",
     ):
@@ -121,11 +121,12 @@ class TextPollinationsAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI"""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -244,7 +245,7 @@ class TextPollinationsAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
@@ -298,12 +299,12 @@ if __name__ == "__main__":
 
             # Non-stream test
             start_response = test_ai.chat("Hello!", stream=False)
-            if start_response:
+            if start_response and isinstance(start_response, str):
                status = "✓"
                display = start_response[:30] + "..."
             else:
                status = "✗"
-               display = "Empty"
+               display = "Empty or invalid type"
 
             print(f"\r{model:<50} {status:<10} {display}")
 

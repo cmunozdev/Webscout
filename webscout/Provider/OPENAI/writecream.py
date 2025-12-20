@@ -30,8 +30,8 @@ class Completions(BaseCompletions):
     def create(
         self,
         *,
-        model: str = None,  # Not used by Writecream, for compatibility
-        messages: List[Dict[str, str]],
+        model: str,  # Not used by Writecream, for compatibility
+        messages: List[Dict[str, Any]],
         max_tokens: Optional[int] = None,  # Not used by Writecream
         stream: bool = False,
         temperature: Optional[float] = None,  # Not used by Writecream
@@ -164,9 +164,13 @@ class Writecream(OpenAICompatibleProvider):
 if __name__ == "__main__":
     client = Writecream()
     response = client.chat.completions.create(
+        model="writecream",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "What is the capital of France?"}
         ]
     )
-    print(response.choices[0].message.content)
+    if isinstance(response, ChatCompletion):
+        print(response.choices[0].message.content)
+    else:
+        print(response)

@@ -1,11 +1,11 @@
-from datetime import datetime
-from typing import Any, Dict, Generator, Union
+from datetime import datetime, timezone
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -26,12 +26,12 @@ class SearchChatAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
     ):
         """Initializes the SearchChatAI API client."""
         self.url = "https://search-chat.ai/api/chat-test-stop.php"
@@ -116,9 +116,10 @@ class SearchChatAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Send a message to the API and get the response.
 
@@ -151,7 +152,7 @@ class SearchChatAI(Provider):
                             "text": conversation_prompt
                         }
                     ],
-                    "timestamp": datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+                    "timestamp": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
                 }
             ]
         }
@@ -238,9 +239,10 @@ class SearchChatAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """
         Chat with the API.
@@ -272,13 +274,17 @@ class SearchChatAI(Provider):
                 return self.get_message(response_data)
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Extract the message from the response."""
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
 if __name__ == "__main__":
     ai = SearchChatAI()
     resp = ai.chat("Hello", stream=True, raw=True)
-    for chunk in resp:
-        print(chunk, end="")
+    if hasattr(resp, "__iter__") and not isinstance(resp, (str, bytes)):
+        for chunk in resp:
+            print(chunk, end="")
+    else:
+        print(resp)

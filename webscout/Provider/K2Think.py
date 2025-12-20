@@ -1,11 +1,11 @@
 import json
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
@@ -31,12 +31,12 @@ class K2Think(Provider):
         top_p: float = 1,
         model: str = "MBZUAI-IFM/K2-Think",
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         base_url: str = "https://www.k2think.ai/api/guest/chat/completions",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome"
@@ -128,9 +128,10 @@ class K2Think(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -249,7 +250,7 @@ class K2Think(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -270,8 +271,9 @@ class K2Think(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
         return response["text"].replace('\\n', '\n').replace('\\n\\n', '\n\n')
 
 if __name__ == "__main__":
@@ -279,8 +281,11 @@ if __name__ == "__main__":
     try:
         ai = K2Think(model="MBZUAI-IFM/K2-Think", timeout=30)
         response = ai.chat("What is artificial intelligence?", stream=True, raw=False)
-        for chunk in response:
-            print(chunk, end="", flush=True)
+        if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+            for chunk in response:
+                print(chunk, end="", flush=True)
+        else:
+            print(response)
         print()
     except Exception as e:
         print(f"Error: {type(e).__name__}: {e}")

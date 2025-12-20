@@ -158,41 +158,41 @@ class BaseSearch(ABC):
     """Base class for synchronous search engines (legacy)."""
 
     @abstractmethod
-    def text(self, *args, **kwargs) -> list[dict[str, str]]:
+    def text(self, *args, **kwargs) -> list[Any]:
         """Text search."""
         raise NotImplementedError
 
     @abstractmethod
-    def images(self, *args, **kwargs) -> list[dict[str, str]]:
+    def images(self, *args, **kwargs) -> list[Any]:
         """Images search."""
         raise NotImplementedError
 
     @abstractmethod
-    def videos(self, *args, **kwargs) -> list[dict[str, str]]:
+    def videos(self, *args, **kwargs) -> list[Any]:
         """Videos search."""
         raise NotImplementedError
 
     @abstractmethod
-    def news(self, *args, **kwargs) -> list[dict[str, str]]:
+    def news(self, *args, **kwargs) -> list[Any]:
         """News search."""
         raise NotImplementedError
 
     @abstractmethod
-    def answers(self, *args, **kwargs) -> list[dict[str, str]]:
+    def answers(self, *args, **kwargs) -> list[Any]:
         """Instant answers."""
         raise NotImplementedError
 
     @abstractmethod
-    def suggestions(self, *args, **kwargs) -> list[dict[str, str]]:
+    def suggestions(self, *args, **kwargs) -> list[Any]:
         """Suggestions."""
         raise NotImplementedError
 
     @abstractmethod
-    def maps(self, *args, **kwargs) -> list[dict[str, str]]:
+    def maps(self, *args, **kwargs) -> list[Any]:
         """Maps search."""
         raise NotImplementedError
 
     @abstractmethod
-    def translate(self, *args, **kwargs) -> list[dict[str, str]]:
+    def translate(self, *args, **kwargs) -> list[Any]:
         """Translate."""
         raise NotImplementedError

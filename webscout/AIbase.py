@@ -1,11 +1,11 @@
 from abc import ABC, abstractmethod
 from pathlib import Path
-from typing import Any, Dict, Generator, Optional, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from typing_extensions import TypeAlias
 
 # Type aliases for better readability
-Response: TypeAlias = dict[str, Union[str, bool, None]]
+Response: TypeAlias = Union[Dict[str, Any], Generator[Any, None, None]]
 
 class SearchResponse:
     """A wrapper class for search API responses.
@@ -36,6 +36,9 @@ class AIProviderError(Exception):
     pass
 
 class Provider(ABC):
+    def __init__(self, *args, **kwargs):
+        self.last_response: Dict[str, Any] = {}
+        self.conversation: Optional[Any] = None
 
     @abstractmethod
     def ask(
@@ -55,7 +58,8 @@ class Provider(ABC):
         stream: bool = False,
         optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> str:
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         raise NotImplementedError("Method needs to be implemented in subclass")
 
     @abstractmethod
@@ -65,7 +69,7 @@ class Provider(ABC):
 class TTSProvider(ABC):
 
     @abstractmethod
-    def tts(self, text: str, voice: str = None, verbose: bool = False) -> str:
+    def tts(self, text: str, voice: Optional[str] = None, verbose: bool = False) -> str:
         """Convert text to speech and save to a temporary file.
 
         Args:
@@ -78,7 +82,7 @@ class TTSProvider(ABC):
         """
         raise NotImplementedError("Method needs to be implemented in subclass")
 
-    def save_audio(self, audio_file: str, destination: str = None, verbose: bool = False) -> str:
+    def save_audio(self, audio_file: str, destination: Optional[str] = None, verbose: bool = False) -> str:
         """Save audio to a specific destination.
 
         Args:
@@ -115,7 +119,7 @@ class TTSProvider(ABC):
 
         return destination
 
-    def stream_audio(self, text: str, voice: str = None, chunk_size: int = 1024, verbose: bool = False) -> Generator[bytes, None, None]:
+    def stream_audio(self, text: str, voice: Optional[str] = None, chunk_size: int = 1024, verbose: bool = False) -> Generator[bytes, None, None]:
         """Stream audio in chunks.
 
         Args:
@@ -181,7 +185,8 @@ class AISearch(ABC):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None]]:
+        **kwargs: Any,
+    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None], List[Any], Dict[str, Any], str]:
         """Search using the provider's API and get AI-generated responses.
 
         This method sends a search query to the provider and returns the AI-generated response.

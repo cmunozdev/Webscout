@@ -1,11 +1,11 @@
 import json
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 
 
@@ -19,12 +19,12 @@ class Llama3Mitril(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2048,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful, respectful and honest assistant.",
         temperature: float = 0.8,
     ):
@@ -76,9 +76,10 @@ class Llama3Mitril(Provider):
         prompt: str,
         stream: bool = True,  # API supports streaming
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Sends a prompt to the Llama3 Mitril API and returns the response."""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -171,8 +172,9 @@ class Llama3Mitril(Provider):
         self,
         prompt: str,
         stream: bool = True,  # Default to True as API supports it
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """Generates a response from the Llama3 Mitril API."""
 

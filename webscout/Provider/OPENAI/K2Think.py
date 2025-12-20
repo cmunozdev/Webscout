@@ -41,7 +41,7 @@ class Completions(BaseCompletions):
         Mimics openai.chat.completions.create
         """
         # Prepare the payload for K2Think API
-        payload = {
+        payload: Dict[str, Any] = {
             "stream": stream,
             "model": model,
             "messages": messages,
@@ -426,6 +426,9 @@ if __name__ == "__main__":
         stream=True
     )
 
-    for chunk in response:
-        if chunk.choices[0].delta.content:
-            print(chunk.choices[0].delta.content, end='', flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes, ChatCompletion)):
+        for chunk in response:
+            if chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end='', flush=True)
+    else:
+        print(response)

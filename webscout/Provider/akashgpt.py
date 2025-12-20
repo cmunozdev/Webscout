@@ -1,12 +1,12 @@
 import re
 import time
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
 
 import cloudscraper
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -44,12 +44,12 @@ class AkashGPT(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful assistant.",
         model: str = "meta-llama-3-3-70b-instruct",
         temperature: float = 0.6,
@@ -158,9 +158,10 @@ class AkashGPT(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Dict[str, Any]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Akash Network API and returns the response.
 
@@ -254,9 +255,10 @@ class AkashGPT(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> str:
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the AkashGPT API.
 
@@ -323,7 +325,11 @@ if __name__ == "__main__":
         try:
             test_ai = AkashGPT(model=model, timeout=60, api_key="5ef9b0782df982fab720810f6ee72a9af01ebadbd9eb05adae0ecc8711ec79c5; _ga_LFRGN2J2RV=GS2.1.s1763554272$o4$g1$t1763554284$j48$l0$h0") # Example key
             response = test_ai.chat("Say 'Hello' in one word")
-            response_text = response
+
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                response_text = "".join(list(response))
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

@@ -13,6 +13,9 @@ All notable changes to this project will be documented in this file.
     - Fixed missing `ic` imports from `litprinter` in multiple TTS providers (`MurfAI`, `OpenAI.fm`, `Parler`, `Qwen`, `Sherpa`, `FreeTTS`).
     - Fixed missing `exceptions` import in `FreeTTS`.
     - Resolved undefined `CLI` reference in SwiftCLI `Context` using `TYPE_CHECKING` and explicit imports.
+    - Added missing type hint imports (`Optional`, `Any`, `Union`, `Generator`, `Response`) across 30+ AI provider modules including Cohere, Gemini, Groq, HuggingFace, and more.
+    - Fixed undefined `LitAgent` reference in `GitToolkit/utils.py` and missing `Union` in `YTdownloader.py`.
+    - Resolved `Response` naming conflict in `Ayle.py` by aliasing `curl_cffi` response.
 - **fix**: Corrected syntax errors and corrupted logic blocks in `YTdownloader.py` and `iask_search.py`.
 - **fix**: Improved project adherence to PEP 8:
     - Moved module-level imports to the top of files in `server` and `aihumanizer`.

@@ -194,7 +194,7 @@ class Perplexity(AISearch):
             sources = ["web"]
 
         # Prepare request data
-        json_data = {
+        json_data: Dict[str, Any] = {
             "query_str": prompt,
             "params": {
                 "attachments": follow_up["attachments"] if follow_up else [],

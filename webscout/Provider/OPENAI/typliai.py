@@ -225,7 +225,7 @@ class TypliAI(OpenAICompatibleProvider):
     def __init__(
         self,
         timeout: int = 60,
-        proxies: dict = None,
+        proxies: Optional[dict] = None,
         browser: str = "chrome"
     ):
         self.timeout = timeout
@@ -279,15 +279,22 @@ if __name__ == "__main__":
         messages=[{"role": "user", "content": "Hello! How are you?"}],
         stream=False
     )
-    print(f"Response: {response.choices[0].message.content}")
+    if isinstance(response, ChatCompletion):
+        print(f"Response: {response.choices[0].message.content}")
+    else:
+        print(f"Response: {response}")
 
     # Test streaming
     print("\n=== Testing Streaming ===")
-    for chunk in client.chat.completions.create(
+    stream_resp = client.chat.completions.create(
         model="openai/gpt-4.1-mini",
         messages=[{"role": "user", "content": "Tell me a joke"}],
         stream=True
-    ):
-        if chunk.choices[0].delta.content:
-            print(chunk.choices[0].delta.content, end="", flush=True)
+    )
+    if hasattr(stream_resp, "__iter__") and not isinstance(stream_resp, (str, bytes, ChatCompletion)):
+        for chunk in stream_resp:
+            if chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+    else:
+        print(stream_resp)
     print()

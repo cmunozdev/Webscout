@@ -1,11 +1,11 @@
 import json
-from typing import Any, Dict, Generator, List, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -19,7 +19,7 @@ class Nvidia(Provider):
     AVAILABLE_MODELS = []
 
     @classmethod
-    def get_models(cls, api_key: str = None) -> List[str]:
+    def get_models(cls, api_key: Optional[str] = None) -> list[str]:
         """Fetch available models from Nvidia API."""
         url = "https://integrate.api.nvidia.com/v1/models"
         try:
@@ -38,7 +38,7 @@ class Nvidia(Provider):
             return cls.AVAILABLE_MODELS
 
     @classmethod
-    def update_available_models(cls, api_key: str = None):
+    def update_available_models(cls, api_key: Optional[str] = None):
         """Update the available models list from Nvidia API dynamically."""
         try:
             models = cls.get_models(api_key)
@@ -53,12 +53,12 @@ class Nvidia(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "meta/llama-3.3-70b-instruct",
         system_prompt: str = "You are a helpful assistant.",
         temperature: float = 0.7,
@@ -124,9 +124,10 @@ class Nvidia(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Nvidia API and returns the response.
         """
@@ -235,7 +236,7 @@ class Nvidia(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         raw: bool = False,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -263,8 +264,9 @@ class Nvidia(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":

@@ -1,11 +1,11 @@
 import json
-from typing import Any, Dict, Generator, List, Union
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -19,7 +19,7 @@ class HuggingFace(Provider):
     AVAILABLE_MODELS = []
 
     @classmethod
-    def get_models(cls, api_key: str = None) -> List[str]:
+    def get_models(cls, api_key: Optional[str] = None) -> list[str]:
         """Fetch available text-generation models from Hugging Face."""
         url = "https://router.huggingface.co/v1/models"
         try:
@@ -39,7 +39,7 @@ class HuggingFace(Provider):
             return cls.AVAILABLE_MODELS
 
     @classmethod
-    def update_available_models(cls, api_key: str = None):
+    def update_available_models(cls, api_key: Optional[str] = None):
         """Update the available models list from Hugging Face API dynamically."""
         try:
             models = cls.get_models(api_key)
@@ -54,12 +54,12 @@ class HuggingFace(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "meta-llama/Llama-3.3-70B-Instruct",
         system_prompt: str = "You are a helpful assistant.",
         temperature: float = 0.7,
@@ -158,9 +158,10 @@ class HuggingFace(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Hugging Face Router API and returns the response.
 
@@ -301,7 +302,7 @@ class HuggingFace(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         raw: bool = False,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -331,14 +332,19 @@ class HuggingFace(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Retrieves message from response dict."""
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":
     hf = HuggingFace(api_key="")
     models = hf.AVAILABLE_MODELS
     print(models)
-    for chunk in hf.chat("Hi!", stream=True):
-        print(chunk, end="", flush=True)
+    response = hf.chat("Hi!", stream=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

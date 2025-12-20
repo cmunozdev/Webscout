@@ -3,10 +3,11 @@ import uuid
 from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import CurlError
-from curl_cffi.requests import Response, Session  # Import Response
+from curl_cffi.requests import Response as CurlResponse  # Import Response
+from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -16,7 +17,7 @@ from webscout.AIutel import (  # Import sanitize_stream
 from webscout.litagent import LitAgent
 
 # Model configurations
-MODEL_CONFIGS = {
+MODEL_CONFIGS: Dict[str, Dict[str, Any]] = {
     "ayle": {
         "endpoint": "https://ayle.chat/api/chat",
         "models": [
@@ -55,12 +56,12 @@ class Ayle(Provider):
         is_conversation: bool = True,
         max_tokens: int = 4000,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gemini-2.5-flash",
         system_prompt: str = "You are a friendly, helpful AI assistant.",
         temperature: float = 0.5,
@@ -152,7 +153,7 @@ class Ayle(Provider):
             return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
         return None
 
-    def _make_request(self, payload: Dict[str, Any]) -> Response: # Change type hint to Response
+    def _make_request(self, payload: Dict[str, Any]) -> CurlResponse: # Change type hint to Response
         """Make the API request with proper error handling."""
         try:
             response = self.session.post(
@@ -180,9 +181,10 @@ class Ayle(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Sends a prompt to the API and returns the response."""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -245,7 +247,7 @@ class Ayle(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -266,16 +268,19 @@ class Ayle(Provider):
             return self.get_message(result)
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: Union[Dict[str, Any], str]) -> str:
-        if isinstance(response, dict):
-            text = response.get("text", "")
-        else:
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
             text = str(response)
+        else:
+            text = response.get("text", "")
         return text.replace('\\\\', '\\').replace('\\"', '"')
 
 if __name__ == "__main__":
     from rich import print
     ai = Ayle(model="gemini-2.5-flash")
     response = ai.chat("tell me a joke", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end='', flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end='', flush=True)
+    else:
+        print(response)

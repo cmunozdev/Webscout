@@ -5,7 +5,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -111,12 +111,12 @@ class DeepInfra(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome"
@@ -208,9 +208,10 @@ class DeepInfra(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the DeepInfra API and returns the response.
 
@@ -349,7 +350,7 @@ class DeepInfra(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         raw: bool = False,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -408,12 +409,16 @@ class DeepInfra(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
         return response["text"]
 
 if __name__ == "__main__":
     ai = DeepInfra()
     response = ai.chat("Hello", raw=False, stream=True)
-    for chunk in response:
-        print(chunk, end="")
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="")
+    else:
+        print(response)

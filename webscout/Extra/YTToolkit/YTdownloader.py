@@ -7,6 +7,7 @@ from datetime import datetime
 from os import getcwd, makedirs, path
 from threading import Thread
 from time import sleep
+from typing import Union
 
 import requests
 from colorama import Fore
@@ -66,7 +67,7 @@ class utils:
                         exit(1)
                 except Exception as e:
                     if log:
-                        raise(f"Error - {get_excep(e)}")
+                        raise Exception(f"Error - {get_excep(e)}")
                     if exit_on_error:
                         exit(1)
 
@@ -110,7 +111,7 @@ class utils:
             pass
 
     @staticmethod
-    def get_history(dump: bool = False) -> list:
+    def get_history(dump: bool = False) -> Union[list, str]:
         r"""Loads download history
         :param dump: (Optional) Return whole history as str
         :type dump: bool

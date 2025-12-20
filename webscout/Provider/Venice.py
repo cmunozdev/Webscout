@@ -6,7 +6,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session  # Import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -35,12 +35,12 @@ class Venice(Provider):
         timeout: int = 30,
         temperature: float = 0.8, # Keep temperature, user might want to adjust
         top_p: float = 0.9, # Keep top_p
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "mistral-31-24b",
         # System prompt is empty in the example, but keep it configurable
         system_prompt: str = ""
@@ -119,9 +119,10 @@ class Venice(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -199,10 +200,10 @@ class Venice(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
-    ) -> Union[str, Generator]:
+    ) -> Union[str, Generator[str, None, None]]:
         def for_stream():
             for response in self.ask(prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally):
                 if raw:
@@ -236,9 +237,12 @@ if __name__ == "__main__":
             test_ai = Venice(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
-                print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+                    print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

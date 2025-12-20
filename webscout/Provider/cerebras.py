@@ -13,7 +13,7 @@ import curl_cffi
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -41,7 +41,7 @@ class Cerebras(Provider):
     ]
 
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from Cerebras API.
 
         Args:
@@ -80,17 +80,17 @@ class Cerebras(Provider):
 
     def __init__(
         self,
-        cookie_path: str = None,
+        cookie_path: Optional[str] = None,
         is_conversation: bool = True,
         max_tokens: int = 40000,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
-        api_key: str = None,
+        act: Optional[str] = None,
+        api_key: Optional[str] = None,
         model: str = "qwen-3-coder-480b",
         system_prompt: str = "You are a helpful assistant.",
         temperature: float = 0.7,
@@ -295,9 +295,10 @@ class Cerebras(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False, # Add raw parameter for consistency
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict, Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """Send a prompt to the model and get a response."""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -340,10 +341,11 @@ class Cerebras(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
-    ) -> Union[str, Generator]:
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         """Chat with the model."""
         # Ask returns a generator for stream=True, dict/str for stream=False
         response_gen_or_dict = self.ask(prompt, stream, raw=raw, optimizer=optimizer, conversationally=conversationally)
@@ -363,10 +365,11 @@ class Cerebras(Provider):
                 return response_gen_or_dict
             return self.get_message(response_gen_or_dict)
 
-    def get_message(self, response: str) -> str:
+    def get_message(self, response: Response) -> str:
         """Retrieves message from response."""
         # Updated to handle dict input from ask()
-        assert isinstance(response, dict), "Response should be of dict data-type only for get_message"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":

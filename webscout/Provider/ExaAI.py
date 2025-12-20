@@ -1,11 +1,11 @@
 import json
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
 
 import requests
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -31,12 +31,12 @@ class ExaAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         # system_prompt: str = "You are a helpful assistant.",
         model: str = "O3-Mini", # >>> THIS FLAG IS NOT USED <<<
     ):
@@ -115,9 +115,10 @@ class ExaAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Dict[str, Any]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the o3minichat.exa.ai API and returns the response.
 
@@ -200,7 +201,7 @@ class ExaAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -247,24 +248,18 @@ class ExaAI(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message from the API response.
 
         Args:
-            response (dict): The API response.
+            response (Response): The API response.
 
         Returns:
             str: The message content.
-
-        Examples:
-            >>> ai = ExaAI()
-            >>> response = ai.ask("Tell me a joke!")
-            >>> message = ai.get_message(response)
-            >>> print(message)
-            'Why did the scarecrow win an award? Because he was outstanding in his field!'
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         formatted_text = response["text"].replace('\\n', '\n').replace('\\n\\n', '\n\n')
         return formatted_text
 
@@ -272,5 +267,8 @@ if __name__ == "__main__":
     from rich import print
     ai = ExaAI(timeout=5000)
     response = ai.chat("Tell me about HelpingAI", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

@@ -11,7 +11,7 @@ import pkgutil
 import random
 from typing import Any, Dict, Generator, List, Optional, Tuple, Type, Union
 
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.exceptions import AllProvidersFailure
 
 
@@ -78,9 +78,12 @@ def _get_models_safely(provider_cls: type) -> List[str]:
 
         if hasattr(provider_cls, "get_models"):
             try:
-                res = provider_cls.get_models()
-                if isinstance(res, list):
-                    models.extend(res)
+                # Use getattr to call the class method safely
+                get_models_method = getattr(provider_cls, "get_models")
+                if callable(get_models_method):
+                    res = get_models_method()
+                    if isinstance(res, list):
+                        models.extend(res)
             except Exception:
                 pass
     except Exception:
@@ -101,17 +104,17 @@ class AUTO(Provider):
     def __init__(
         self,
         model: str = "auto",
-        api_key: str = None,
+        api_key: Optional[str] = None,
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
-        exclude: Optional[list[str]] = None,
+        act: Optional[str] = None,
+        exclude: Optional[List[str]] = None,
         print_provider_info: bool = False,
         **kwargs: Any,
     ):
@@ -283,10 +286,10 @@ class AUTO(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         **kwargs: Any,
-    ) -> Union[Dict, Generator]:
+    ) -> Response:
         """
         Sends the prompt to available providers, attempting to get a response from each until one succeeds.
 
@@ -425,8 +428,9 @@ class AUTO(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """
         Provides a simplified chat interface, returning the message string or a generator of message strings.
@@ -446,13 +450,13 @@ class AUTO(Provider):
         else:
             return self._chat_non_stream(prompt, optimizer, conversationally)
 
-    def _chat_stream(self, prompt: str, optimizer: str, conversationally: bool) -> Generator[str, None, None]:
+    def _chat_stream(self, prompt: str, optimizer: Optional[str], conversationally: bool) -> Generator[str, None, None]:
         """
         Internal helper for streaming chat responses.
 
         Args:
             prompt (str): The user's prompt.
-            optimizer (str): Name of the optimizer.
+            optimizer (Optional[str]): Name of the optimizer.
             conversationally (bool): Whether to apply optimizer conversationally.
 
         Yields:
@@ -464,16 +468,19 @@ class AUTO(Provider):
             optimizer=optimizer,
             conversationally=conversationally,
         )
-        for chunk in response:
-            yield self.get_message(chunk)
+        if hasattr(response, "__iter__") and not isinstance(response, (str, bytes, dict)):
+            for chunk in response:
+                yield self.get_message(chunk)
+        elif isinstance(response, dict):
+             yield self.get_message(response)
 
-    def _chat_non_stream(self, prompt: str, optimizer: str, conversationally: bool) -> str:
+    def _chat_non_stream(self, prompt: str, optimizer: Optional[str], conversationally: bool) -> str:
         """
         Internal helper for non-streaming chat responses.
 
         Args:
             prompt (str): The user's prompt.
-            optimizer (str): Name of the optimizer.
+            optimizer (Optional[str]): Name of the optimizer.
             conversationally (bool): Whether to apply optimizer conversationally.
 
         Returns:
@@ -485,19 +492,23 @@ class AUTO(Provider):
             optimizer=optimizer,
             conversationally=conversationally,
         )
-        return self.get_message(response)
+        if isinstance(response, dict):
+            return self.get_message(response)
+        return str(response)
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message text from the provider's response dictionary.
 
         Args:
-            response (dict): The response dictionary obtained from the `ask` method.
+            response (Response): The response obtained from the `ask` method.
 
         Returns:
             str: The extracted message string.
         """
         assert self.provider is not None, "Chat with AI first"
+        if not isinstance(response, dict):
+            return str(response)
         return self.provider.get_message(response)
 
 if __name__ == "__main__":

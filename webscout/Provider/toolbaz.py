@@ -12,7 +12,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -65,12 +65,12 @@ class Toolbaz(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600, # Note: max_tokens is not directly used by the API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gemini-2.0-flash",
         system_prompt: str = "You are a helpful AI assistant." # Note: system_prompt is not directly used by the API
     ):
@@ -186,10 +186,11 @@ class Toolbaz(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        raw: bool = False,  # Kept for compatibility, but output is always dict/string
+        raw: bool = False,
         optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """Sends a prompt to the Toolbaz API and returns the response."""
         if optimizer and optimizer not in self.__available_optimizers:
             raise exceptions.FailedToGenerateResponseError(f"Optimizer is not one of {self.__available_optimizers}")
@@ -292,6 +293,7 @@ class Toolbaz(Provider):
         optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """Generates a response from the Toolbaz API."""
         def for_stream_chat():
@@ -324,7 +326,7 @@ class Toolbaz(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: Dict[str, Any]) -> str:
+    def get_message(self, response: Response) -> str:
         """Extract the message from the response.
 
         Args:
@@ -333,7 +335,8 @@ class Toolbaz(Provider):
         Returns:
             str: Message extracted
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 # Example usage
@@ -351,10 +354,11 @@ if __name__ == "__main__":
             response_stream = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
             # print(f"\r{model:<50} {'Streaming...':<10}", end="", flush=True)
-            for chunk in response_stream:
-                response_text += chunk
-                # Optional: print chunks for visual feedback
-                # print(chunk, end="", flush=True)
+            if hasattr(response_stream, "__iter__") and not isinstance(response_stream, (str, bytes)):
+                for chunk in response_stream:
+                    response_text += chunk
+            else:
+                response_text = str(response_stream)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

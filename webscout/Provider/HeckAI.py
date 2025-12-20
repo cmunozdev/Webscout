@@ -1,12 +1,12 @@
 import json
 import uuid
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -55,12 +55,12 @@ class HeckAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "google/gemini-2.5-flash-preview",
         language: str = "English"
     ):
@@ -135,9 +135,10 @@ class HeckAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the HeckAI API and returns the response.
 
@@ -278,7 +279,7 @@ class HeckAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -318,22 +319,19 @@ class HeckAI(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message text from the API response.
 
         Args:
-            response (dict): The API response dictionary.
+            response (Response): The API response dictionary.
 
         Returns:
             str: The extracted message text. Returns an empty string if not found.
-
-        Raises:
-            TypeError: If the response is not a dictionary.
         """
         # Validate response format
         if not isinstance(response, dict):
-            raise TypeError(f"Expected dict response, got {type(response).__name__}")
+            return str(response)
 
         # Handle missing text key gracefully
         if "text" not in response:
@@ -347,38 +345,11 @@ class HeckAI(Provider):
         return text.replace('\\\\', '\\').replace('\\"', '"')
 
 if __name__ == "__main__":
-    # # Ensure curl_cffi is installed
-    # print("-" * 80)
-    # print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    # print("-" * 80)
-
-    # for model in HeckAI.AVAILABLE_MODELS:
-    #     try:
-    #         test_ai = HeckAI(model=model, timeout=60)
-    #         # Use non-streaming mode first to avoid potential streaming issues
-    #         try:
-    #             response_text = test_ai.chat("Say 'Hello' in one word", stream=False)
-    #             print(f"\r{model:<50} {'✓':<10} {response_text.strip()[:50]}")
-    #         except Exception as e1:
-    #             # Fall back to streaming if non-streaming fails
-    #             print(f"\r{model:<50} {'Testing stream...':<10}", end="", flush=True)
-    #             response = test_ai.chat("Say 'Hello' in one word", stream=True)
-    #             response_text = ""
-    #             for chunk in response:
-    #                 if chunk and isinstance(chunk, str):
-    #                     response_text += chunk
-
-    #             if response_text and len(response_text.strip()) > 0:
-    #                 status = "✓"
-    #                 # Truncate response if too long
-    #                 display_text = response_text.strip()[:50] + "..." if len(response_text.strip()) > 50 else response_text.strip()
-    #                 print(f"\r{model:<50} {status:<10} {display_text}")
-    #             else:
-    #                 raise ValueError("Empty or invalid response")
-    #     except Exception as e:
-    #         print(f"\r{model:<50} {'✗':<10} {str(e)}")
     from rich import print
     ai = HeckAI(model="openai/gpt-5-nano")
     response = ai.chat("tell me about humans", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end='', flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end='', flush=True)
+    else:
+        print(response)

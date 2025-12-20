@@ -7,7 +7,7 @@ import string
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Self, Tuple, TypedDict, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 try:
     import trio  # type: ignore  # noqa: F401
@@ -79,7 +79,7 @@ class Model(Enum):
         model_header (dict): Additional headers required for the model.
         advanced_only (bool): Whether the model is available only for advanced users.
     """
-    UNSPECIFIED: Tuple[str, Dict[str, str], bool] = ("unspecified", {}, False)
+    UNSPECIFIED = ("unspecified", {}, False)
     G_2_5_FLASH = (
         "gemini-2.5-flash",
         {"x-goog-ext-525001261-jspb": '[1,null,null,null,"71c2d248d3b102ff"]'},
@@ -373,6 +373,19 @@ class AsyncChatbot:
              raise
         return instance
 
+    def _error_response(self, message: str) -> AskResponse:
+        """Helper to create a consistent error response."""
+        return {
+            "content": message,
+            "conversation_id": getattr(self, "conversation_id", ""),
+            "response_id": getattr(self, "response_id", ""),
+            "factualityQueries": [],
+            "textQuery": "",
+            "choices": [],
+            "images": [],
+            "error": True
+        }
+
     async def save_conversation(self, file_path: str, conversation_name: str) -> None:
         conversations = await self.load_conversations(file_path)
         conversation_data = {
@@ -529,7 +542,7 @@ class AsyncChatbot:
                 console.log(f"Image uploaded successfully. ID: {image_upload_id}")
             except Exception as e:
                 console.log(f"[red]Error uploading image: {e}[/red]")
-                return {"content": f"Error uploading image: {e}", "error": True}
+                return self._error_response(f"Error uploading image: {e}")
 
         if image_upload_id:
             message_struct = [
@@ -593,7 +606,7 @@ class AsyncChatbot:
                     continue
 
             if not body:
-                return {"content": "Failed to parse response body. No valid data found.", "error": True}
+                return self._error_response("Failed to parse response body. No valid data found.")
 
             try:
                 content = ""
@@ -733,23 +746,23 @@ class AsyncChatbot:
 
             except (IndexError, TypeError) as e:
                 console.log(f"[red]Error extracting data from response: {e}[/red]")
-                return {"content": f"Error extracting data from response: {e}", "error": True}
+                return self._error_response(f"Error extracting data from response: {e}")
 
         except json.JSONDecodeError as e:
             console.log(f"[red]Error parsing JSON response: {e}[/red]")
-            return {"content": f"Error parsing JSON response: {e}. Response: {resp.text[:200]}...", "error": True}
+            return self._error_response(f"Error parsing JSON response: {e}. Response: {resp.text[:200]}...")
         except Timeout as e:
             console.log(f"[red]Request timed out: {e}[/red]")
-            return {"content": f"Request timed out: {e}", "error": True}
+            return self._error_response(f"Request timed out: {e}")
         except (RequestException, CurlError) as e:
             console.log(f"[red]Network error: {e}[/red]")
-            return {"content": f"Network error: {e}", "error": True}
+            return self._error_response(f"Network error: {e}")
         except HTTPError as e:
             console.log(f"[red]HTTP error {e.response.status_code}: {e}[/red]")
-            return {"content": f"HTTP error {e.response.status_code}: {e}", "error": True}
+            return self._error_response(f"HTTP error {e.response.status_code}: {e}")
         except Exception as e:
             console.log(f"[red]An unexpected error occurred during ask: {e}[/red]", style="bold red")
-            return {"content": f"An unexpected error occurred: {e}", "error": True}
+            return self._error_response(f"An unexpected error occurred: {e}")
 
 
 

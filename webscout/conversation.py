@@ -7,6 +7,7 @@ Classes:
     Conversation: Main conversation manager class.
 """
 import os
+from typing import Optional
 
 from litprinter import ic
 
@@ -24,7 +25,7 @@ class Conversation:
         self,
         status: bool = True,
         max_tokens: int = 600,
-        filepath: str = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
     ):
         """Initializes Conversation
@@ -87,7 +88,7 @@ class Conversation:
         else:
             return chat_history
 
-    def gen_complete_prompt(self, prompt: str, intro: str = None) -> str:
+    def gen_complete_prompt(self, prompt: str, intro: Optional[str] = None) -> str:
         """Generates a kinda like incomplete conversation
 
         Args:

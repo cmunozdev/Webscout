@@ -34,7 +34,7 @@ class Tool:
     name: str
     description: str
     parameters: Dict[str, Dict[str, Any]]
-    required_params: List[str] = None
+    required_params: Optional[List[str]] = None
     implementation: Optional[Callable] = None
 
     def to_dict(self) -> ToolDefinition:

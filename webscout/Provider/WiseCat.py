@@ -1,10 +1,10 @@
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -30,12 +30,12 @@ class WiseCat(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "chat-model-small",
         system_prompt: str = "You are a helpful AI assistant."
     ):
@@ -85,9 +85,10 @@ class WiseCat(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI"""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -170,10 +171,10 @@ class WiseCat(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
-    ) -> str:
+    ) -> Union[str, Generator[str, None, None]]:
         def for_stream():
             for response in self.ask(
                 prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally
@@ -218,9 +219,12 @@ if __name__ == "__main__":
             test_ai = WiseCat(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
-                print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+                    print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

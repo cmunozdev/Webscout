@@ -5,7 +5,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -30,12 +30,12 @@ class SonusAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049, # Note: max_tokens is not directly used by this API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "pro"
     ):
         """Initializes the Sonus AI API client."""
@@ -96,10 +96,11 @@ class SonusAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         reasoning: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -214,10 +215,11 @@ class SonusAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         reasoning: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
             for response in self.ask(
@@ -237,12 +239,16 @@ class SonusAI(Provider):
                 return self.get_message(response_data)
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
 if __name__ == "__main__":
     sonus = SonusAI()
     resp = sonus.chat("Hello", stream=True, raw=True)
-    for chunk in resp:
-        print(chunk, end="")
+    if hasattr(resp, "__iter__") and not isinstance(resp, (str, bytes)):
+        for chunk in resp:
+            print(chunk, end="")
+    else:
+        print(resp)

@@ -7,7 +7,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -25,12 +25,12 @@ class LearnFast(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600, # Note: max_tokens is not used by this API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful AI assistant.", # Note: system_prompt is not used by this API
     ):
         """
@@ -151,12 +151,13 @@ class LearnFast(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         image_path: Optional[str] = None,
-    ) -> Union[dict, Generator[dict, None, None], str]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with LearnFast
 
         Args:
@@ -264,10 +265,11 @@ class LearnFast(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         image_path: Optional[str] = None,
-        raw: bool = False
+        raw: bool = False,
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str` or stream, with raw support"""
         try:
@@ -309,5 +311,8 @@ if __name__ == "__main__":
     from rich import print
     ai = LearnFast()
     response = ai.chat("Hello, how are you?", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end='', flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end='', flush=True)
+    else:
+        print(response)

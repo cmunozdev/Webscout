@@ -1,12 +1,12 @@
 import json
 import random
 import string
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 
@@ -24,12 +24,12 @@ class EssentialAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 512,
         timeout: int = 60,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful AI assistant.",
         model: str = "rnj-1-instruct",
         temperature: float = 0.2,
@@ -96,9 +96,10 @@ class EssentialAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -188,7 +189,7 @@ class EssentialAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -200,12 +201,16 @@ class EssentialAI(Provider):
             return self.get_message(result) if not raw else result
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         if not isinstance(response, dict):
             return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":
     ai = EssentialAI()
-    for chunk in ai.chat("Hello!", stream=True):
-        print(chunk, end="", flush=True)
+    response = ai.chat("Hello!", stream=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

@@ -241,26 +241,31 @@ class IAsk(AISearch):
                 async_gen = loop.run_until_complete(async_gen_coro)
 
                 # Process chunks one by one
-                while True:
-                    try:
-                        # Get the next chunk
-                        chunk_coro = async_gen.__anext__()
-                        chunk = loop.run_until_complete(chunk_coro)
+                if hasattr(async_gen, "__anext__"):
+                    while True:
+                        try:
+                            # Get the next chunk
+                            chunk_coro = async_gen.__anext__()
+                            chunk = loop.run_until_complete(chunk_coro)
 
-                        # Update buffer and yield the chunk
-                        if isinstance(chunk, dict) and 'text' in chunk:
-                            buffer += chunk['text']
-                        elif isinstance(chunk, SearchResponse):
-                            buffer += chunk.text
-                        else:
-                            buffer += str(chunk)
+                            # Update buffer and yield the chunk
+                            if isinstance(chunk, dict) and 'text' in chunk:
+                                buffer += chunk['text']
+                            elif isinstance(chunk, SearchResponse):
+                                buffer += chunk.text
+                            else:
+                                buffer += str(chunk)
 
-                        yield chunk
-                    except StopAsyncIteration:
-                        break
-                    except Exception as e:
-                        print(f"Error in generator: {e}")
-                        break
+                            yield chunk
+                        except StopAsyncIteration:
+                            break
+                        except Exception as e:
+                            print(f"Error in generator: {e}")
+                            break
+                elif isinstance(async_gen, SearchResponse):
+                    yield async_gen
+                else:
+                    yield str(async_gen)
             finally:
                 # Store the final response and close the loop
                 self.last_response = {"text": buffer}

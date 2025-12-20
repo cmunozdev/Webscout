@@ -6,7 +6,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -46,12 +46,12 @@ class GithubChat(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2000,
         timeout: int = 60,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gpt-4o",
         cookie_path: str = "cookies.json"
     ):
@@ -221,9 +221,10 @@ class GithubChat(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """Send a message to the GitHub Copilot Chat API"""
 
         # Apply optimizers if specified
@@ -341,9 +342,9 @@ class GithubChat(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[str, Generator]:
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate a response to a prompt"""
         def for_stream():
             for response in self.ask(
@@ -360,9 +361,10 @@ class GithubChat(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Extract message text from response"""
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":
@@ -370,10 +372,13 @@ if __name__ == "__main__":
     from rich import print
 
     try:
-        ai = GithubChat("cookies.json")
+        ai = GithubChat(cookie_path="cookies.json")
         response = ai.chat("Python code to count r in strawberry", stream=True)
-        for chunk in response:
-            print(chunk, end="", flush=True)
+        if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+            for chunk in response:
+                print(chunk, end="", flush=True)
+        else:
+            print(response)
         print()
     except Exception as e:
         print(f"An error occurred: {e}")

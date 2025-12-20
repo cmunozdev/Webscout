@@ -17,9 +17,10 @@ class SourceDict(TypedDict, total=False):
     snippet: str
     favicon: str
 
-class StatusUpdateDict(TypedDict):
+class StatusUpdateDict(TypedDict, total=False):
     type: str
     message: str
+    data: Any
 
 class StatusTopBarDict(TypedDict, total=False):
     type: str
@@ -160,7 +161,7 @@ class Genspark(AISearch):
                     result_id = data.get("result_id")
 
                     # Internal State Updates
-                    if event_type == "result_start":
+                    if event_type == "result_start" and isinstance(result_id, str):
                         self.result_summary[result_id] = cast(ResultSummaryDict, {
                             "source": data.get("result_source"),
                             "rel_score": data.get("result_rel_score"),
@@ -261,17 +262,20 @@ if __name__ == "__main__":
     try:
         search_result_stream = ai.search("liger-kernal details", stream=True, raw=False)
 
-        for chunk in search_result_stream:
-            try:
-                # Use a more robust way to print Unicode characters on Windows
-                text = str(chunk)
-                sys.stdout.write(text)
-                sys.stdout.flush()
-            except UnicodeEncodeError:
-                # Fallback for Windows consoles that don't support UTF-8
-                safe_chunk = str(chunk).encode('ascii', errors='replace').decode('ascii')
-                sys.stdout.write(safe_chunk)
-                sys.stdout.flush()
+        if hasattr(search_result_stream, "__iter__") and not isinstance(search_result_stream, (str, bytes, SearchResponse)):
+            for chunk in search_result_stream:
+                try:
+                    # Use a more robust way to print Unicode characters on Windows
+                    text = str(chunk)
+                    sys.stdout.write(text)
+                    sys.stdout.flush()
+                except UnicodeEncodeError:
+                    # Fallback for Windows consoles that don't support UTF-8
+                    safe_chunk = str(chunk).encode('ascii', errors='replace').decode('ascii')
+                    sys.stdout.write(safe_chunk)
+                    sys.stdout.flush()
+        else:
+            print(search_result_stream)
         print()
 
     except KeyboardInterrupt:

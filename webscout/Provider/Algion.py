@@ -5,7 +5,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -26,7 +26,7 @@ class Algion(Provider):
         >>> print(response)
     """
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from Algion API.
 
         Args:
@@ -79,12 +79,12 @@ class Algion(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gpt-4o",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome"
@@ -195,9 +195,10 @@ class Algion(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Algion API and returns the response.
 
@@ -326,7 +327,7 @@ class Algion(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -371,7 +372,7 @@ class Algion(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message from the API response.
 
@@ -381,8 +382,9 @@ class Algion(Provider):
         Returns:
             str: The message content
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
 try:
     fetched_models = Algion.get_models()

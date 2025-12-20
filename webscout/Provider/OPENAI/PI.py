@@ -143,7 +143,6 @@ class Completions(BaseCompletions):
                                 new_content = content
                                 streaming_text += new_content
                                 completion_tokens += count_tokens(new_content) if new_content else 0
-                                prompt_tokens + completion_tokens
 
                                 # Create OpenAI-compatible chunk
                                 delta = ChoiceDelta(
@@ -416,9 +415,12 @@ if __name__ == "__main__":
         stream=True
     )
 
-    for chunk in response:
-        if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
-            print(chunk.choices[0].delta.content, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes, ChatCompletion)):
+        for chunk in response:
+            if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end="", flush=True)
+    else:
+        print(response)
     print()
 
     # Test non-streaming
@@ -431,5 +433,8 @@ if __name__ == "__main__":
         stream=False
     )
 
-    print(response.choices[0].message.content)
-    print(f"Usage: {response.usage}")
+    if isinstance(response, ChatCompletion):
+        print(response.choices[0].message.content)
+        print(f"Usage: {response.usage}")
+    else:
+        print(response)

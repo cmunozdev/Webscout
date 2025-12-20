@@ -5,7 +5,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent as Lit
 
@@ -56,16 +56,16 @@ class Sambanova(Provider):
 
     def __init__(
         self,
-        api_key: str = None,
+        api_key: Optional[str] = None,
         is_conversation: bool = True,
         max_tokens: int = 4096,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "Meta-Llama-3.1-8B-Instruct",
         system_prompt: str = "You are a helpful AI assistant.",
     ):
@@ -122,11 +122,12 @@ class Sambanova(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Union[Any, Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI using the Sambanova API."""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -244,7 +245,7 @@ class Sambanova(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
@@ -282,7 +283,7 @@ class Sambanova(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: Any) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Retrieves a clean message from the provided response.
 
@@ -299,12 +300,15 @@ class Sambanova(Provider):
                 return response["text"]
             elif "tool_calls" in response:
                 return json.dumps(response["tool_calls"])
-        return ""
+        return str(response)
 
 if __name__ == "__main__":
     # Ensure curl_cffi is installed
     from rich import print
     ai = Sambanova(api_key='')
     response = ai.chat(input(">>> "), stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

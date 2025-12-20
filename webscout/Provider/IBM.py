@@ -7,7 +7,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -60,12 +60,12 @@ class IBM(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "granite-chat",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome" # Note: browser fingerprinting might be less effective with impersonate
@@ -156,11 +156,12 @@ class IBM(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -278,7 +279,7 @@ class IBM(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
@@ -300,8 +301,9 @@ class IBM(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
         return response["text"]
 
 if __name__ == "__main__":
@@ -315,8 +317,11 @@ if __name__ == "__main__":
             test_ai = IBM(model=model, timeout=60,)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

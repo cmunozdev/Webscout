@@ -1,13 +1,13 @@
 import re
 import threading
-from typing import Any, Dict, Optional, Union
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
 
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -44,12 +44,12 @@ class PiAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2048, # Note: max_tokens is not used by this API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         voice: bool = False,
         voice_name: str = "voice3",
         output_file: str = "PiAI.mp3",
@@ -173,12 +173,13 @@ class PiAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-        voice: bool = None,
-        voice_name: str = None,
-        output_file: str = None
-    ) -> Union[dict, str, Any]:
+        voice: Optional[bool] = None,
+        voice_name: Optional[str] = None,
+        output_file: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Response:
         """
         Interact with Pi.ai by sending a prompt and receiving a response.
         Now supports raw streaming and non-streaming output, matching the pattern in other providers.
@@ -297,13 +298,14 @@ class PiAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-        voice: bool = None,
-        voice_name: str = None,
-        output_file: str = None,
+        voice: Optional[bool] = None,
+        voice_name: Optional[str] = None,
+        output_file: Optional[str] = None,
         raw: bool = False,  # Added raw parameter
-    ) -> Union[str, Any]:
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response based on the provided prompt.
 
@@ -358,10 +360,11 @@ class PiAI(Provider):
             else:
                 return self.get_message(response_data)
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Retrieves message only from response"""
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
     def download_audio_threaded(self, voice_name: str, second_sid: str, output_file: str) -> None:
         """Downloads audio in a separate thread."""
@@ -401,9 +404,11 @@ if __name__ == '__main__':
         ai = PiAI(timeout=60)
         print("[bold blue]Testing Chat (Stream):[/bold blue]")
         response = ai.chat("hi", stream=True, raw=False)
-        full_response = ""
-        for chunk in response:
-            print(chunk, end="", flush=True)
+        if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+            for chunk in response:
+                print(chunk, end="", flush=True)
+        else:
+            print(response)
     except exceptions.FailedToGenerateResponseError as e:
         print(f"\n[bold red]API Error:[/bold red] {e}")
     except Exception as e:

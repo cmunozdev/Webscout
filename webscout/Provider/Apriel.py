@@ -10,7 +10,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
@@ -38,12 +38,12 @@ class Apriel(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful assistant.",
         model: str = "UNKNOWN"
     ):
@@ -160,9 +160,10 @@ class Apriel(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Apriel Gradio API and returns the response.
 
@@ -245,7 +246,7 @@ class Apriel(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -287,22 +288,26 @@ class Apriel(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message from the API response.
 
         Args:
-            response (dict): The API response.
+            response (Response): The API response.
 
         Returns:
             str: The message content.
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":
     from rich import print
     ai = Apriel(timeout=60)
     response = ai.chat("write a poem about AI", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

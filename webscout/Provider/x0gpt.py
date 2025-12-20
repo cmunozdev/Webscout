@@ -1,4 +1,4 @@
-from typing import Any, Dict, Generator, Union
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
 
 from curl_cffi import CurlError
@@ -8,7 +8,7 @@ from curl_cffi.const import CurlHttpVersion
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -40,12 +40,12 @@ class X0GPT(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful assistant.",
         model: str = "UNKNOWN"
     ):
@@ -127,9 +127,10 @@ class X0GPT(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the x0-gpt.devwtf.in API and returns the response.
 
@@ -252,9 +253,10 @@ class X0GPT(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the X0GPT API.
@@ -327,5 +329,8 @@ if __name__ == "__main__":
     from rich import print
     ai = X0GPT(timeout=5000)
     response = ai.chat("write a poem about AI", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

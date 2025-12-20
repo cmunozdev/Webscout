@@ -413,4 +413,7 @@ if __name__ == "__main__":
         max_tokens=150,
     )
 
-    print(f"{BOLD}Response:{RESET} {response.choices[0].message.content}")
+    if isinstance(response, ChatCompletion):
+        print(f"{BOLD}Response:{RESET} {response.choices[0].message.content}")
+    else:
+        print(f"{BOLD}Response:{RESET} {response}")

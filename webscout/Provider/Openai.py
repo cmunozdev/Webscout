@@ -5,7 +5,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
@@ -17,7 +17,7 @@ class OPENAI(Provider):
     required_auth = True
 
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from OpenAI API.
 
         Args:
@@ -70,12 +70,12 @@ class OPENAI(Provider):
         top_p: float = 1,
         model: str = "gpt-3.5-turbo",
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         base_url: str = "https://api.openai.com/v1/chat/completions",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome"
@@ -165,9 +165,10 @@ class OPENAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -277,8 +278,9 @@ class OPENAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
             gen = self.ask(

@@ -6,7 +6,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import (  # Import sanitize_stream
     AwesomePrompts,
     Conversation,
@@ -27,12 +27,12 @@ class JadveOpenAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gpt-5-mini",
         system_prompt: str = "You are a helpful AI assistant." # Note: system_prompt is not used by this API
     ):
@@ -121,11 +121,12 @@ class JadveOpenAI(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[dict, Generator[dict, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Chat with AI.
 
@@ -226,7 +227,7 @@ class JadveOpenAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -264,16 +265,17 @@ class JadveOpenAI(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Retrieves message from the response.
 
         Args:
-            response (dict): Response from the ask() method.
+            response (Response): Response from the ask() method.
         Returns:
             str: Extracted text.
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         # Extractor handles formatting
         return response.get("text", "")
 

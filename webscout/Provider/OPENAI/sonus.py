@@ -296,7 +296,7 @@ if __name__ == "__main__":
                 stream=False
             )
 
-            if response and response.choices and response.choices[0].message.content:
+            if isinstance(response, ChatCompletion) and response.choices and response.choices[0].message.content:
                 status = "✓"
                 # Truncate response if too long
                 display_text = response.choices[0].message.content.strip()

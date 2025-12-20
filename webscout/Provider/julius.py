@@ -1,12 +1,12 @@
 
 import json
 import uuid
-from typing import Generator, Union
+from typing import Any, Generator, Optional, Union
 
 import requests
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
@@ -36,12 +36,12 @@ class Julius(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "Gemini Flash",
     ):
         """Instantiates Julius
@@ -107,9 +107,10 @@ class Julius(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> dict:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI
 
         Args:
@@ -189,7 +190,7 @@ class Julius(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -234,5 +235,8 @@ if __name__ == '__main__':
     from rich import print
     ai = Julius(api_key="",timeout=5000)
     response = ai.chat("write a poem about AI", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)
