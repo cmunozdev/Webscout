@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
 ### ✨ Added
 
+- **feat**: webscout/Provider/ChatSandbox.py - Major update to ChatSandbox provider after reverse engineering. Expanded `AVAILABLE_MODELS` to include `deepseek-r1-full`, `gemini-thinking`, `llama`, and others.
+- **feat**: webscout/Provider/OPENAI/chatsandbox.py - Updated OpenAI-compatible ChatSandbox provider with new model list and improved response extraction for reasoning and content.
 - **feat**: Enhanced SwiftCLI with advanced argument and option validation including min/max length, regex patterns, and choices
 - **feat**: Added JSON and YAML output formatters (`json_output`, `yaml_output`) for structured data output
 - **feat**: Implemented command aliases system with `app.alias()` method for creating command shortcuts
