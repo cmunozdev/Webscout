@@ -7,6 +7,8 @@ All notable changes to this project will be documented in this file.
 
 ### ✨ Added
 
+- **feat**: webscout/Provider/HuggingFace.py - New standalone Hugging Face provider with dynamic model fetching and advanced stream sanitization.
+- **feat**: webscout/Provider/OPENAI/huggingface.py - New OpenAI-compatible Hugging Face provider using HF Router with manual stream parsing.
 - **feat**: webscout/Provider/ChatSandbox.py - Major update to ChatSandbox provider after reverse engineering. Expanded `AVAILABLE_MODELS` to include `deepseek-r1-full`, `gemini-thinking`, `llama`, and others.
 - **feat**: webscout/Provider/OPENAI/chatsandbox.py - Updated OpenAI-compatible ChatSandbox provider with new model list and improved response extraction for reasoning and content.
 - **feat**: Enhanced SwiftCLI with advanced argument and option validation including min/max length, regex patterns, and choices
@@ -92,8 +94,13 @@ All notable changes to this project will be documented in this file.
 - **removed**: webscout/Provider/AISEARCH/stellar_search.py - Removed dead Stellar AI search provider that was causing import errors and service unavailability.
 
 ### 🐛 Fixed
-- **fix**: `webscout/Provider/typefully.py` - Fixed critical bug where TypefullyAI provider was returning empty responses due to incorrect streaming parser expecting wrong format `0:"..."` instead of actual Typefully AI SSE format `data: {"type":"text-delta","delta":"Hello"}`. Implemented proper content extractor method and updated streaming logic to use `sanitize_stream` with `intro_value="data:"` and `content_extractor=self._typefully_extractor` for robust Server-Sent Events parsing.
-- **fix**: `webscout/Provider/OPENAI/typefully.py` - Fixed OpenAI-compatible TypefullyAI provider issues: corrected `sanitize_stream` import from wrong module (AIbase → sanitize), implemented proper content extraction method `_typefully_extractor` for Typefully AI SSE format parsing, updated Anthropic model name from `claude-3-5-haiku-20241022` to `claude-haiku-4-5-20251001` to fix 400 errors, and verified all 4 models working correctly for both streaming and non-streaming modes.
+- **fix**: webscout/Provider/meta.py - Fixed HTTP/2 stream closure errors (curl error 92) by implementing robust retry mechanism with exponential backoff using AIutel retry decorator
+- **fix**: webscout/Provider/meta.py - Added HTTP/1.1 fallback via requests library when HTTP/2 streams fail, ensuring compatibility with problematic networks
+- **fix**: webscout/Provider/meta.py - Improved cookie extraction with retry logic, fallback to browser cookies, and better error handling for region-blocked sites
+- **fix**: webscout/Provider/meta.py - Added `skip_init` parameter for offline testing and development without requiring live cookie fetching
+- **fix**: webscout/Provider/meta.py - Enhanced streaming error recovery to gracefully handle connection interruptions during response iteration
+- **fix**: webscout/Provider/meta.py - Improved main module error handling with helpful guidance for network issues and testing modes
+- **test**: Added comprehensive unit tests in `tests/test_meta_http2.py` for HTTP/2 fallback functionality and retry mechanisms
 - **fix**: webscout/Provider/oivscode.py - Fixed type annotation bugs by updating optional parameters to use `Optional[str]` type hints, correcting method calls, and adding proper string handling in `get_message()` method
 - **fix**: webscout/Provider/oivscode.py - Removed unwanted print statements from `fetch_available_models()` method and updated its docstring to reflect that it no longer prints models
 - **fix**: webscout/sanitize.py - Fixed import organization issues using `ruff check --fix` to properly sort and format imports according to project standards

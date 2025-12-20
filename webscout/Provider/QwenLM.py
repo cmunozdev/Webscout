@@ -5,7 +5,7 @@ import time
 
 from curl_cffi import Session
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts
+from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
 from webscout import exceptions
 
@@ -33,6 +33,19 @@ class QwenLM(Provider):
         "qwen2.5-coder-32b-instruct",
         "qwen2.5-72b-instruct"
     ]
+
+    @staticmethod
+    def _qwenlm_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
+        """Extracts content from QwenLM stream JSON objects."""
+        if isinstance(chunk, dict):
+            choices = chunk.get("choices")
+            if choices:
+                delta = choices[0].get("delta", {})
+                status = delta.get("status")
+                if status == "finished":
+                    return None
+                return delta.get("content")
+        return None
 
     def __init__(
         self,
@@ -172,34 +185,31 @@ class QwenLM(Provider):
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
 
-            cumulative_text = ""
-            for line in response.iter_lines(decode_unicode=False):
-                if line:
-                    line = line.decode('utf-8') if isinstance(line, bytes) else line
-                    if line.startswith("data: "):
-                        data = line[6:]
-                        if data == "[DONE]":
-                            break
-                        try:
-                            json_data = json.loads(data)
-                            if "response.created" in json_data:
-                                # Initial response, can ignore or use for chat_id etc.
-                                continue
-                            if "choices" in json_data:
-                                delta = json_data["choices"][0]["delta"]
-                                new_content = delta.get("content", "")
-                                status = delta.get("status", "")
-                                if status == "finished":
-                                    break
-                                cumulative_text += new_content
-                                if new_content:
-                                    yield delta if raw else {"text": new_content}
-                        except json.JSONDecodeError:
-                            continue
-            self.last_response.update(dict(text=cumulative_text))
-            self.conversation.update_chat_history(
-                prompt, self.get_message(self.last_response)
+            streaming_text = ""
+            processed_stream = sanitize_stream(
+                data=response.iter_lines(decode_unicode=False),
+                intro_value="data:",
+                to_json=True,
+                skip_markers=["[DONE]"],
+                content_extractor=self._qwenlm_extractor,
+                yield_raw_on_error=False,
+                raw=raw
             )
+
+            for content_chunk in processed_stream:
+                if isinstance(content_chunk, bytes):
+                    content_chunk = content_chunk.decode('utf-8', errors='ignore')
+
+                if raw:
+                    yield content_chunk
+                else:
+                    if content_chunk and isinstance(content_chunk, str):
+                        streaming_text += content_chunk
+                        yield dict(text=content_chunk)
+
+            if not raw and streaming_text:
+                self.last_response = {"text": streaming_text}
+                self.conversation.update_chat_history(prompt, streaming_text)
 
         def for_non_stream() -> Dict[str, Any]:
             """
@@ -219,19 +229,26 @@ class QwenLM(Provider):
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
 
-            result = response.json()
-            assistant_reply = (
-                result.get("choices", [{}])[0]
-                .get("message", {})
-                .get("content", "")
-            )
 
-            self.last_response.update({"text": assistant_reply})
-            self.conversation.update_chat_history(
-                prompt, self.get_message(self.last_response)
+            # Use sanitize_stream to parse the non-streaming JSON response
+            processed_stream = sanitize_stream(
+                data=response.text,
+                to_json=True,
+                intro_value=None,
+                content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
+                yield_raw_on_error=False,
+                raw=raw
             )
+                        if raw:
+                return response.text
 
-            return {"text": assistant_reply}
+            # Extract the single result
+            content = next(processed_stream, None)
+            content = content if isinstance(content, str) else ""
+
+            self.last_response = {"text": content}
+            self.conversation.update_chat_history(prompt, content)
+            return self.last_response
 
         return for_stream() if stream else for_non_stream()
 
@@ -241,17 +258,53 @@ class QwenLM(Provider):
         prompt: str,
         stream: bool = False,
         optimizer: Optional[str] = None,
+        raw: bool = False,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
-        """Generate response string from chat."""
+        """
+        Generates a chat response from the QwenLM API.
+        
+        Args:
+            prompt: The prompt to send to the API
+            stream: Whether to stream the response
+            optimizer: Optional prompt optimizer name
+            raw: If True, returns unprocessed response chunks without any 
+                processing or sanitization. Useful for debugging or custom
+                processing pipelines. Defaults to False.
+            conversationally: Whether to use conversation context
+            
+        Returns:
+            When raw=False: Extracted message string or Generator yielding strings
+            When raw=True: Raw response or Generator yielding raw chunks
+                
+        Examples:
+            >>> ai = QwenLM(cookies_path="cookies.json")
+            >>> # Get processed response
+            >>> response = ai.chat("Hello")
+            >>> print(response)
+            
+            >>> # Get raw response
+            >>> raw_response = ai.chat("Hello", raw=True)
+            >>> print(raw_response)
+            
+            >>> # Stream raw chunks
+            >>> for chunk in ai.chat("Hello", stream=True, raw=True):
+            ...     print(chunk, end='', flush=True)
+        """
 
         def for_stream() -> Generator[str, None, None]:
-            for response in self.ask(prompt, True, optimizer=optimizer, conversationally=conversationally):
-                yield response if isinstance(response, str) else response["text"]
+            for response in self.ask(prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally):
+                if raw:
+                    yield response
+                else:
+                    yield response["text"]
 
         def for_non_stream() -> str:
-            result = self.ask(prompt, False, optimizer=optimizer, conversationally=conversationally)
-            return self.get_message(result)
+            result = self.ask(prompt, False, raw=raw, optimizer=optimizer, conversationally=conversationally)
+            if raw:
+                return result
+            else:
+                return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

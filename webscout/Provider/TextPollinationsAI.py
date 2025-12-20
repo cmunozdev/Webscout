@@ -204,20 +204,20 @@ class TextPollinationsAI(Provider):
                     timeout=self.timeout
                 )
                 response.raise_for_status()
-                resp_json = response.json()
+                
+                # Use sanitize_stream to parse the non-streaming JSON response
+                processed_stream = sanitize_stream(
+                    data=response.text,
+                    to_json=True,
+                    intro_value=None,
+                    content_extractor=lambda chunk: chunk if isinstance(chunk, dict) else None,
+                    yield_raw_on_error=False
+                )
+                # Extract the single result
+                resp_json = next(processed_stream, None)
                 
                 # Check for standard OpenAI response structure
-                if 'choices' in resp_json and len(resp_json['choices']) > 0:
-                    choice = resp_json['choices'][0]
-                    message = choice.get('message', {})
-                    content = message.get('content', '')
-                    tool_calls = message.get('tool_calls')
-                    
-                    result = {}
-                    if content:
-                        result["text"] = content
-                    if tool_calls:
-                        result["tool_calls"] = tool_calls
+                if resp_json and 'choices' in resp_json and len(resp_json['choices']) > 0:
                         
                     self.last_response = result
                     self.conversation.update_chat_history(prompt, content or "")

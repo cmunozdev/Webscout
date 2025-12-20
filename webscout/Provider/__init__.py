@@ -23,6 +23,7 @@ from webscout.Provider.HadadXYZ import HadadXYZ
 from webscout.Provider.Gradient import Gradient
 from webscout.Provider.Groq import GROQ
 from webscout.Provider.HeckAI import HeckAI
+from webscout.Provider.HuggingFace import HuggingFace
 from webscout.Provider.IBM import IBM
 from webscout.Provider.Jadve import JadveOpenAI
 from webscout.Provider.julius import Julius
@@ -81,6 +82,7 @@ __all__ = [
     "Gradient",
     "GROQ",
     "HeckAI",
+    "HuggingFace",
     "IBM",
     "JadveOpenAI",
     "Julius",

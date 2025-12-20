@@ -237,9 +237,23 @@ class YEPCHAT(Provider):
                         )
                 if raw:
                     return response.text
-                response_data = response.json()
-                if 'choices' in response_data and len(response_data['choices']) > 0:
-                    content = response_data['choices'][0].get('message', {}).get('content', '')
+                
+                # Use sanitize_stream to parse the non-streaming JSON response
+                processed_stream = sanitize_stream(
+                    data=response.text,
+                    to_json=True,
+                    intro_value=None,
+                    content_extractor=lambda chunk: chunk.get('choices', [{}])[0].get('message', {}).get('content') if isinstance(chunk, dict) else None,
+                    yield_raw_on_error=False,
+                    raw=raw
+                )
+                # Extract the single result
+                content = next(processed_stream, None)
+                if raw:
+                    return content
+                content = content if isinstance(content, str) else ""
+                
+                if content:
                     self.conversation.update_chat_history(prompt, content)
                     return {"text": content}
                 else:
