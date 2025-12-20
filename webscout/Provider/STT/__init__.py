@@ -3,12 +3,12 @@
 
 # Base classes
 from webscout.Provider.STT.base import (
-    STTCompatibleProvider,
-    BaseSTTTranscriptions,
     BaseSTTAudio,
     BaseSTTChat,
-    TranscriptionResponse,
+    BaseSTTTranscriptions,
+    STTCompatibleProvider,
     STTModels,
+    TranscriptionResponse,
 )
 
 # Provider implementations

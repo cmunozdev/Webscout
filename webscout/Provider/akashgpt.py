@@ -1,16 +1,20 @@
-from typing import Optional, Union, Any, Dict, Generator
-from uuid import uuid4
-import cloudscraper
 import re
-import json
 import time
+from typing import Any, Dict, Optional, Union
+from uuid import uuid4
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+import cloudscraper
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
+
 
 class AkashGPT(Provider):
     """
@@ -73,7 +77,7 @@ class AkashGPT(Provider):
         # Validate model choice
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         self.session = cloudscraper.create_scraper()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
@@ -113,7 +117,7 @@ class AkashGPT(Provider):
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin",
             "sec-gpc": "1",
-            "user-agent": self.agent.random()  
+            "user-agent": self.agent.random()
         }
 
         # Set cookies with the session token
@@ -320,7 +324,7 @@ if __name__ == "__main__":
             test_ai = AkashGPT(model=model, timeout=60, api_key="5ef9b0782df982fab720810f6ee72a9af01ebadbd9eb05adae0ecc8711ec79c5; _ga_LFRGN2J2RV=GS2.1.s1763554272$o4$g1$t1763554284$j48$l0$h0") # Example key
             response = test_ai.chat("Say 'Hello' in one word")
             response_text = response
-            
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

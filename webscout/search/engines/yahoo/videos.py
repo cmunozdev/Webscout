@@ -6,13 +6,13 @@ from collections.abc import Mapping
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
-from .base import YahooSearchEngine
 from ...results import VideosResult
+from .base import YahooSearchEngine
 
 
 class YahooVideos(YahooSearchEngine[VideosResult]):
     """Yahoo video search engine with filters.
-    
+
     Features:
     - Length filters (short, medium, long)
     - Resolution filters (SD, HD, 4K)
@@ -72,7 +72,7 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build video search payload.
-        
+
         Args:
             query: Search query
             region: Region code
@@ -83,7 +83,7 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
                 - length: Video length filter
                 - resolution: Video resolution filter
                 - source: Video source filter
-                
+
         Returns:
             Query parameters dictionary
         """
@@ -138,20 +138,20 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
 
     def extract_video_url(self, href: str) -> str:
         """Extract actual video URL from Yahoo redirect.
-        
+
         Args:
             href: Yahoo redirect URL
-            
+
         Returns:
             Actual video URL
         """
         if not href:
             return href
-            
+
         try:
             # Parse the URL
             parsed = urlparse(href)
-            
+
             # Check if it's a Yahoo redirect
             if "r.search.yahoo.com" in parsed.netloc or "/RU=" in href:
                 # Extract the RU parameter
@@ -166,37 +166,37 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
                     query_params = parse_qs(parsed.query)
                     if "url" in query_params:
                         return query_params["url"][0]
-            
+
             return href
         except Exception:
             return href
 
     def post_extract_results(self, results: list[VideosResult]) -> list[VideosResult]:
         """Post-process video results.
-        
+
         Args:
             results: Raw extracted results
-            
+
         Returns:
             Cleaned results
         """
         cleaned_results = []
-        
+
         for result in results:
             # Extract real URL
             if result.url:
                 result.url = self.extract_video_url(result.url)
-            
+
             # Skip invalid results
             if not result.url or not result.title:
                 continue
-            
+
             # Clean thumbnail URL
             if result.thumbnail and result.thumbnail.startswith("data:"):
                 result.thumbnail = ""
-            
+
             cleaned_results.append(result)
-        
+
         return cleaned_results
 
     def search(
@@ -210,7 +210,7 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
         **kwargs: Any,
     ) -> list[VideosResult] | None:
         """Search Yahoo Videos with pagination.
-        
+
         Args:
             query: Video search query
             region: Region code
@@ -219,14 +219,14 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
             page: Starting page
             max_results: Maximum results
             **kwargs: Additional filters (length, resolution, source)
-            
+
         Returns:
             List of VideoResult objects
         """
         results = []
         current_page = page
         max_pages = kwargs.get("max_pages", 5)
-        
+
         while current_page <= max_pages:
             payload = self.build_payload(
                 query=query,
@@ -236,29 +236,29 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
                 page=current_page,
                 **kwargs
             )
-            
+
             html_text = self.request(self.search_method, self.search_url, params=payload)
             if not html_text:
                 break
-            
+
             html_text = self.pre_process_html(html_text)
             page_results = self.extract_results(html_text)
-            
+
             if not page_results:
                 break
-            
+
             results.extend(page_results)
-            
+
             if max_results and len(results) >= max_results:
                 break
-            
+
             current_page += 1
-        
+
         results = self.post_extract_results(results)
-        
+
         if max_results:
             results = results[:max_results]
-        
+
         return results if results else None
 
     def run(
@@ -273,7 +273,7 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
         max_results: int | None = None,
     ) -> list[dict[str, str]]:
         """Run video search and return results as dictionaries.
-        
+
         Args:
             keywords: Search query.
             region: Region code.
@@ -283,7 +283,7 @@ class YahooVideos(YahooSearchEngine[VideosResult]):
             duration: Video duration filter.
             license_videos: License filter.
             max_results: Maximum number of results.
-            
+
         Returns:
             List of video result dictionaries.
         """

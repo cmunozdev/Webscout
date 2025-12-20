@@ -1,15 +1,19 @@
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 try:
@@ -45,10 +49,10 @@ class Completions(BaseCompletions):
         if top_p is not None:
             payload["top_p"] = top_p
         payload.update(kwargs)
-        
+
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
-        
+
         if stream:
             return self._create_stream(request_id, created_time, model, payload, timeout, proxies)
         else:
@@ -69,7 +73,7 @@ class Completions(BaseCompletions):
                 impersonate="chrome120"
             )
             response.raise_for_status()
-            
+
             prompt_tokens = count_tokens([msg.get("content", "") for msg in payload.get("messages", [])])
             completion_tokens = 0
             total_tokens = 0
@@ -101,7 +105,7 @@ class Completions(BaseCompletions):
                             if content:
                                 completion_tokens += count_tokens(content)
                                 total_tokens = prompt_tokens + completion_tokens
-                            
+
                             delta = ChoiceDelta(
                                 content=content,
                                 role=delta_data.get('role'),
@@ -129,7 +133,7 @@ class Completions(BaseCompletions):
                             yield chunk
                         except json.JSONDecodeError:
                             continue
-            
+
             # Final chunk with finish_reason="stop"
             delta = ChoiceDelta(content=None, role=None, tool_calls=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop", logprobs=None)
@@ -147,7 +151,7 @@ class Completions(BaseCompletions):
                 "estimated_cost": None
             }
             yield chunk
-            
+
         except Exception as e:
             raise IOError(f"Nvidia stream request failed: {e}") from e
 
@@ -166,10 +170,10 @@ class Completions(BaseCompletions):
             )
             response.raise_for_status()
             data = response.json()
-            
+
             choices_data = data.get('choices', [])
             usage_data = data.get('usage', {})
-            
+
             choices = []
             for choice_d in choices_data:
                 message_d = choice_d.get('message', {})
@@ -183,13 +187,13 @@ class Completions(BaseCompletions):
                     finish_reason=choice_d.get('finish_reason', 'stop')
                 )
                 choices.append(choice)
-            
+
             usage = CompletionUsage(
                 prompt_tokens=usage_data.get('prompt_tokens', 0),
                 completion_tokens=usage_data.get('completion_tokens', 0),
                 total_tokens=usage_data.get('total_tokens', 0)
             )
-            
+
             completion = ChatCompletion(
                 id=data.get('id', request_id),
                 choices=choices,
@@ -222,7 +226,7 @@ class Nvidia(OpenAICompatibleProvider):
             headers = {}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            
+
             response = temp_session.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
@@ -246,7 +250,7 @@ class Nvidia(OpenAICompatibleProvider):
     def __init__(self, api_key: str, browser: str = "chrome", timeout: int = 30):
         if not api_key:
             raise ValueError("API key is required for Nvidia")
-        
+
         # Update available models from API
         self.update_available_models(api_key)
 
@@ -254,10 +258,10 @@ class Nvidia(OpenAICompatibleProvider):
         self.timeout = timeout
         self.base_url = "https://integrate.api.nvidia.com/v1/chat/completions"
         self.session = Session()
-        
+
         agent = LitAgent()
         fingerprint = agent.generate_fingerprint(browser)
-        
+
         self.headers = {
             "Accept": "application/json",
             "Accept-Language": fingerprint["accept_language"],

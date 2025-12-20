@@ -3,28 +3,29 @@ Gradient Network Chat API Provider
 Reverse engineered from https://chat.gradient.network/
 """
 
-import requests
-from typing import Optional, Generator, Dict, Any, Union
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 class Gradient(Provider):
     """
     Provider for Gradient Network chat API
     Supports real-time streaming responses from distributed GPU clusters
-    
+
     Note: GPT OSS 120B works on "nvidia" cluster, Qwen3 235B works on "hybrid" cluster
     """
-    
+
     required_auth = False
     AVAILABLE_MODELS = [
         "GPT OSS 120B",
         "Qwen3 235B",
     ]
-    
+
     # Model to cluster mapping
     MODEL_CLUSTERS = {
         "GPT OSS 120B": "nvidia",
@@ -62,11 +63,11 @@ class Gradient(Provider):
         self.cluster_mode = cluster_mode or self.MODEL_CLUSTERS.get(model, "nvidia")
         self.enable_thinking = enable_thinking
         self.last_response = {}
-        
+
         self.session = requests.Session()
         if proxies:
             self.session.proxies = proxies
-        
+
         # Headers matching the working curl request
         self.headers = {
             "accept": "*/*",
@@ -109,14 +110,14 @@ class Gradient(Provider):
     def _gradient_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
         """
         Extracts content from Gradient API stream response.
-        
+
         The API returns JSON objects like:
         {"type": "reply", "data": {"role": "assistant", "content": "text"}}
         {"type": "reply", "data": {"role": "assistant", "reasoningContent": "text"}}
-        
+
         Args:
             chunk: Parsed JSON dict from the stream
-            
+
         Returns:
             Extracted content string or None
         """
@@ -203,7 +204,7 @@ class Gradient(Provider):
                 full_response = ""
                 for chunk in for_stream():
                     full_response += self.get_message(chunk) if not raw else chunk
-                
+
                 self.last_response = {"text": full_response}
                 self.conversation.update_chat_history(prompt, full_response)
                 return self.last_response if not raw else full_response

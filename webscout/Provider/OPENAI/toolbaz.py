@@ -1,25 +1,25 @@
-import time
-import uuid
 import base64
 import json
 import random
-import string
 import re
-import cloudscraper
+import string
+import time
+import uuid
 from datetime import datetime
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
+
+import cloudscraper
 
 from webscout.litagent import LitAgent
 from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
     ChatCompletionMessage,
+    Choice,
     ChoiceDelta,
     CompletionUsage,
     format_prompt,
-    get_system_prompt
 )
 
 # ANSI escape codes for formatting
@@ -50,7 +50,7 @@ class Completions(BaseCompletions):
         """
         # Format the messages using the format_prompt utility
         formatted_prompt = format_prompt(messages, add_special_tokens=True, do_continue=True)
-        
+
         # Get authentication token
         auth = self._client.get_auth()
         if not auth:
@@ -97,38 +97,38 @@ class Completions(BaseCompletions):
             buffer = ""
             tag_start = "[model:"
             streaming_text = ""
-            
+
             for chunk in resp.iter_content(chunk_size=1):
                 if chunk:
                     text = chunk.decode(errors="ignore")
                     buffer += text
-                    
+
                     # Remove all complete [model: ...] tags in buffer
                     while True:
                         match = re.search(r"\[model:.*?\]", buffer)
                         if not match:
                             break
                         buffer = buffer[:match.start()] + buffer[match.end():]
-                    
+
                     # Only yield up to the last possible start of a tag
                     last_tag = buffer.rfind(tag_start)
                     if last_tag == -1 or last_tag + len(tag_start) > len(buffer):
                         if buffer:
                             streaming_text += buffer
-                            
+
                             # Create the delta object
                             delta = ChoiceDelta(
                                 content=buffer,
                                 role="assistant"
                             )
-                            
+
                             # Create the choice object
                             choice = Choice(
                                 index=0,
                                 delta=delta,
                                 finish_reason=None
                             )
-                            
+
                             # Create the chunk object
                             chunk = ChatCompletionChunk(
                                 id=request_id,
@@ -136,26 +136,26 @@ class Completions(BaseCompletions):
                                 created=created_time,
                                 model=model
                             )
-                            
+
                             yield chunk
                             buffer = ""
                     else:
                         if buffer[:last_tag]:
                             streaming_text += buffer[:last_tag]
-                            
+
                             # Create the delta object
                             delta = ChoiceDelta(
                                 content=buffer[:last_tag],
                                 role="assistant"
                             )
-                            
+
                             # Create the choice object
                             choice = Choice(
                                 index=0,
                                 delta=delta,
                                 finish_reason=None
                             )
-                            
+
                             # Create the chunk object
                             chunk = ChatCompletionChunk(
                                 id=request_id,
@@ -163,10 +163,10 @@ class Completions(BaseCompletions):
                                 created=created_time,
                                 model=model
                             )
-                            
+
                             yield chunk
                         buffer = buffer[last_tag:]
-            
+
             # Remove any remaining [model: ...] tag in the buffer
             buffer = re.sub(r"\[model:.*?\]", "", buffer)
             if buffer:
@@ -175,14 +175,14 @@ class Completions(BaseCompletions):
                     content=buffer,
                     role="assistant"
                 )
-                
+
                 # Create the choice object
                 choice = Choice(
                     index=0,
                     delta=delta,
                     finish_reason="stop"
                 )
-                
+
                 # Create the chunk object
                 chunk = ChatCompletionChunk(
                     id=request_id,
@@ -190,30 +190,30 @@ class Completions(BaseCompletions):
                     created=created_time,
                     model=model
                 )
-                
+
                 yield chunk
-            
+
             # Final chunk with finish_reason
             delta = ChoiceDelta(
                 content=None,
                 role=None
             )
-            
+
             choice = Choice(
                 index=0,
                 delta=delta,
                 finish_reason="stop"
             )
-            
+
             chunk = ChatCompletionChunk(
                 id=request_id,
                 choices=[choice],
                 created=created_time,
                 model=model
             )
-            
+
             yield chunk
-            
+
         except Exception as e:
             print(f"{RED}Error during Toolbaz streaming request: {e}{RESET}")
             raise IOError(f"Toolbaz streaming request failed: {e}") from e
@@ -246,17 +246,17 @@ class Completions(BaseCompletions):
                 role="assistant",
                 content=text
             )
-            
+
             # Create the choice object
             choice = Choice(
                 index=0,
                 message=message,
                 finish_reason="stop"
             )
-            
+
             # Usage data is not provided by this API in a standard way, set to 0
             usage = CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
-            
+
             # Create the completion object
             completion = ChatCompletion(
                 id=request_id,
@@ -265,9 +265,9 @@ class Completions(BaseCompletions):
                 model=model,
                 usage=usage
             )
-            
+
             return completion
-            
+
         except Exception as e:
             print(f"{RED}Error during Toolbaz non-stream request: {e}{RESET}")
             raise IOError(f"Toolbaz request failed: {e}") from e
@@ -305,7 +305,7 @@ class Toolbaz(OpenAICompatibleProvider):
         "grok-4-fast",
         "grok-4.1-fast",
 
-        
+
         "toolbaz-v4.5-fast",
         "toolbaz_v4",
         "toolbaz_v3.5_pro",
@@ -316,7 +316,7 @@ class Toolbaz(OpenAICompatibleProvider):
 
         "Llama-4-Maverick",
         "Llama-3.3-70B",
-        
+
         "mixtral_8x22b",
         "L3-70B-Euryale-v2.1",
         "midnight-rose",
@@ -340,10 +340,10 @@ class Toolbaz(OpenAICompatibleProvider):
         """
         self.timeout = timeout
         self.proxies = proxies
-        
+
         # Initialize session with cloudscraper
         self.session = cloudscraper.create_scraper()
-        
+
         # Set up headers
         self.session.headers.update({
             **LitAgent().generate_fingerprint(browser=browser),

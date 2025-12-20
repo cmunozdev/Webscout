@@ -1,16 +1,13 @@
-from typing import Generator, Optional, Union, Any, Dict
 import json
-import time
 import random
 import string
-from curl_cffi import CurlError
+from typing import Any, Dict, Generator, Union
+
 from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 
 
@@ -64,11 +61,11 @@ class EssentialAI(Provider):
         self.session = Session()
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
-        
+
         # Get initial cookies
         try:
             self.session.get(self.api_endpoint, timeout=self.timeout)
-        except:
+        except Exception:
             pass
 
         self.__available_optimizers = (
@@ -111,12 +108,12 @@ class EssentialAI(Provider):
             else:
                 raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
 
-        session_hash = self._get_session_hash()
-        
+        self._get_session_hash()
+
         # Gradio 5 /call pattern
         payload = {
             "data": [
-                conversation_prompt, 
+                conversation_prompt,
                 [], # history
                 self.system_prompt,
                 float(self.max_tokens_to_sample),
@@ -133,7 +130,7 @@ class EssentialAI(Provider):
                 call_response = self.session.post(call_url, json=payload, timeout=self.timeout)
                 call_response.raise_for_status()
                 event_id = call_response.json().get("event_id")
-                
+
                 if not event_id:
                     raise exceptions.FailedToGenerateResponseError("Failed to get event_id")
 
@@ -150,7 +147,8 @@ class EssentialAI(Provider):
 
                 last_full_text = ""
                 for line in response.iter_lines():
-                    if not line: continue
+                    if not line:
+                        continue
                     line_str = line.decode('utf-8')
                     if line_str.startswith("data: "):
                         try:
@@ -169,7 +167,7 @@ class EssentialAI(Provider):
                                         else:
                                             streaming_text += delta
                                             yield {"text": delta}
-                        except:
+                        except Exception:
                             pass
 
             except Exception as e:
@@ -203,7 +201,8 @@ class EssentialAI(Provider):
         return for_stream() if stream else for_non_stream()
 
     def get_message(self, response: dict) -> str:
-        if not isinstance(response, dict): return str(response)
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":

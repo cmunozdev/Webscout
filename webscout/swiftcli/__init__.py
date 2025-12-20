@@ -18,46 +18,27 @@ https://github.com/OEvortex/Webscout/tree/main/webscout/swiftcli
 """
 
 from .core.cli import CLI
-from .core.group import Group
 from .core.context import Context
-from .plugins.base import Plugin
-from .exceptions import (
-    SwiftCLIException,
-    UsageError,
-    BadParameter,
-    ConfigError,
-    PluginError
-)
+from .core.group import Group
 
 # Command decorators
-from .decorators.command import (
-    command,
-    group,
-    argument,
-    flag,
-    pass_context
-)
+from .decorators.command import argument, command, flag, group, pass_context
 
 # Option decorators
-from .decorators.options import (
-    option,
-    envvar,
-    config_file,
-    version_option,
-    help_option
-)
+from .decorators.options import config_file, envvar, help_option, option, version_option
 
 # Output decorators
 from .decorators.output import (
-    table_output,
-    progress,
-    panel_output,
     format_output,
-    pager_output,
     json_output,
-    yaml_output
+    pager_output,
+    panel_output,
+    progress,
+    table_output,
+    yaml_output,
 )
-
+from .exceptions import BadParameter, ConfigError, PluginError, SwiftCLIException, UsageError
+from .plugins.base import Plugin
 
 __all__ = [
     # Core classes
@@ -65,28 +46,28 @@ __all__ = [
     'Group',
     'Context',
     'Plugin',
-    
+
     # Exceptions
     'SwiftCLIException',
     'UsageError',
     'BadParameter',
     'ConfigError',
     'PluginError',
-    
+
     # Command decorators
     'command',
     'group',
     'argument',
     'flag',
     'pass_context',
-    
+
     # Option decorators
     'option',
     'envvar',
     'config_file',
     'version_option',
     'help_option',
-    
+
     # Output decorators
     'table_output',
     'progress',

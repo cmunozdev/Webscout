@@ -4,10 +4,9 @@ import re
 from typing import Any, Dict, List, Optional, Union
 
 from rich.console import Console
-from rich.style import Style
-from rich.text import Text
-from rich.table import Table
 from rich.padding import Padding
+from rich.table import Table
+from rich.text import Text
 
 console = Console()
 
@@ -20,14 +19,14 @@ def style_text(
 ) -> Text:
     """
     Apply styling to text.
-    
+
     Args:
         text: Text to style
         color: Text color
         bold: Bold text
         italic: Italic text
         underline: Underline text
-        
+
     Returns:
         Rich Text object with applied styling
     """
@@ -40,13 +39,13 @@ def style_text(
         style.append("italic")
     if underline:
         style.append("underline")
-    
+
     return Text(text, style=" ".join(style))
 
 def format_error(message: str, title: str = "Error") -> None:
     """
     Format and display error message.
-    
+
     Args:
         message: Error message
         title: Error title
@@ -56,7 +55,7 @@ def format_error(message: str, title: str = "Error") -> None:
 def format_warning(message: str, title: str = "Warning") -> None:
     """
     Format and display warning message.
-    
+
     Args:
         message: Warning message
         title: Warning title
@@ -66,7 +65,7 @@ def format_warning(message: str, title: str = "Warning") -> None:
 def format_success(message: str, title: str = "Success") -> None:
     """
     Format and display success message.
-    
+
     Args:
         message: Success message
         title: Success title
@@ -76,7 +75,7 @@ def format_success(message: str, title: str = "Success") -> None:
 def format_info(message: str, title: str = "Info") -> None:
     """
     Format and display info message.
-    
+
     Args:
         message: Info message
         title: Info title
@@ -92,14 +91,14 @@ def create_table(
 ) -> Table:
     """
     Create a formatted table.
-    
+
     Args:
         headers: Column headers
         rows: Table rows
         title: Table title
         style: Table style
         show_lines: Show row/column lines
-        
+
     Returns:
         Rich Table object
     """
@@ -109,15 +108,15 @@ def create_table(
         header_style="bold blue",
         show_lines=show_lines
     )
-    
+
     # Add columns
     for header in headers:
         table.add_column(header)
-    
+
     # Add rows
     for row in rows:
         table.add_row(*[str(cell) for cell in row])
-    
+
     return table
 
 def truncate_text(
@@ -127,12 +126,12 @@ def truncate_text(
 ) -> str:
     """
     Truncate text to specified length.
-    
+
     Args:
         text: Text to truncate
         max_length: Maximum length
         suffix: Truncation suffix
-        
+
     Returns:
         Truncated text
     """
@@ -148,13 +147,13 @@ def wrap_text(
 ) -> str:
     """
     Wrap text to specified width.
-    
+
     Args:
         text: Text to wrap
         width: Maximum line width
         indent: Indentation for wrapped lines
         initial_indent: Indentation for first line
-        
+
     Returns:
         Wrapped text
     """
@@ -173,12 +172,12 @@ def format_dict(
 ) -> str:
     """
     Format dictionary for display.
-    
+
     Args:
         data: Dictionary to format
         indent: Indentation level
         sort_keys: Sort dictionary keys
-        
+
     Returns:
         Formatted string
     """
@@ -197,12 +196,12 @@ def format_list(
 ) -> str:
     """
     Format list for display.
-    
+
     Args:
         items: List to format
         bullet: Bullet point character
         indent: Indentation level
-        
+
     Returns:
         Formatted string
     """
@@ -212,10 +211,10 @@ def format_list(
 def strip_ansi(text: str) -> str:
     """
     Remove ANSI escape sequences from text.
-    
+
     Args:
         text: Text containing ANSI sequences
-        
+
     Returns:
         Clean text
     """
@@ -225,7 +224,7 @@ def strip_ansi(text: str) -> str:
 def get_terminal_size() -> tuple:
     """
     Get terminal size.
-    
+
     Returns:
         Tuple of (width, height)
     """
@@ -241,11 +240,11 @@ def create_padding(
 ) -> Padding:
     """
     Add padding around content.
-    
+
     Args:
         renderable: Content to pad
         pad: Padding amount
-        
+
     Returns:
         Padded content
     """

@@ -5,25 +5,25 @@ This module provides an OpenAI Whisper API-compatible interface for ElevenLabs
 speech-to-text transcription service.
 """
 
-import json
-import time
-import uuid
 from pathlib import Path
-from typing import Any, Dict, Generator, List, Optional, Union, BinaryIO
+from typing import Any, BinaryIO, Generator, List, Optional, Union
 
 import requests
-from webscout.litagent import LitAgent
-from webscout import exceptions
 
+from webscout import exceptions
+from webscout.litagent import LitAgent
 from webscout.Provider.STT.base import (
-    BaseSTTTranscriptions, BaseSTTAudio, STTCompatibleProvider, 
-    STTModels, TranscriptionResponse
+    BaseSTTAudio,
+    BaseSTTTranscriptions,
+    STTCompatibleProvider,
+    STTModels,
+    TranscriptionResponse,
 )
 
 
 class ElevenLabsTranscriptions(BaseSTTTranscriptions):
     """ElevenLabs transcriptions interface."""
-    
+
     def create(
         self,
         *,
@@ -181,12 +181,12 @@ class ElevenLabsTranscriptions(BaseSTTTranscriptions):
         for line in response.iter_lines(decode_unicode=True):
             if line:
                 yield line
-    
+
 
 
 class ElevenLabsAudio(BaseSTTAudio):
     """ElevenLabs audio interface."""
-    
+
     def _create_transcriptions(self, client) -> ElevenLabsTranscriptions:
         return ElevenLabsTranscriptions(client)
 
@@ -194,7 +194,7 @@ class ElevenLabsAudio(BaseSTTAudio):
 class ElevenLabsSTT(STTCompatibleProvider):
     """
     OpenAI-compatible client for ElevenLabs STT API.
-    
+
     Usage:
         client = ElevenLabsSTT()
         audio_file = open("audio.mp3", "rb")
@@ -205,11 +205,11 @@ class ElevenLabsSTT(STTCompatibleProvider):
         )
         print(transcription.text)
     """
-    
+
     AVAILABLE_MODELS = [
         "scribe_v1",
     ]
-    
+
     def __init__(
         self,
         model_id: str = "scribe_v1",
@@ -226,14 +226,14 @@ class ElevenLabsSTT(STTCompatibleProvider):
         self.diarize = diarize
         self.timeout = timeout
         self.proxies = proxies
-        
+
         # API configuration
         self.api_url = "https://api.elevenlabs.io/v1/speech-to-text"
-        
+
         # Initialize interfaces
         self.audio = ElevenLabsAudio(self)
         self._models = STTModels(self.AVAILABLE_MODELS)
-    
+
     @property
     def models(self):
         """Get models interface."""

@@ -1,23 +1,25 @@
 ##################################################################################
 ##  Modified version of code written by t.me/infip1217                          ##
 ##################################################################################
-import time
-import requests
 import pathlib
 import tempfile
+import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
+
+import requests
+from litprinter import ic
+
 from webscout import exceptions
 from webscout.litagent import LitAgent
-from litprinter import ic
-from concurrent.futures import ThreadPoolExecutor, as_completed
 
 try:
     from . import utils
     from .base import BaseTTSProvider
 except ImportError:
     # Handle direct execution
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
     from webscout.Provider.TTS import utils
     from webscout.Provider.TTS.base import BaseTTSProvider
@@ -25,7 +27,7 @@ except ImportError:
 class SpeechMaTTS(BaseTTSProvider):
     """
     Text-to-speech provider using the SpeechMa API with OpenAI-compatible interface.
-    
+
     This provider follows the OpenAI TTS API structure with support for:
     - Multiple TTS models (gpt-4o-mini-tts, tts-1, tts-1-hd)
     - Multilingual voices with pitch and rate control
@@ -34,7 +36,7 @@ class SpeechMaTTS(BaseTTSProvider):
     - Streaming support
     """
     required_auth = False
-    
+
     # Request headers
     headers = {
         "authority": "speechma.com",
@@ -43,10 +45,10 @@ class SpeechMaTTS(BaseTTSProvider):
         "content-type": "application/json",
         **LitAgent().generate_fingerprint()
     }
-    
+
     # SpeechMa doesn't support different models - set to None
     SUPPORTED_MODELS = None
-    
+
     # All supported voices from SpeechMa API
     SUPPORTED_VOICES = [
         "aditi", "amy", "astrid", "bianca", "carla", "carmen", "celine", "chant",
@@ -77,7 +79,7 @@ class SpeechMaTTS(BaseTTSProvider):
         "michelle", "roger", "libby", "ryan", "sonia", "thomas", "natasha",
         "william", "clara", "liam"
     ]
-    
+
     # Voice mapping for SpeechMa API compatibility (lowercase keys for all voices)
     voice_mapping = {
         # Standard voices
@@ -236,7 +238,7 @@ class SpeechMaTTS(BaseTTSProvider):
     def __init__(self, timeout: int = 20, proxies: dict = None):
         """
         Initialize the SpeechMa TTS client.
-        
+
         Args:
             timeout (int): Request timeout in seconds
             proxies (dict): Proxy configuration
@@ -264,7 +266,7 @@ class SpeechMaTTS(BaseTTSProvider):
     ) -> bytes:
         """
         Create speech from text using OpenAI-compatible interface.
-        
+
         Args:
             input (str): The text to convert to speech
             voice (str): Voice to use for generation
@@ -273,10 +275,10 @@ class SpeechMaTTS(BaseTTSProvider):
             speed (float): Speed of speech (0.25 to 4.0)
             instructions (str): Voice instructions (not used by SpeechMa)
             **kwargs: Additional parameters (pitch, rate for SpeechMa compatibility)
-            
+
         Returns:
             bytes: Audio data
-            
+
         Raises:
             ValueError: If input parameters are invalid
             exceptions.FailedToGenerateResponseError: If generation fails
@@ -286,21 +288,21 @@ class SpeechMaTTS(BaseTTSProvider):
             raise ValueError("Input text must be a non-empty string")
         if len(input) > 10000:
             raise ValueError("Input text exceeds maximum allowed length of 10,000 characters")
-            
+
         model = self.validate_model(model or self.default_model)
         voice = self.validate_voice(voice)
         response_format = self.validate_format(response_format)
-        
+
         # Convert speed to SpeechMa rate parameter
         rate = int((speed - 1.0) * 10)  # Convert 0.25-4.0 to -7.5 to 30, clamp to -10 to 10
         rate = max(-10, min(10, rate))
-        
+
         # Extract SpeechMa-specific parameters
         pitch = kwargs.get('pitch', 0)
-        
+
         # Map voice to SpeechMa format
         speechma_voice = self.voice_mapping.get(voice, self.all_voices.get(voice.title(), "voice-116"))
-        
+
         # Prepare payload
         payload = {
             "text": input,
@@ -309,7 +311,7 @@ class SpeechMaTTS(BaseTTSProvider):
             "rate": rate,
             "volume": 100
         }
-        
+
         try:
             response = self.session.post(
                 self.api_url,
@@ -318,40 +320,40 @@ class SpeechMaTTS(BaseTTSProvider):
                 timeout=self.timeout
             )
             response.raise_for_status()
-            
+
             # Validate audio response
             content_type = response.headers.get('content-type', '').lower()
-            if ('audio' in content_type or 
-                response.content.startswith(b'\xff\xfb') or 
-                response.content.startswith(b'ID3') or 
+            if ('audio' in content_type or
+                response.content.startswith(b'\xff\xfb') or
+                response.content.startswith(b'ID3') or
                 b'LAME' in response.content[:100]):
                 return response.content
             else:
                 raise exceptions.FailedToGenerateResponseError(
                     f"Unexpected response format. Content-Type: {content_type}"
                 )
-                
+
         except requests.exceptions.RequestException as e:
             raise exceptions.FailedToGenerateResponseError(f"API request failed: {e}")
 
     def with_streaming_response(self):
         """
         Return a context manager for streaming responses.
-        
+
         Returns:
             SpeechMaStreamingResponse: Context manager for streaming
         """
         return SpeechMaStreamingResponse(self)
 
     def tts(
-        self, 
-        text: str, 
+        self,
+        text: str,
         model: str = None,
-        voice: str = "emma", 
+        voice: str = "emma",
         response_format: str = "mp3",
         instructions: str = None,
-        pitch: int = 0, 
-        rate: int = 0, 
+        pitch: int = 0,
+        rate: int = 0,
         verbose: bool = True
     ) -> str:
         """
@@ -379,18 +381,18 @@ class SpeechMaTTS(BaseTTSProvider):
             raise ValueError("Input text must be a non-empty string")
         if len(text) > 10000:
             raise ValueError("Input text exceeds maximum allowed length of 10,000 characters")
-            
+
         # Validate model, voice, and format using base class methods
         model = self.validate_model(model or self.default_model)
         voice = self.validate_voice(voice)
         response_format = self.validate_format(response_format)
-        
+
         # Map voice to SpeechMa API format
         speechma_voice = self.voice_mapping.get(voice, voice)
         if speechma_voice not in self.all_voices.values():
             # Fallback to legacy voice mapping
             speechma_voice = self.all_voices.get(voice.title(), self.all_voices.get("Emma", "voice-116"))
-        
+
         # Create temporary file with appropriate extension
         file_extension = f".{response_format}" if response_format != "pcm" else ".wav"
         filename = pathlib.Path(tempfile.mktemp(suffix=file_extension, dir=self.temp_dir))
@@ -398,10 +400,14 @@ class SpeechMaTTS(BaseTTSProvider):
         # Split text into sentences using the utils module for better processing
         sentences = utils.split_sentences(text)
         if verbose:
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Processing {len(sentences)} sentences")
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Model: {model}")
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Voice: {voice} -> {speechma_voice}")
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Format: {response_format}")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Processing {len(sentences)} sentences")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Model: {model}")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Voice: {voice} -> {speechma_voice}")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Format: {response_format}")
 
         def generate_audio_for_chunk(part_text: str, part_number: int):
             """
@@ -441,12 +447,13 @@ class SpeechMaTTS(BaseTTSProvider):
 
                     # Check if response is audio data
                     content_type = response.headers.get('content-type', '').lower()
-                    if ('audio' in content_type or 
-                        response.content.startswith(b'\xff\xfb') or 
-                        response.content.startswith(b'ID3') or 
+                    if ('audio' in content_type or
+                        response.content.startswith(b'\xff\xfb') or
+                        response.content.startswith(b'ID3') or
                         b'LAME' in response.content[:100]):
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"Chunk {part_number} processed successfully")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"Chunk {part_number} processed successfully")
                         return part_number, response.content
                     else:
                         raise exceptions.FailedToGenerateResponseError(
@@ -460,7 +467,8 @@ class SpeechMaTTS(BaseTTSProvider):
                             f"Failed to generate audio for chunk {part_number} after {max_retries} retries: {e}"
                         )
                     if verbose:
-                        ic.configureOutput(prefix='DEBUG| '); ic(f"Retrying chunk {part_number} (attempt {retry_count + 1})")
+                        ic.configureOutput(prefix='DEBUG| ')
+                        ic(f"Retrying chunk {part_number} (attempt {retry_count + 1})")
                     time.sleep(1)  # Brief delay before retry
 
         # Process chunks concurrently for better performance
@@ -471,14 +479,15 @@ class SpeechMaTTS(BaseTTSProvider):
                     executor.submit(generate_audio_for_chunk, sentence, i): i
                     for i, sentence in enumerate(sentences)
                 }
-                
+
                 for future in as_completed(future_to_chunk):
                     try:
                         chunk_number, audio_data = future.result()
                         audio_chunks.append((chunk_number, audio_data))
                     except Exception as e:
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"Error processing chunk: {e}")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"Error processing chunk: {e}")
                         raise
         else:
             # Single sentence, process directly
@@ -494,7 +503,8 @@ class SpeechMaTTS(BaseTTSProvider):
             with open(filename, 'wb') as f:
                 f.write(combined_audio)
             if verbose:
-                ic.configureOutput(prefix='DEBUG| '); ic(f"Audio saved to: {filename}")
+                ic.configureOutput(prefix='DEBUG| ')
+                ic(f"Audio saved to: {filename}")
             return filename.as_posix()
         except IOError as e:
             raise exceptions.FailedToGenerateResponseError(f"Failed to save audio file: {e}")
@@ -502,16 +512,16 @@ class SpeechMaTTS(BaseTTSProvider):
 
 class SpeechMaStreamingResponse:
     """Context manager for streaming SpeechMa TTS responses."""
-    
+
     def __init__(self, client: SpeechMaTTS):
         self.client = client
-        
+
     def __enter__(self):
         return self
-        
+
     def __exit__(self, exc_type, exc_val, exc_tb):
         pass
-        
+
     def create_speech(
         self,
         input: str,
@@ -524,10 +534,10 @@ class SpeechMaStreamingResponse:
     ):
         """
         Create speech with streaming response simulation.
-        
+
         Note: SpeechMa doesn't support true streaming, so this returns
         the complete audio data wrapped in a BytesIO object.
-        
+
         Args:
             input (str): Text to convert to speech
             voice (str): Voice to use
@@ -536,7 +546,7 @@ class SpeechMaStreamingResponse:
             speed (float): Speech speed
             instructions (str): Voice instructions
             **kwargs: Additional parameters
-            
+
         Returns:
             BytesIO: Audio data stream
         """
@@ -556,7 +566,7 @@ class SpeechMaStreamingResponse:
 if __name__ == "__main__":
     # Initialize the SpeechMa TTS client
     speechma = SpeechMaTTS()
-    
+
     # Example 1: Basic usage with legacy method
     print("=== Example 1: Basic TTS ===")
     text = "Hello, this is a test of the SpeechMa text-to-speech API."
@@ -565,7 +575,7 @@ if __name__ == "__main__":
         print(f"Audio saved to: {audio_file}")
     except Exception as e:
         print(f"Error: {e}")
-    
+
     # Example 2: OpenAI-compatible interface
     print("\n=== Example 2: OpenAI-compatible interface ===")
     try:
@@ -577,14 +587,14 @@ if __name__ == "__main__":
             speed=1.2
         )
         print(f"Generated {len(audio_data)} bytes of audio data")
-        
+
         # Save to file
         with open("openai_compatible_test.mp3", "wb") as f:
             f.write(audio_data)
         print("Audio saved to: openai_compatible_test.mp3")
     except Exception as e:
         print(f"Error: {e}")
-    
+
     # Example 3: Streaming response context manager
     print("\n=== Example 3: Streaming response ===")
     try:
@@ -598,14 +608,14 @@ if __name__ == "__main__":
             print(f"Streamed {len(audio_data)} bytes of audio data")
     except Exception as e:
         print(f"Error: {e}")
-    
+
     # Example 4: Voice and model validation
     print("\n=== Example 4: Parameter validation ===")
     try:
         # Test supported voices
         print("Supported voices:", speechma.SUPPORTED_VOICES[:5], "...")
         print("Supported models:", speechma.SUPPORTED_MODELS)
-        
+
         # Test with different parameters
         audio_file = speechma.tts(
             text="Testing different voice parameters.",

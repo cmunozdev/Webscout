@@ -1,28 +1,29 @@
 ##################################################################################
 ##  FreeTTS Provider                                                             ##
 ##################################################################################
-import os
-import requests
-import time
 import pathlib
 import tempfile
-from datetime import datetime
-from webscout.Provider.TTS.base import BaseTTSProvider
-from webscout.litagent import LitAgent
+import time
+
+import requests
 from litprinter import ic
+
+from webscout import exceptions
+from webscout.litagent import LitAgent
+from webscout.Provider.TTS.base import BaseTTSProvider
 
 
 class FreeTTS(BaseTTSProvider):
     """
     Text-to-speech provider using the FreeTTS.ru API.
-    
+
     Features:
     - Multiple languages (Russian, English, Ukrainian, etc.)
     - High-quality neural voices
     - Supports long texts via polling
     """
     required_auth = False
-    
+
     headers = {
         "Accept": "*/*",
         "Accept-Language": "en-US,en;q=0.9",
@@ -31,14 +32,14 @@ class FreeTTS(BaseTTSProvider):
         "Referer": "https://freetts.ru/",
         "User-Agent": LitAgent().random()
     }
-    
+
     # Supported formats
     SUPPORTED_FORMATS = ["mp3"]
 
     def __init__(self, lang="ru-RU", timeout: int = 30, proxies: dict = None):
         """
         Initialize the FreeTTS TTS client.
-        
+
         Args:
             lang (str): Language code for voice filtering
             timeout (int): Request timeout in seconds
@@ -50,13 +51,13 @@ class FreeTTS(BaseTTSProvider):
         self.api_url = f"{self.base_url}/api/synthesis"
         self.list_url = f"{self.base_url}/api/list"
         self.history_url = f"{self.base_url}/api/history"
-        
+
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         if proxies:
             self.session.proxies.update(proxies)
         self.timeout = timeout
-        
+
         self.voices = {}
         self.load_voices()
         # Set default voice to first available for requested lang
@@ -83,7 +84,8 @@ class FreeTTS(BaseTTSProvider):
                             if v_id not in self.SUPPORTED_VOICES:
                                 self.SUPPORTED_VOICES.append(v_id)
         except Exception as e:
-            ic.configureOutput(prefix='WARNING| '); ic(f"Error loading FreeTTS voices: {e}")
+            ic.configureOutput(prefix='WARNING| ')
+            ic(f"Error loading FreeTTS voices: {e}")
 
     def _get_default_voice(self):
         for v_id, info in self.voices.items():
@@ -96,12 +98,12 @@ class FreeTTS(BaseTTSProvider):
         return [v_id for v_id, info in self.voices.items() if info["lang"] == self.lang]
 
     def tts(
-        self, 
-        text: str, 
+        self,
+        text: str,
         model: str = None, # Dummy for compatibility
-        voice: str = None, 
+        voice: str = None,
         response_format: str = "mp3",
-        instructions: str = None, 
+        instructions: str = None,
         verbose: bool = True
     ) -> str:
         """
@@ -109,7 +111,7 @@ class FreeTTS(BaseTTSProvider):
         """
         if not text:
             raise ValueError("Input text must be a non-empty string")
-            
+
         voice = voice or self.default_voice
         if not voice:
             raise ValueError("No voices available")
@@ -123,28 +125,31 @@ class FreeTTS(BaseTTSProvider):
         try:
             # Step 1: Start synthesis
             if verbose:
-                ic.configureOutput(prefix='DEBUG| '); ic(f"FreeTTS: Starting synthesis for voice {voice}")
-            
+                ic.configureOutput(prefix='DEBUG| ')
+                ic(f"FreeTTS: Starting synthesis for voice {voice}")
+
             response = self.session.post(self.api_url, json=payload, timeout=self.timeout)
             response.raise_for_status()
-            
+
             # Step 2: Poll for completion
             max_polls = 20
             poll_interval = 2
-            
+
             for i in range(max_polls):
                 poll_resp = self.session.get(self.api_url, timeout=self.timeout)
                 poll_resp.raise_for_status()
                 poll_data = poll_resp.json()
-                
+
                 if poll_data.get("status") == 200 or poll_data.get("message") == "Обработка: 100%":
                     if verbose:
-                        ic.configureOutput(prefix='DEBUG| '); ic(f"FreeTTS: Synthesis completed")
+                        ic.configureOutput(prefix='DEBUG| ')
+                        ic("FreeTTS: Synthesis completed")
                     break
-                
+
                 if verbose:
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"FreeTTS: {poll_data.get('message', 'Processing...')}")
-                
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"FreeTTS: {poll_data.get('message', 'Processing...')}")
+
                 time.sleep(poll_interval)
             else:
                 raise exceptions.FailedToGenerateResponseError("FreeTTS synthesis timed out")
@@ -153,7 +158,7 @@ class FreeTTS(BaseTTSProvider):
             hist_resp = self.session.get(self.history_url, timeout=self.timeout)
             hist_resp.raise_for_status()
             hist_data = hist_resp.json()
-            
+
             if hist_data.get("status") == "success":
                 history = hist_data.get("data", [])
                 if history:
@@ -163,18 +168,19 @@ class FreeTTS(BaseTTSProvider):
                     if audio_url:
                         if not audio_url.startswith("http"):
                             audio_url = self.base_url + audio_url
-                            
+
                         # Download the file
                         audio_file_resp = self.session.get(audio_url, timeout=self.timeout)
                         audio_file_resp.raise_for_status()
-                        
+
                         # Save to temp file
                         filename = pathlib.Path(tempfile.mktemp(suffix=f".{response_format}", dir=self.temp_dir))
                         with open(filename, "wb") as f:
                             f.write(audio_file_resp.content)
-                            
+
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"FreeTTS: Audio saved to {filename}")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"FreeTTS: Audio saved to {filename}")
                         return str(filename)
 
             raise exceptions.FailedToGenerateResponseError("Failed to retrieve audio URL from history")

@@ -1,14 +1,16 @@
-from typing import List, Dict, Any, Optional
-from .utils import request
+from typing import Any, Dict, List, Optional
 from urllib.parse import quote
+
+from .utils import request
+
 
 class Repository:
     """Class for interacting with GitHub repositories"""
-    
+
     def __init__(self, owner: str, repo: str):
         """
         Initialize repository client
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
@@ -17,7 +19,7 @@ class Repository:
             raise ValueError("Owner and repository name are required")
         if not isinstance(owner, str) or not isinstance(repo, str):
             raise ValueError("Owner and repository name must be strings")
-        
+
         self.owner = owner.strip()
         self.repo = repo.strip()
         self.base_url = f"https://api.github.com/repos/{self.owner}/{self.repo}"
@@ -29,7 +31,7 @@ class Repository:
     def get_commits(self, page: int = 1, per_page: int = 30, sha: str = None) -> List[Dict[str, Any]]:
         """
         Get repository commits
-        
+
         Args:
             page: Page number
             per_page: Items per page
@@ -48,7 +50,7 @@ class Repository:
     def get_pull_requests(self, state: str = "all", page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
         """
         Get repository pull requests
-        
+
         Args:
             state: State of PRs to return (open/closed/all)
             page: Page number
@@ -75,7 +77,7 @@ class Repository:
     def get_issues(self, state: str = "all", page: int = 1, per_page: int = 30, labels: str = None) -> List[Dict[str, Any]]:
         """
         Get repository issues
-        
+
         Args:
             state: State of issues to return (open/closed/all)
             page: Page number
@@ -202,10 +204,10 @@ class Repository:
     def get_readme(self, ref: Optional[str] = None) -> Dict[str, Any]:
         """
         Get repository README.
-        
+
         Args:
             ref: The name of the commit/branch/tag (default: repo default branch)
-            
+
         Returns:
             README content with encoding and download_url
         """
@@ -217,7 +219,7 @@ class Repository:
     def get_license(self) -> Dict[str, Any]:
         """
         Get repository license.
-        
+
         Returns:
             License information including name, key, spdx_id, and content
         """
@@ -227,7 +229,7 @@ class Repository:
     def get_topics(self) -> Dict[str, Any]:
         """
         Get repository topics.
-        
+
         Returns:
             Dict with 'names' key containing list of topic strings
         """
@@ -237,12 +239,12 @@ class Repository:
     def get_forks(self, sort: str = "newest", page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
         """
         List repository forks.
-        
+
         Args:
             sort: Sort by (newest, oldest, stargazers, watchers)
             page: Page number
             per_page: Results per page (max 100)
-            
+
         Returns:
             List of forked repositories
         """
@@ -252,11 +254,11 @@ class Repository:
     def get_stargazers(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
         """
         List users who have starred the repository.
-        
+
         Args:
             page: Page number
             per_page: Results per page (max 100)
-            
+
         Returns:
             List of users who starred the repo
         """
@@ -266,11 +268,11 @@ class Repository:
     def get_watchers(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
         """
         List users watching the repository (subscribers).
-        
+
         Args:
             page: Page number
             per_page: Results per page (max 100)
-            
+
         Returns:
             List of users watching the repo
         """
@@ -280,11 +282,11 @@ class Repository:
     def compare(self, base: str, head: str) -> Dict[str, Any]:
         """
         Compare two commits, branches, or tags.
-        
+
         Args:
             base: Base commit/branch/tag
             head: Head commit/branch/tag
-            
+
         Returns:
             Comparison data including commits, files, and diff stats
         """
@@ -294,11 +296,11 @@ class Repository:
     def get_events(self, page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
         """
         List repository events.
-        
+
         Args:
             page: Page number
             per_page: Results per page (max 100)
-            
+
         Returns:
             List of repository events
         """

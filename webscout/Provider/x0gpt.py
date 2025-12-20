@@ -1,16 +1,22 @@
-from typing import Generator, Union, Any, Dict
+from typing import Any, Dict, Generator, Union
 from uuid import uuid4
-from curl_cffi import CurlError
-from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
-from webscout.litagent import LitAgent
+from curl_cffi import CurlError
+
 # Import HTTPVersion enum
 from curl_cffi.const import CurlHttpVersion
+from curl_cffi.requests import Session
+
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+from webscout.litagent import LitAgent
+
 
 class X0GPT(Provider):
     """
@@ -64,7 +70,7 @@ class X0GPT(Provider):
             'You are a friendly assistant.'
         """
         # Initialize curl_cffi Session instead of requests.Session
-        self.session = Session() 
+        self.session = Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.api_endpoint = "https://x0-gpt.devwtf.in/api/stream/reply"
@@ -179,7 +185,7 @@ class X0GPT(Provider):
                     raise exceptions.FailedToGenerateResponseError(
                         f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                     )
-                
+
                 streaming_response = ""
                 # Use sanitize_stream with regex-based extraction and filtering
                 processed_stream = sanitize_stream(
@@ -204,7 +210,7 @@ class X0GPT(Provider):
                     # Always yield as string, even in raw mode
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:

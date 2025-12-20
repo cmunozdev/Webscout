@@ -1,14 +1,14 @@
-import requests
 import json
+from typing import Generator, Union
 from uuid import uuid4
-from typing import Union, Dict, Any, Generator
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
+import requests
+
 import webscout
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+
 
 class Cleeai(Provider):
     """

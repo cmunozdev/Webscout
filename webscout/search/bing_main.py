@@ -1,12 +1,14 @@
 """Bing unified search interface."""
 
 from __future__ import annotations
+
 from typing import Dict, List, Optional
+
 from .base import BaseSearch
-from .engines.bing.text import BingTextSearch
 from .engines.bing.images import BingImagesSearch
 from .engines.bing.news import BingNewsSearch
 from .engines.bing.suggestions import BingSuggestionsSearch
+from .engines.bing.text import BingTextSearch
 
 
 class BingSearch(BaseSearch):

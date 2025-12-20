@@ -1,10 +1,9 @@
-from typing import List, Dict, Optional, Any
-from enum import Enum
 import time
 import uuid
-from webscout.Provider.OPENAI.pydantic_imports import (
-    BaseModel, Field, StrictStr, StrictInt
-)
+from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from webscout.Provider.OPENAI.pydantic_imports import BaseModel, Field, StrictInt, StrictStr
 
 # --- OpenAI Response Structure Mimics ---
 # Moved here for reusability across different OpenAI-compatible providers
@@ -297,7 +296,7 @@ def count_tokens(text_or_messages: Any) -> int:
     Returns:
         int: Number of tokens.
     """
-    import tiktoken # type: ignore
+    import tiktoken  # type: ignore
     if isinstance(text_or_messages, str):
         enc = tiktoken.encoding_for_model("gpt-4o")
         return len(enc.encode(text_or_messages))

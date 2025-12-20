@@ -1,18 +1,19 @@
-from .sanitize import * # noqa: E402,F401
-from .conversation import Conversation  # noqa: E402,F401
-
-from .optimizers import Optimizers  # noqa: E402,F401
-from .prompt_manager import AwesomePrompts  # noqa: E402,F401
+import functools
+import time
 
 # --- Utility Decorators ---
 from typing import Callable
-import time
-import functools
+
+from .conversation import Conversation  # noqa: E402,F401
+from .optimizers import Optimizers  # noqa: E402,F401
+from .prompt_manager import AwesomePrompts  # noqa: E402,F401
+from .sanitize import *  # noqa: E402, F401, F403
+
 
 def timeIt(func: Callable):
     """
     Decorator to measure execution time of a function (sync or async).
-    Prints: - Execution time for '{func.__name__}' : {elapsed:.6f} Seconds.  
+    Prints: - Execution time for '{func.__name__}' : {elapsed:.6f} Seconds.
     """
     import asyncio
     GREEN_BOLD = "\033[1;92m"

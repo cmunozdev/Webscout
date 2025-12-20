@@ -1,10 +1,10 @@
-from .repository import Repository
-from .user import User
-from .search import GitSearch
 from .gist import Gist
 from .organization import Organization
+from .repository import Repository
+from .search import GitSearch
 from .trending import Trending
-from .utils import GitError, RateLimitError, NotFoundError, RequestError
+from .user import User
+from .utils import GitError, NotFoundError, RateLimitError, RequestError
 
 __all__ = [
     'Repository',
@@ -14,7 +14,7 @@ __all__ = [
     'Organization',
     'Trending',
     'GitError',
-    'RateLimitError', 
+    'RateLimitError',
     'NotFoundError',
     'RequestError'
 ]

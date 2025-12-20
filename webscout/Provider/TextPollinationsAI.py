@@ -1,12 +1,14 @@
 
-import requests
 import json
-from typing import Union, Any, Dict, Generator, Optional, List
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent as Lit
+
 
 class TextPollinationsAI(Provider):
     """
@@ -15,7 +17,7 @@ class TextPollinationsAI(Provider):
 
     required_auth = False
     _models_url = "https://text.pollinations.ai/models"
-    
+
     # Static list as fallback
     AVAILABLE_MODELS = [
         "deepseek",
@@ -39,7 +41,7 @@ class TextPollinationsAI(Provider):
 
     def __init__(self,
         is_conversation: bool = True,
-        max_tokens: int = 8096, 
+        max_tokens: int = 8096,
         timeout: int = 30,
         intro: str = None,
         filepath: str = None,
@@ -63,7 +65,7 @@ class TextPollinationsAI(Provider):
 
         # Fetch latest models dynamically to ensure we have the most up-to-date list
         self.update_available_models()
-        
+
         if model not in self.AVAILABLE_MODELS:
             # warn or just allow it? allowing it for flexibility
             if model not in self.AVAILABLE_MODELS:
@@ -157,7 +159,7 @@ class TextPollinationsAI(Provider):
                     timeout=self.timeout
                 )
                 response.raise_for_status()
-                
+
                 streaming_text = ""
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None),
@@ -190,7 +192,7 @@ class TextPollinationsAI(Provider):
                 self.last_response.update(dict(text=streaming_text))
                 if streaming_text:
                     self.conversation.update_chat_history(prompt, streaming_text)
-                    
+
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"Stream request failed: {e}") from e
 
@@ -204,7 +206,7 @@ class TextPollinationsAI(Provider):
                     timeout=self.timeout
                 )
                 response.raise_for_status()
-                
+
                 # Use sanitize_stream to parse the non-streaming JSON response
                 processed_stream = sanitize_stream(
                     data=response.text,
@@ -215,19 +217,23 @@ class TextPollinationsAI(Provider):
                 )
                 # Extract the single result
                 resp_json = next(processed_stream, None)
-                
+
                 # Check for standard OpenAI response structure
                 if resp_json and 'choices' in resp_json and len(resp_json['choices']) > 0:
-                        
+                    choice = resp_json['choices'][0]
+                    content = choice.get('message', {}).get('content')
+                    tool_calls = choice.get('message', {}).get('tool_calls')
+                    result = content if content else (tool_calls if tool_calls else "")
+
                     self.last_response = result
                     self.conversation.update_chat_history(prompt, content or "")
-                    
+
                     if raw:
                         return content if content else (json.dumps(tool_calls) if tool_calls else "")
                     return result
-                    
+
                 else:
-                    return {} 
+                    return {}
 
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"Non-stream request failed: {e}") from e
@@ -281,15 +287,15 @@ if __name__ == "__main__":
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test only a subset to be fast
-    test_models = ["openai", "gemini"] 
-    
+    test_models = ["openai", "gemini"]
+
     for model in test_models:
         try:
             print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
             test_ai = TextPollinationsAI(model=model, timeout=60)
-            
+
             # Non-stream test
             start_response = test_ai.chat("Hello!", stream=False)
             if start_response:
@@ -298,8 +304,8 @@ if __name__ == "__main__":
             else:
                status = "✗"
                display = "Empty"
-               
+
             print(f"\r{model:<50} {status:<10} {display}")
-            
+
         except Exception as e:
             print(f"\r{model:<50} {'✗':<10} {str(e)[:50]}")

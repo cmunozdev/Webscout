@@ -1,16 +1,18 @@
 """DuckDuckGo unified search interface."""
 
 from __future__ import annotations
+
 from typing import Dict, List, Optional
+
 from .base import BaseSearch
-from .engines.duckduckgo.text import DuckDuckGoTextSearch
-from .engines.duckduckgo.images import DuckDuckGoImages
-from .engines.duckduckgo.videos import DuckDuckGoVideos
-from .engines.duckduckgo.news import DuckDuckGoNews
 from .engines.duckduckgo.answers import DuckDuckGoAnswers
-from .engines.duckduckgo.suggestions import DuckDuckGoSuggestions
+from .engines.duckduckgo.images import DuckDuckGoImages
 from .engines.duckduckgo.maps import DuckDuckGoMaps
+from .engines.duckduckgo.news import DuckDuckGoNews
+from .engines.duckduckgo.suggestions import DuckDuckGoSuggestions
+from .engines.duckduckgo.text import DuckDuckGoTextSearch
 from .engines.duckduckgo.translate import DuckDuckGoTranslate
+from .engines.duckduckgo.videos import DuckDuckGoVideos
 from .engines.duckduckgo.weather import DuckDuckGoWeather
 
 

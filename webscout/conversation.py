@@ -7,7 +7,6 @@ Classes:
     Conversation: Main conversation manager class.
 """
 import os
-from typing import Optional
 
 from litprinter import ic
 

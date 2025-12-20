@@ -1,13 +1,12 @@
 from typing import Any, Dict
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
-from webscout.litagent import LitAgent
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+from webscout.litagent import LitAgent
 
 
 class TypefullyAI(Provider):
@@ -77,7 +76,6 @@ class TypefullyAI(Provider):
     @staticmethod
     def _typefully_extractor(chunk) -> str:
         """Extracts content from Typefully AI SSE format."""
-        import re
         import json
 
         # Handle parsed JSON objects (when to_json=True)

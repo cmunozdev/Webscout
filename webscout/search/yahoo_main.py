@@ -1,19 +1,21 @@
 """Yahoo unified search interface."""
 
 from __future__ import annotations
-from typing import List, Optional
+
+from typing import Dict, List, Optional
+
 from .base import BaseSearch
-from .engines.yahoo.text import YahooText
+from .engines.yahoo.answers import YahooAnswers
 from .engines.yahoo.images import YahooImages
-from .engines.yahoo.videos import YahooVideos
+from .engines.yahoo.maps import YahooMaps
 from .engines.yahoo.news import YahooNews
 from .engines.yahoo.suggestions import YahooSuggestions
-from .engines.yahoo.answers import YahooAnswers
-from .engines.yahoo.maps import YahooMaps
+from .engines.yahoo.text import YahooText
 from .engines.yahoo.translate import YahooTranslate
+from .engines.yahoo.videos import YahooVideos
 from .engines.yahoo.weather import YahooWeather
-from .results import TextResult, ImagesResult, VideosResult, NewsResult
-from typing import Dict
+from .results import ImagesResult, NewsResult, TextResult, VideosResult
+
 
 class YahooSearch(BaseSearch):
     """Unified Yahoo search interface."""

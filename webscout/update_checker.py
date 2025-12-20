@@ -1,10 +1,11 @@
 import importlib.metadata
 import os
 import sys
-import time
 import tempfile
+import time
 from pathlib import Path
-from typing import Optional, Dict, Any, Literal
+from typing import Any, Dict, Optional
+
 import requests
 from packaging import version
 
@@ -61,20 +62,20 @@ def get_pypi_versions() -> Dict[str, Optional[str]]:
         response = session.get(PYPI_URL, timeout=3) # Faster timeout
         response.raise_for_status()
         data = response.json()
-        
+
         stable = data.get('info', {}).get('version')
-        
+
         releases = data.get('releases', {}).keys()
         parsed_versions = []
         for v in releases:
             try:
                 parsed_versions.append(version.parse(v))
-            except:
+            except Exception:
                 continue
-        
+
         all_versions = sorted(parsed_versions)
         latest = str(all_versions[-1]) if all_versions else stable
-        
+
         return {"stable": stable, "latest": latest}
     except Exception:
         return {"stable": None, "latest": None}
@@ -83,27 +84,27 @@ def should_check(force: bool = False) -> bool:
     """Check if we should perform an update check based on cache."""
     if os.environ.get("WEBSCOUT_NO_UPDATE"):
         return False
-    
+
     if force:
         return True
-    
+
     try:
         if not CACHE_FILE.exists():
             return True
-        
+
         last_check = float(CACHE_FILE.read_text().strip())
         # Check every 12 hours
         if time.time() - last_check > 43200:
             return True
-    except:
+    except Exception:
         return True
     return False
 
-def mark_checked():
+def mark_checked() -> Any:
     """Mark the current time as the last update check."""
     try:
         CACHE_FILE.write_text(str(time.time()))
-    except:
+    except Exception:
         pass
 
 def is_venv() -> bool:
@@ -124,12 +125,12 @@ def format_update_message(current: str, new: str, utype: str) -> str:
     cmd = "pip install -U webscout"
     if utype == "Pre-release" or version.parse(new).is_prerelease:
         cmd = "pip install -U --pre webscout"
-        
+
     if HAS_RICH:
         from io import StringIO
         capture = StringIO()
         console = Console(file=capture, force_terminal=True, width=80)
-        
+
         content = Text.assemble(
             ("A new ", "white"),
             (f"{utype} ", "bold yellow" if utype == "Pre-release" else "bold green"),
@@ -137,13 +138,13 @@ def format_update_message(current: str, new: str, utype: str) -> str:
             ("Current:     ", "white"), (f"{current}", "bold red"), ("\n", ""),
             ("Latest:      ", "white"), (f"{new}", "bold green"), ("\n\n", ""),
             ("To update, run: ", "white"), (f"{cmd}", "bold cyan"), ("\n\n", ""),
-            (f"Subscribe to my YouTube: ", "dim"), (f"{YOUTUBE_URL}", "dim cyan"), ("\n", ""),
-            (f"Star on GitHub: ", "dim"), (f"{GITHUB_URL}", "dim cyan")
+            ("Subscribe to my YouTube: ", "dim"), (f"{YOUTUBE_URL}", "dim cyan"), ("\n", ""),
+            ("Star on GitHub: ", "dim"), (f"{GITHUB_URL}", "dim cyan")
         )
-        
+
         panel = Panel(
             content,
-            title=f"[bold magenta]Update Available[/bold magenta]",
+            title="[bold magenta]Update Available[/bold magenta]",
             border_style="bright_blue",
             expand=False,
             padding=(1, 2)
@@ -164,15 +165,15 @@ def format_dev_message(current: str, latest: str) -> str:
         from io import StringIO
         capture = StringIO()
         console = Console(file=capture, force_terminal=True, width=80)
-        
+
         content = Text.assemble(
             ("You are running a ", "white"),
             ("Development Version", "bold yellow"),
             ("\n\nLocal Version: ", "white"), (f"{current}", "bold cyan"), ("\n", ""),
             ("Latest PyPI:   ", "white"), (f"{latest}", "bold green"), ("\n\n", ""),
-            (f"YouTube: ", "dim"), (f"{YOUTUBE_URL}", "dim cyan")
+            ("YouTube: ", "dim"), (f"{YOUTUBE_URL}", "dim cyan")
         )
-        
+
         panel = Panel(
             content,
             title="[bold blue]Webscout Dev Mode[/bold blue]",
@@ -193,10 +194,10 @@ def format_dev_message(current: str, latest: str) -> str:
 def check_for_updates(force: bool = False) -> Optional[str]:
     """
     Check if a newer version of Webscout is available.
-    
+
     Args:
         force (bool): If True, ignore cache and force check.
-        
+
     Returns:
         Optional[str]: Formatted update message or None.
     """
@@ -210,22 +211,22 @@ def check_for_updates(force: bool = False) -> Optional[str]:
     try:
         installed_str = get_installed_version()
         installed_v = version.parse(installed_str)
-        
+
         pypi = get_pypi_versions()
         mark_checked() # Mark even if it fails or no update, to avoid constant hitting
-        
+
         if not pypi['stable']:
             return None
-            
+
         latest_stable_str = pypi['stable']
         latest_stable_v = version.parse(latest_stable_str)
-        
+
         latest_any_str = pypi['latest']
         latest_any_v = version.parse(latest_any_str)
-        
+
         # Decide what to recommend
         is_prerelease = installed_v.is_prerelease
-        
+
         if is_prerelease:
             # User is on pre-release, they should know about ANY newer version
             if installed_v < latest_any_v:
@@ -244,7 +245,7 @@ def check_for_updates(force: bool = False) -> Optional[str]:
 
     except Exception:
         pass # Be silent on errors during auto-check
-        
+
     return None
 
 if __name__ == "__main__":

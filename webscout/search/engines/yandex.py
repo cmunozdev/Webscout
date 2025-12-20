@@ -44,13 +44,13 @@ class Yandex(BaseSearchEngine[TextResult]):
 
     def run(self, *args, **kwargs) -> list[TextResult]:
         """Run text search on Yandex.
-        
+
         Args:
             keywords: Search query.
             region: Region code.
             safesearch: Safe search level.
             max_results: Maximum number of results (ignored for now).
-            
+
         Returns:
             List of TextResult objects.
         """
@@ -58,7 +58,7 @@ class Yandex(BaseSearchEngine[TextResult]):
         region = args[1] if len(args) > 1 else kwargs.get("region", "us-en")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
         max_results = args[3] if len(args) > 3 else kwargs.get("max_results")
-        
+
         results = self.search(query=keywords, region=region, safesearch=safesearch)
         if results and max_results:
             results = results[:max_results]

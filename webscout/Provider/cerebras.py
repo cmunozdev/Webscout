@@ -1,6 +1,5 @@
 import re
 
-
 # Import trio before curl_cffi to prevent eventlet socket monkey-patching conflicts
 # See: https://github.com/python-trio/trio/issues/3015
 try:
@@ -44,16 +43,16 @@ class Cerebras(Provider):
     @classmethod
     def get_models(cls, api_key: str = None):
         """Fetch available models from Cerebras API.
-        
+
         Args:
             api_key (str, optional): Cerebras API key. If not provided, returns default models.
-            
+
         Returns:
             list: List of available model IDs
         """
         if not api_key:
             raise Exception("API key required to fetch models")
-            
+
         try:
             # Use a temporary curl_cffi session for this class method
             temp_session = Session()
@@ -61,21 +60,21 @@ class Cerebras(Provider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.cerebras.ai/v1/models",
                 headers=headers,
                 impersonate="chrome120"
             )
-            
+
             if response.status_code != 200:
                 raise Exception(f"Failed to fetch models: HTTP {response.status_code}")
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model['id'] for model in data['data']]
             raise Exception("Invalid response format from API")
-            
+
         except (curl_cffi.CurlError, Exception) as e:
             raise Exception(f"Failed to fetch models: {str(e)}")
 

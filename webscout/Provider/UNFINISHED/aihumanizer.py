@@ -1,6 +1,10 @@
-import requests
 import uuid
+
+import requests
+from rich import print
+
 from webscout.litagent import LitAgent
+
 url = 'https://aihumanizer.work/api/v1/text/rewriter'
 
 headers = {
@@ -33,5 +37,5 @@ json_data = {
 }
 
 response = requests.post(url, headers=headers, cookies=cookies, json=json_data)
-from rich import print
+
 print(response.json())

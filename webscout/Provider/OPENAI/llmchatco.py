@@ -1,14 +1,21 @@
+import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import requests
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, get_last_user_message, get_system_prompt, format_prompt # Import format_prompt
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,  # Import format_prompt
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    get_last_user_message,
+    get_system_prompt,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -52,7 +59,7 @@ class Completions(BaseCompletions):
 
         # Determine the effective system prompt
         effective_system_prompt = system_prompt # Use the provided system_prompt or its default
-        message_list_system_prompt = get_system_prompt(messages)
+        get_system_prompt(messages)
         # If a system prompt is also in messages, the explicit one takes precedence.
         # We'll use the effective_system_prompt determined above.
 

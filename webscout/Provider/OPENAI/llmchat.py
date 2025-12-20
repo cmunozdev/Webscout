@@ -1,21 +1,23 @@
+import json
 import time
 import uuid
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
-
-# Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
-)
-from webscout.Provider.OPENAI.utils import format_prompt
 
 # Import LitAgent for user agent generation
-from webscout.litagent import LitAgent
+# Import base classes and utility structures
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
+)
+
 
 class Completions(BaseCompletions):
     def __init__(self, client: 'LLMChat'):
@@ -34,7 +36,7 @@ class Completions(BaseCompletions):
         proxies: Optional[dict] = None,
         **kwargs: Any
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
-        
+
         # In this case, we pass messages directly to the API
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
@@ -57,7 +59,7 @@ class Completions(BaseCompletions):
         try:
             prompt_tokens = count_tokens(json.dumps(messages))
             completion_tokens = 0
-            
+
             url = f"{self._client.api_endpoint}?model={model}"
             payload = {
                 "messages": messages,
@@ -82,14 +84,14 @@ class Completions(BaseCompletions):
                         data_str = line[6:]
                         if data_str.strip() == "[DONE]":
                             break
-                        
+
                         try:
                             data = json.loads(data_str)
                             content = data.get('response', '')
                             if content:
                                 full_content += content
                                 completion_tokens += 1
-                                
+
                                 delta = ChoiceDelta(content=content, role="assistant")
                                 choice = Choice(index=0, delta=delta, finish_reason=None)
                                 chunk = ChatCompletionChunk(
@@ -128,11 +130,11 @@ class Completions(BaseCompletions):
         try:
             full_content = ""
             prompt_tokens = count_tokens(json.dumps(messages))
-            
+
             for chunk in self._create_streaming(request_id, created_time, model, messages, max_tokens, timeout, proxies):
                 if chunk.choices[0].delta.content:
                     full_content += chunk.choices[0].delta.content
-            
+
             message = ChatCompletionMessage(role="assistant", content=full_content)
             choice = Choice(index=0, message=message, finish_reason="stop")
             usage = CompletionUsage(
@@ -140,7 +142,7 @@ class Completions(BaseCompletions):
                 completion_tokens=count_tokens(full_content),
                 total_tokens=prompt_tokens + count_tokens(full_content)
             )
-            
+
             return ChatCompletion(
                 id=request_id,
                 choices=[choice],
@@ -213,7 +215,7 @@ class LLMChat(OpenAICompatibleProvider):
         self.api_endpoint = "https://llmchat.in/inference/stream"
         self.proxies = proxies
         self.session.proxies = proxies
-        
+
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "*/*",

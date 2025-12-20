@@ -1,11 +1,11 @@
-import requests
 import json
-from typing import Union, Dict, Any, Generator
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Generator, Union
+
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 #-----------------------------------------------Cohere--------------------------------------------
@@ -38,7 +38,7 @@ class Cohere(Provider):
             model (str, optional): Model to use for generating text. Defaults to "command-r-plus".
             temperature (float, optional): Diversity of the generated text. Higher values produce more diverse outputs.
                             Defaults to 0.7.
-            system_prompt (str, optional): A system_prompt or context to set the style or tone of the generated text. 
+            system_prompt (str, optional): A system_prompt or context to set the style or tone of the generated text.
                             Defaults to "You are helpful AI".
             timeout (int, optional): Http request timeout. Defaults to 30.
             intro (str, optional): Conversation introductory prompt. Defaults to None.

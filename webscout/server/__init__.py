@@ -1,4 +1,7 @@
 # webscout/server/__init__.py
+from .exceptions import APIError
+from .routes import Api
+
 
 # Import server functions lazily to avoid module execution issues
 def create_app():
@@ -12,8 +15,8 @@ def run_api(*args, **kwargs):
 def start_server(*args, **kwargs):
     from .server import start_server as _start_server
     return _start_server(*args, **kwargs)
-from .routes import Api
-from .exceptions import APIError
+
+
 
 # Lazy imports for config classes to avoid initialization issues
 def get_server_config():

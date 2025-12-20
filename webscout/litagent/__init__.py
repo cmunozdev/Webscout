@@ -4,7 +4,7 @@ LitAgent - A lit user agent generator with infinite possibilities! 🔥
 Examples:
 >>> from webscout import LitAgent
 >>> agent = LitAgent()
->>> 
+>>>
 >>> # Get random user agents
 >>> agent.random()  # Random agent from any browser
 >>> agent.mobile()  # Random mobile device agent
@@ -22,7 +22,7 @@ Examples:
 """
 
 from .agent import LitAgent
-from .constants import BROWSERS, OS_VERSIONS, DEVICES, FINGERPRINTS
+from .constants import BROWSERS, DEVICES, FINGERPRINTS, OS_VERSIONS
 
 agent = LitAgent()
 

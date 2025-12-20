@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-from ....litagent import LitAgent
 from curl_cffi.requests import Session
+
+from ....litagent import LitAgent
 
 
 class BingBase:

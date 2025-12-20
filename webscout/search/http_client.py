@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-from litprinter import ic
 from random import choice
 from typing import Any, Literal
 
@@ -18,7 +17,7 @@ from ..exceptions import RatelimitE, TimeoutE, WebscoutE
 
 class HttpClient:
     """HTTP client wrapper for search engines."""
-    
+
     # curl_cffi supported browser impersonations
     _impersonates = (
         "chrome99", "chrome100", "chrome101", "chrome104", "chrome107", "chrome110",
@@ -37,7 +36,7 @@ class HttpClient:
         headers: dict[str, str] | None = None,
     ) -> None:
         """Initialize HTTP client.
-        
+
         Args:
             proxy: Proxy URL (supports http/https/socks5).
             timeout: Request timeout in seconds.
@@ -47,10 +46,10 @@ class HttpClient:
         self.proxy = proxy
         self.timeout = timeout
         self.verify = verify
-        
+
         # Choose random browser to impersonate
         impersonate_browser = choice(self._impersonates)
-        
+
         # Initialize curl_cffi session
         self.client = curl_cffi.requests.Session(
             headers=headers or {},
@@ -59,7 +58,7 @@ class HttpClient:
             impersonate=impersonate_browser,
             verify=verify,
         )
-    
+
     def request(
         self,
         method: Literal["GET", "POST", "HEAD", "OPTIONS", "DELETE", "PUT", "PATCH"],
@@ -73,7 +72,7 @@ class HttpClient:
         **kwargs: Any,
     ) -> curl_cffi.requests.Response:
         """Make HTTP request.
-        
+
         Args:
             method: HTTP method.
             url: Request URL.
@@ -84,10 +83,10 @@ class HttpClient:
             cookies: Request cookies.
             timeout: Request timeout (overrides default).
             **kwargs: Additional arguments passed to curl_cffi.
-            
+
         Returns:
             Response object.
-            
+
         Raises:
             TimeoutE: Request timeout.
             RatelimitE: Rate limit exceeded.
@@ -101,15 +100,15 @@ class HttpClient:
                 "timeout": timeout or self.timeout,
                 **kwargs,
             }
-            
+
             if isinstance(cookies, dict):
                 request_kwargs["cookies"] = cookies
-            
+
             if data is not None:
                 request_kwargs["data"] = data
-            
+
             resp = self.client.request(method, url, **request_kwargs)
-            
+
             # Check response status
             if resp.status_code == 200:
                 return resp
@@ -117,38 +116,38 @@ class HttpClient:
                 raise RatelimitE(f"{resp.url} {resp.status_code} Rate limit")
             else:
                 raise WebscoutE(f"{resp.url} returned {resp.status_code}")
-                
+
         except Exception as ex:
             if "time" in str(ex).lower() or "timeout" in str(ex).lower():
                 raise TimeoutE(f"{url} {type(ex).__name__}: {ex}") from ex
             raise WebscoutE(f"{url} {type(ex).__name__}: {ex}") from ex
-    
+
     def get(self, url: str, **kwargs: Any) -> curl_cffi.requests.Response:
         """Make GET request."""
         return self.request("GET", url, **kwargs)
-    
+
     def post(self, url: str, **kwargs: Any) -> curl_cffi.requests.Response:
         """Make POST request."""
         return self.request("POST", url, **kwargs)
-    
+
     def set_cookies(self, url: str, cookies: dict[str, str]) -> None:
         """Set cookies for a domain.
-        
+
         Args:
             url: URL to set cookies for.
             cookies: Cookie dictionary.
         """
         self.client.cookies.update(cookies)
-    
+
     def close(self) -> None:
         """Close the HTTP client."""
         if hasattr(self.client, 'close'):
             self.client.close()
-    
+
     def __enter__(self) -> HttpClient:
         """Context manager entry."""
         return self
-    
+
     def __exit__(self, *args: Any) -> None:
         """Context manager exit."""
         self.close()

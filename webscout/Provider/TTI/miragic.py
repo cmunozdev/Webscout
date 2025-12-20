@@ -1,11 +1,13 @@
-import requests
 import json
 import random
-import time
-from typing import Optional, List, Any, Dict
-from webscout.Provider.TTI.base import TTICompatibleProvider, BaseImages
-from webscout.Provider.TTI.utils import ImageData, ImageResponse
+from typing import Any, Optional
+
+import requests
+
 from webscout.litagent import LitAgent
+from webscout.Provider.TTI.base import BaseImages, TTICompatibleProvider
+from webscout.Provider.TTI.utils import ImageData, ImageResponse
+
 
 class Images(BaseImages):
     """Handles image generation requests for the Miragic AI provider."""
@@ -63,19 +65,19 @@ class Images(BaseImages):
                     width, height = int(parts[0]), int(parts[1])
             except ValueError:
                 pass
-        
+
         width = max(256, min(2048, width))
         height = max(256, min(2048, height))
-        
+
         enhance = kwargs.get("enhance_prompt", False)
         safe = kwargs.get("safe_filter", False)
         image_url = kwargs.get("image_url")
-        
+
         images_data = []
-        
+
         for _ in range(n):
             current_seed = seed if seed is not None else random.randint(0, 2**32 - 1)
-            
+
             payload = {
                 "data": [
                     prompt,
@@ -88,26 +90,26 @@ class Images(BaseImages):
                     safe
                 ]
             }
-            
+
             try:
                 post_url = f"{self._client.api_endpoint}/call/generate_image_via_api_secure"
                 resp = self._client.session.post(post_url, json=payload, timeout=timeout)
                 resp.raise_for_status()
-                
+
                 event_id = resp.json().get("event_id")
                 if not event_id:
                     raise RuntimeError(f"Failed to obtain event_id: {resp.text}")
-                    
+
                 stream_url = f"{self._client.api_endpoint}/call/generate_image_via_api_secure/{event_id}"
                 image_url_result = None
-                
+
                 with self._client.session.get(stream_url, stream=True, timeout=timeout + 60) as stream_resp:
                     stream_resp.raise_for_status()
                     for line in stream_resp.iter_lines():
                         if not line:
                             continue
                         line_text = line.decode('utf-8')
-                        
+
                         if line_text.startswith('data: '):
                             data_str = line_text[6:]
                             try:
@@ -120,7 +122,7 @@ class Images(BaseImages):
                                 continue
             except Exception as e:
                 raise RuntimeError(f"Image generation failed: {e}")
-            
+
             if image_url_result:
                 images_data.append(ImageData(url=image_url_result))
             else:
@@ -131,15 +133,15 @@ class Images(BaseImages):
 class MiragicAI(TTICompatibleProvider):
     """
     Miragic AI TTI Provider implementation.
-    
+
     Reverse engineered from the Hugging Face Space:
     https://huggingface.co/spaces/Miragic-AI/Miragic-AI-Image-Generator
     """
-    
+
     required_auth: bool = False
     working: bool = True
     AVAILABLE_MODELS = ["flux", "turbo", "gptimage"]
-    
+
     def __init__(self, **kwargs: Any):
         """Initializes the MiragicAI provider with a persistent session."""
         self.api_endpoint = "https://miragic-ai-miragic-ai-image-generator.hf.space/gradio_api"
@@ -151,7 +153,7 @@ class MiragicAI(TTICompatibleProvider):
             "Content-Type": "application/json"
         })
         self.images = Images(self)
-        
+
     @property
     def models(self):
         """Returns a list of available models for this provider."""
@@ -162,11 +164,11 @@ class MiragicAI(TTICompatibleProvider):
 
 if __name__ == "__main__":
     from rich import print
-    
+
     try:
         client = MiragicAI()
         print(f"Available Models: {client.models.list()}")
-        
+
         print("Generating sample image...")
         response = client.images.create(
             prompt="A serene landscape with a lake and mountains, oil painting style",
@@ -174,6 +176,6 @@ if __name__ == "__main__":
             size="1024x1024"
         )
         print(response)
-        
+
     except Exception as error:
         print(f"Error during execution: {error}")

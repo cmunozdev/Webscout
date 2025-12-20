@@ -31,25 +31,25 @@ class TogetherAI(Provider):
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
-            
+
             response = session.get(
                 "https://api.together.xyz/v1/models",
                 headers=headers,
                 impersonate="chrome110"
             )
-            
+
             if response.status_code != 200:
                 return cls.AVAILABLE_MODELS
-                
+
             data = response.json()
             # Together API returns a list of model objects
             if isinstance(data, list):
                 # Filter for chat/language models if possible, or just return all IDs
                 # The API returns objects with 'id', 'type', etc.
                 return [model["id"] for model in data if isinstance(model, dict) and "id" in model]
-            
+
             return cls.AVAILABLE_MODELS
-            
+
         except Exception:
             return cls.AVAILABLE_MODELS
 

@@ -1,20 +1,25 @@
-import re
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import uuid
 import base64
 import json
 import random
+import re
 import string
 import time
+import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, Generator, Union, List
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
 from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+
 
 class Toolbaz(Provider):
     """
@@ -37,7 +42,7 @@ class Toolbaz(Provider):
 
         "grok-4-fast",
         "grok-4.1-fast",
-        
+
         "toolbaz-v4.5-fast",
         "toolbaz_v4",
         "toolbaz_v3.5_pro",
@@ -48,7 +53,7 @@ class Toolbaz(Provider):
 
         "Llama-4-Maverick",
         "Llama-3.3-70B",
-        
+
         "mixtral_8x22b",
         "L3-70B-Euryale-v2.1",
         "midnight-rose",
@@ -156,7 +161,7 @@ class Toolbaz(Provider):
             }
             # Use curl_cffi session post WITHOUT impersonate for token request
             resp = self.session.post(
-                "https://data.toolbaz.com/token.php", 
+                "https://data.toolbaz.com/token.php",
                 data=data
                 # Removed impersonate="chrome110" for this specific request
             )
@@ -196,7 +201,7 @@ class Toolbaz(Provider):
             )
 
         # get_auth now raises exceptions on failure
-        auth = self.get_auth() 
+        auth = self.get_auth()
         # No need to check if auth is None, as an exception would have been raised
 
         data = {
@@ -264,7 +269,7 @@ class Toolbaz(Provider):
                 resp.raise_for_status()
 
                 # Use response.text which is already decoded
-                text = resp.text 
+                text = resp.text
                 # Remove [model: ...] tags
                 text = re.sub(r"\[model:.*?\]", "", text)
 
@@ -334,7 +339,7 @@ class Toolbaz(Provider):
 # Example usage
 if __name__ == "__main__":
     # Ensure curl_cffi is installed
-    from rich import print # Use rich print if available
+    from rich import print  # Use rich print if available
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)

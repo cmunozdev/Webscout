@@ -3,11 +3,10 @@
 
 import json
 import threading
-from pathlib import Path
-from typing import Optional, Dict, Union
-from functools import lru_cache
 from datetime import datetime, timedelta
-
+from functools import lru_cache
+from pathlib import Path
+from typing import Dict, Optional, Union
 
 try:
     from curl_cffi.requests import Session
@@ -52,7 +51,7 @@ class AwesomePrompts:
         self._cache_lock = threading.RLock()
         self._file_lock = threading.Lock()
         self._max_workers = max_workers
-        
+
         self._max_workers = max_workers
         if CURL_AVAILABLE:
             self.session = Session(timeout=timeout, impersonate=impersonate)
@@ -95,7 +94,7 @@ class AwesomePrompts:
         with self._cache_lock:
             if self._cache:
                 return self._cache.copy()
-        
+
         # Fallback to file if cache is empty
         self._load_cache()
         with self._cache_lock:
@@ -117,45 +116,45 @@ class AwesomePrompts:
                 return True
 
             console.print("[cyan]Updating prompts...[/cyan]")
-            
+
             # Fetch new prompts with timeout
             response = self.session.get(self.repo_url, timeout=self.timeout)
             response.raise_for_status()
-            
+
             new_prompts = response.json()
             if not isinstance(new_prompts, dict):
                 raise ValueError("Invalid response format")
-            
+
             # Efficient merge with existing prompts
             existing_prompts = self._load_prompts()
-            
+
             # Build optimized structure
             merged_prompts = {}
             string_keys = []
-            
+
             # Add existing string keys
             for key, value in existing_prompts.items():
                 if isinstance(key, str):
                     merged_prompts[key] = value
                     string_keys.append(key)
-            
+
             # Merge new prompts (prioritize new over existing)
             for key, value in new_prompts.items():
                 if isinstance(key, str):
                     merged_prompts[key] = value
                     if key not in string_keys:
                         string_keys.append(key)
-            
+
             # Add numeric indices for fast access
             for i, key in enumerate(string_keys):
                 merged_prompts[i] = merged_prompts[key]
-            
+
             self._save_prompts(merged_prompts)
             self._last_update = datetime.now()
-            
+
             console.print(f"[green]Updated {len([k for k in merged_prompts if isinstance(k, str)])} prompts successfully![/green]")
             return True
-            
+
         except Exception as e:
             error_msg = str(e)
             if hasattr(e, 'response') and e.response is not None:
@@ -171,7 +170,7 @@ class AwesomePrompts:
         use_cache: bool = True
     ) -> Optional[str]:
         """Get prompt with LRU caching for performance.
-        
+
         Args:
             key: Prompt name or index
             default: Default value if not found
@@ -181,7 +180,7 @@ class AwesomePrompts:
         if use_cache:
             return self._get_cached(key, default, case_insensitive)
         return self._get_uncached(key, default, case_insensitive)
-    
+
     def _get_uncached(
         self,
         key: Union[str, int],
@@ -191,23 +190,23 @@ class AwesomePrompts:
         """Core get logic without caching."""
         with self._cache_lock:
             prompts = self._cache if self._cache else self._load_prompts()
-            
+
             # Fast direct lookup
             if key in prompts:
                 return prompts[key]
-            
+
             # Case-insensitive search for string keys
             if isinstance(key, str) and case_insensitive:
                 key_lower = key.lower()
                 for k, v in prompts.items():
                     if isinstance(k, str) and k.lower() == key_lower:
                         return v
-        
+
         return default
 
     def add_prompt(self, name: str, prompt: str, validate: bool = True) -> bool:
         """Add a new prompt with validation and deduplication.
-        
+
         Args:
             name: Name of the prompt
             prompt: The prompt text
@@ -217,30 +216,30 @@ class AwesomePrompts:
             if not name or not prompt:
                 console.print("[red]Name and prompt cannot be empty![/red]")
                 return False
-            
+
             if len(name) > 100 or len(prompt) > 10000:
                 console.print("[red]Name too long (max 100) or prompt too long (max 10000)[/red]")
                 return False
-        
+
         with self._cache_lock:
             prompts = self._load_prompts()
-            
+
             # Check for existing prompt with same content
             if validate:
                 for existing_name, existing_prompt in prompts.items():
                     if isinstance(existing_name, str) and existing_prompt == prompt:
                         console.print(f"[yellow]Prompt with same content exists: '{existing_name}'[/yellow]")
                         return False
-            
+
             prompts[name] = prompt
-            
+
             # Update numeric indices
             string_keys = [k for k in prompts.keys() if isinstance(k, str)]
             for i, key in enumerate(string_keys):
                 prompts[i] = prompts[key]
-            
+
             self._save_prompts(prompts)
-            
+
         console.print(f"[green]Added prompt: '{name}'[/green]")
         return True
 
@@ -251,7 +250,7 @@ class AwesomePrompts:
         raise_not_found: bool = False
     ) -> bool:
         """Delete a prompt with proper cleanup.
-        
+
         Args:
             name: Name or index of prompt to delete
             case_insensitive: Enable case-insensitive matching
@@ -259,33 +258,33 @@ class AwesomePrompts:
         """
         with self._cache_lock:
             prompts = self._load_prompts()
-            
+
             # Handle direct key match
             if name in prompts:
                 del prompts[name]
-                
+
                 # Rebuild numeric indices after deletion
                 string_keys = [k for k in prompts.keys() if isinstance(k, str)]
                 # Remove old numeric indices
                 numeric_keys = [k for k in prompts.keys() if isinstance(k, int)]
                 for key in numeric_keys:
                     del prompts[key]
-                
+
                 # Add fresh numeric indices
                 for i, key in enumerate(string_keys):
                     prompts[i] = prompts[key]
-                
+
                 self._save_prompts(prompts)
                 console.print(f"[green]Deleted prompt: '{name}'[/green]")
                 return True
-            
+
             # Handle case-insensitive match
             if isinstance(name, str) and case_insensitive:
                 name_lower = name.lower()
                 for k in list(prompts.keys()):
                     if isinstance(k, str) and k.lower() == name_lower:
                         return self.delete_prompt(k, case_insensitive=False, raise_not_found=raise_not_found)
-            
+
             if raise_not_found:
                 raise KeyError(f"Prompt '{name}' not found!")
             console.print(f"[yellow]Prompt '{name}' not found![/yellow]")
@@ -297,46 +296,46 @@ class AwesomePrompts:
         with self._cache_lock:
             if self._cache:
                 return self._cache.copy()
-        
+
         prompts = self._load_prompts()
         if not prompts:
             self.update_prompts_from_online()
             prompts = self._load_prompts()
-        
+
         return prompts.copy()
 
     def show_acts(self, search: Optional[str] = None, limit: int = 100) -> None:
         """Display prompts with optimized filtering and pagination.
-        
+
         Args:
             search: Filter by search term
             limit: Maximum number of prompts to display
         """
         prompts = self.all_acts
-        
+
         # Build filtered list efficiently
         filtered_items = []
         search_lower = search.lower() if search else None
-        
+
         for key, value in prompts.items():
             if isinstance(key, int):
                 continue
-                
+
             if search_lower:
-                if (search_lower not in key.lower() and 
+                if (search_lower not in key.lower() and
                     search_lower not in value.lower()):
                     continue
-            
+
             preview = value[:80] + "..." if len(value) > 80 else value
             filtered_items.append((str(key), preview))
-            
+
             if len(filtered_items) >= limit:
                 break
-        
+
         if not filtered_items:
             console.print("[yellow]No prompts found[/yellow]")
             return
-        
+
         table = Table(
             title=f"Awesome Prompts ({len(filtered_items)} shown)",
             show_header=True,
@@ -344,10 +343,10 @@ class AwesomePrompts:
         )
         table.add_column("Name", style="green", max_width=30)
         table.add_column("Preview", style="yellow", max_width=50)
-        
+
         for name, preview in filtered_items:
             table.add_row(name, preview)
-        
+
         console.print(table)
 
     def get_random_act(self) -> Optional[str]:

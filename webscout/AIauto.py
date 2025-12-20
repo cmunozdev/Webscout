@@ -1,36 +1,38 @@
 """
 This module provides the AUTO provider, which automatically selects and uses
 an available LLM provider from the webscout library that doesn't require
-API keys or cookies. 
+API keys or cookies.
 """
+
+import difflib
+import importlib
+import inspect
+import pkgutil
+import random
+from typing import Any, Dict, Generator, List, Optional, Tuple, Type, Union
 
 from webscout.AIbase import Provider
 from webscout.exceptions import AllProvidersFailure
-from typing import Union, Any, Dict, Generator, Optional, List, Tuple, Set, Type
-import importlib
-import pkgutil
-import random
-import inspect
-import difflib
 
-def load_providers():
+
+def load_providers() -> Tuple[Dict[str, Type[Provider]], set]:
     """
     Dynamically loads all Provider classes from the `webscout.Provider` package.
-    
+
     This function iterates through the modules in the `webscout.Provider` package,
     imports each module, and inspects its attributes to identify classes that
     inherit from the `Provider` base class. It also identifies providers that
     require special authentication parameters.
-    
+
     Returns:
-        tuple: A tuple containing two elements:
-            - provider_map (dict): A dictionary mapping uppercase provider names to their classes.
+        Tuple[Dict[str, Type[Provider]], set]: A tuple containing two elements:
+            - provider_map (Dict[str, Type[Provider]]): A dictionary mapping uppercase provider names to their classes.
             - api_key_providers (set): A set of uppercase provider names requiring special authentication.
     """
-    provider_map = {}
-    api_key_providers = set()
+    provider_map: Dict[str, Type[Provider]] = {}
+    api_key_providers: set = set()
     provider_package = importlib.import_module("webscout.Provider")
-    
+
     for _, module_name, _ in pkgutil.iter_modules(provider_package.__path__):
         try:
             module = importlib.import_module(f"webscout.Provider.{module_name}")
@@ -39,7 +41,7 @@ def load_providers():
                 if isinstance(attr, type) and issubclass(attr, Provider) and attr != Provider:
                     p_name = attr_name.upper()
                     provider_map[p_name] = attr
-                    
+
                     if hasattr(attr, "required_auth") and attr.required_auth:
                         api_key_providers.add(p_name)
                     else:
@@ -49,7 +51,7 @@ def load_providers():
                                 api_key_providers.add(p_name)
                         except (ValueError, TypeError):
                             pass
-        except Exception as e:
+        except Exception:
             pass
     return provider_map, api_key_providers
 
@@ -73,15 +75,15 @@ def _get_models_safely(provider_cls: type) -> List[str]:
             val = getattr(provider_cls, "AVAILABLE_MODELS")
             if isinstance(val, list):
                 models.extend(val)
-        
+
         if hasattr(provider_cls, "get_models"):
             try:
                 res = provider_cls.get_models()
                 if isinstance(res, list):
                     models.extend(res)
-            except:
+            except Exception:
                 pass
-    except:
+    except Exception:
         pass
     return list(set(models))
 
@@ -91,7 +93,7 @@ class AUTO(Provider):
     """
     An automatic provider that intelligently selects and utilizes an available
     LLM provider from the webscout library.
-    
+
     It cycles through available free providers
     until one successfully processes the request. Excludes providers
     requiring API keys or cookies by default.
@@ -115,7 +117,7 @@ class AUTO(Provider):
     ):
         """
         Initializes the AUTO provider, setting up the parameters for provider selection and request handling.
-        
+
         This constructor initializes the AUTO provider with various configuration options,
         including conversation settings, request limits, and provider exclusions.
 
@@ -157,7 +159,7 @@ class AUTO(Provider):
     def last_response(self) -> dict[str, Any]:
         """
         Retrieves the last response dictionary from the successfully used provider.
-        
+
         Returns:
             dict[str, Any]: The last response dictionary, or an empty dictionary if no provider has been used yet.
         """
@@ -167,7 +169,7 @@ class AUTO(Provider):
     def conversation(self) -> object:
         """
         Retrieves the conversation object from the successfully used provider.
-        
+
         Returns:
             object: The conversation object, or None if no provider has been used yet.
         """
@@ -188,14 +190,14 @@ class AUTO(Provider):
             model (str): The model name to search for.
 
         Returns:
-            Optional[Tuple[Type[Provider], str]]: A tuple containing the provider class 
+            Optional[Tuple[Type[Provider], str]]: A tuple containing the provider class
                                                   and the resolved model name, or None if no match is found.
         """
         available = [
             (name, cls) for name, cls in provider_map.items()
             if name not in self.exclude
         ]
-        
+
         if not self.api_key:
              available = [p for p in available if p[0] not in api_key_providers]
 
@@ -261,7 +263,7 @@ class AUTO(Provider):
             (name, cls) for name, cls in provider_map.items()
             if name not in self.exclude
         ]
-        
+
         if not self.api_key:
              available = [p for p in available if p[0] not in api_key_providers]
 
@@ -287,7 +289,7 @@ class AUTO(Provider):
     ) -> Union[Dict, Generator]:
         """
         Sends the prompt to available providers, attempting to get a response from each until one succeeds.
-        
+
         This method iterates through a prioritized list of available providers based on the requested model
         and attempts to send the prompt to each provider until a successful response is received.
 
@@ -316,20 +318,20 @@ class AUTO(Provider):
         queue = []
         if resolved_provider:
             queue.append((resolved_provider.__name__.upper(), resolved_provider, resolved_model))
-        
+
         all_available = [
             (name, cls) for name, cls in provider_map.items()
             if name not in self.exclude and (resolved_provider is None or cls != resolved_provider)
         ]
-        
+
         if not self.api_key:
              all_available = [p for p in all_available if p[0] not in api_key_providers]
-        
+
         random.shuffle(all_available)
 
         model_prio = []
         others = []
-        
+
         for name, cls in all_available:
             p_models = _get_models_safely(cls)
             if resolved_model != "auto" and resolved_model in p_models:
@@ -342,7 +344,7 @@ class AUTO(Provider):
                     m = random.choice(p_models)
                 queue_model = m if m else "auto"
                 others.append((name, cls, queue_model))
-        
+
         queue.extend(model_prio)
         queue.extend(others)
 
@@ -360,12 +362,12 @@ class AUTO(Provider):
                     "history_offset": self.history_offset,
                     "act": self.act,
                 }
-                
+
                 if 'model' in sig:
                     init_kwargs['model'] = model_to_use
                 if 'api_key' in sig and self.api_key:
                     init_kwargs['api_key'] = self.api_key
-                
+
                 for k, v in self.kwargs.items():
                     if k in sig or any(p.kind == inspect.Parameter.VAR_KEYWORD for p in sig.values()):
                         init_kwargs[k] = v
@@ -385,7 +387,7 @@ class AUTO(Provider):
                     except Exception:
                         continue
 
-                    def chained_gen():
+                    def chained_gen() -> Any:
                         if self.print_provider_info:
                             model = getattr(self.provider, "model", None)
                             provider_class_name = self.provider.__class__.__name__
@@ -425,7 +427,7 @@ class AUTO(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> Union[str, Generator[str, None, None]]: 
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Provides a simplified chat interface, returning the message string or a generator of message strings.
 
@@ -497,7 +499,7 @@ class AUTO(Provider):
         """
         assert self.provider is not None, "Chat with AI first"
         return self.provider.get_message(response)
-    
+
 if __name__ == "__main__":
     auto = AUTO(print_provider_info=True)
     response = auto.chat("Hello, how are you?", stream=True)

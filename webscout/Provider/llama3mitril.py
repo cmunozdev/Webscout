@@ -1,12 +1,12 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Union, Any, Dict, Generator
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 
 
 class Llama3Mitril(Provider):
@@ -129,7 +129,7 @@ class Llama3Mitril(Provider):
                                         resp = {"text": token_text}
                                         # Yield dict or raw string chunk
                                         yield resp if not raw else token_text
-                        except (json.JSONDecodeError, IndexError, UnicodeDecodeError) as e:
+                        except (json.JSONDecodeError, IndexError, UnicodeDecodeError):
                             # Ignore errors in parsing specific lines
                             continue
 

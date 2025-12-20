@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-from litprinter import ic
 from typing import Any
 from urllib.parse import quote
 
+from ...utils import json_loads
 from ..base import BaseSearchEngine
 from ..results import TextResult
-from ...utils import json_loads
 
 
 class Wikipedia(BaseSearchEngine[TextResult]):
@@ -40,28 +39,28 @@ class Wikipedia(BaseSearchEngine[TextResult]):
         json_data = json_loads(html_text)
         if not json_data or len(json_data) < 4:
             return []
-        
+
         results = []
         titles, descriptions, urls = json_data[1], json_data[2], json_data[3]
-        
+
         for title, description, url in zip(titles, descriptions, urls):
             result = TextResult()
             result.title = title
             result.body = description
             result.href = url
             results.append(result)
-        
+
         return results
 
     def run(self, *args, **kwargs) -> list[TextResult]:
         """Run text search on Wikipedia.
-        
+
         Args:
             keywords: Search query.
             region: Region code.
             safesearch: Safe search level (ignored).
             max_results: Maximum number of results.
-            
+
         Returns:
             List of TextResult objects.
         """
@@ -69,7 +68,7 @@ class Wikipedia(BaseSearchEngine[TextResult]):
         region = args[1] if len(args) > 1 else kwargs.get("region", "en-us")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
         max_results = args[3] if len(args) > 3 else kwargs.get("max_results")
-        
+
         results = self.search(query=keywords, region=region, safesearch=safesearch)
         if results and max_results:
             results = results[:max_results]

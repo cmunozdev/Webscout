@@ -1,12 +1,12 @@
-from os import path
-from json import dumps
 import warnings
-from typing import Dict, Union, Generator
+from json import dumps
+from os import path
+from typing import Dict, Generator, Union
 
+from ..AIbase import Provider
 
 # Import internal modules and dependencies
-from ..AIutel import Optimizers, Conversation, sanitize_stream
-from ..AIbase import Provider
+from ..AIutel import Conversation, Optimizers
 from ..Bard import Chatbot, Model
 
 warnings.simplefilter("ignore", category=UserWarning)
@@ -19,7 +19,6 @@ MODEL_ALIASES: Dict[str, Model] = {
     "gemini-3-pro": Model.G_3_PRO,
     "flash-2.5": Model.G_2_5_FLASH,
     "pro": Model.G_2_5_PRO,
-    "unspecified": Model.UNSPECIFIED,
 }
 
 # List of available models (friendly names)

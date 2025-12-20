@@ -1,11 +1,15 @@
-from typing import Any, Dict, Optional, Generator, Union
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts # Import sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
-from webscout.litagent import LitAgent
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError  # Import CurlError
+
 # Replace requests with curl_cffi
-from curl_cffi.requests import Session # Import Session
-from curl_cffi import CurlError # Import CurlError
+from curl_cffi.requests import Session  # Import Session
+
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers  # Import sanitize_stream
+from webscout.litagent import LitAgent
+
 
 class Netwrck(Provider):
     """
@@ -54,7 +58,7 @@ class Netwrck(Provider):
         self.last_response: Dict[str, Any] = {}
         self.temperature = temperature
         self.top_p = top_p
-        
+
         self.agent = LitAgent() # Keep for potential future use or other headers
         self.headers = {
             'authority': 'netwrck.com',
@@ -63,10 +67,10 @@ class Netwrck(Provider):
             'content-type': 'application/json',
             'origin': 'https://netwrck.com',
             'referer': 'https://netwrck.com/',
-            'user-agent': self.agent.random() 
+            'user-agent': self.agent.random()
             # Add sec-ch-ua headers if needed for impersonation consistency
         }
-        
+
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.proxies = proxies or {}
@@ -77,7 +81,7 @@ class Netwrck(Provider):
             if act
             else intro or Conversation.intro
         )
-        
+
         self.conversation = Conversation(is_conversation, max_tokens, filepath, update_file)
         self.conversation.history_offset = history_offset
         self.__available_optimizers = (
@@ -222,11 +226,11 @@ if __name__ == "__main__":
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test all available models
     working = 0
     total = len(Netwrck.AVAILABLE_MODELS)
-    
+
     for model in Netwrck.AVAILABLE_MODELS:
         try:
             test_ai = Netwrck(model=model, timeout=60)
@@ -235,7 +239,7 @@ if __name__ == "__main__":
             for chunk in response:
                 response_text += chunk
                 print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
-            
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

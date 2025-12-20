@@ -1,29 +1,29 @@
+import json
 import time
 import uuid
-import json
-import re
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-# Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk,
-    ChatCompletion,
-    Choice,
-    ChoiceDelta,
-    ChatCompletionMessage,
-    CompletionUsage,
-    format_prompt,
-    get_system_prompt,
-    count_tokens,  # Import format_prompt, get_system_prompt and count_tokens
-)
+from curl_cffi import CurlError
+
+# Import curl_cffi for better request handling
+from curl_cffi.requests import Session
 
 # Import LitAgent for browser fingerprinting
 from webscout.litagent import LitAgent
 
-# Import curl_cffi for better request handling
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
+# Import base classes and utility structures
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,  # Import format_prompt, get_system_prompt and count_tokens
+    format_prompt,
+    get_system_prompt,
+)
 
 # ANSI escape codes for formatting
 BOLD = "\033[1m"
@@ -324,8 +324,6 @@ class TypefullyAI(OpenAICompatibleProvider):
     @staticmethod
     def _typefully_extractor(chunk) -> str:
         """Extracts content from Typefully AI SSE format."""
-        import re
-        import json
 
         # Handle parsed JSON objects (when to_json=True)
         if isinstance(chunk, dict):

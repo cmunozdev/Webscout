@@ -1,33 +1,33 @@
 """Output formatting decorators for SwiftCLI."""
 
 import json
-import yaml
 from functools import wraps
-from typing import Any, Callable, List, Optional, Union
+from typing import Callable, List, Optional, Union
 
+import yaml
 from rich.console import Console
-from rich.table import Table
 from rich.panel import Panel
+from rich.table import Table
 
 # Handle different versions of rich
 try:
     from rich.progress import (
+        BarColumn,
         Progress,
         SpinnerColumn,
-        TextColumn,
-        BarColumn,
         TaskProgressColumn,
-        TimeRemainingColumn
+        TextColumn,
+        TimeRemainingColumn,
     )
 except ImportError:
     # Fallback for older versions of rich
     try:
         from rich.progress import (
+            BarColumn,
             Progress,
             SpinnerColumn,
             TextColumn,
-            BarColumn,
-            TimeRemainingColumn
+            TimeRemainingColumn,
         )
         # Create a simple TaskProgressColumn replacement for older versions
         class TaskProgressColumn:
@@ -74,14 +74,14 @@ def table_output(
 ) -> Callable:
     """
     Decorator to format command output as a table.
-    
+
     Args:
         headers: Column headers
         title: Table title
         style: Table style
         show_lines: Show row/column lines
         expand: Expand table to terminal width
-        
+
     Example:
         @command()
         @table_output(["ID", "Name", "Status"])
@@ -104,15 +104,15 @@ def table_output(
                     show_lines=show_lines,
                     expand=expand
                 )
-                
+
                 # Add columns
                 for header in headers:
                     table.add_column(header)
-                
+
                 # Add rows
                 for row in result:
                     table.add_row(*[str(cell) for cell in row])
-                
+
                 console.print(table)
             return result
         return wrapper
@@ -125,12 +125,12 @@ def json_output(
 ) -> Callable:
     """
     Decorator to format command output as JSON.
-    
+
     Args:
         indent: Indentation level for pretty printing
         sort_keys: Whether to sort dictionary keys
         ensure_ascii: Whether to escape non-ASCII characters
-        
+
     Example:
         @command()
         @json_output(indent=2)
@@ -160,11 +160,11 @@ def yaml_output(
 ) -> Callable:
     """
     Decorator to format command output as YAML.
-    
+
     Args:
         default_flow_style: Whether to use flow style for collections
         sort_keys: Whether to sort dictionary keys
-        
+
     Example:
         @command()
         @yaml_output()
@@ -197,10 +197,10 @@ def progress(
 ) -> Callable:
     """
     Decorator to show progress for long-running commands.
-    
+
     The decorated function should be a generator that yields
     progress updates.
-    
+
     Args:
         description: Task description
         total: Total number of steps
@@ -208,7 +208,7 @@ def progress(
         show_bar: Show progress bar
         show_percentage: Show percentage complete
         show_time: Show time remaining
-        
+
     Example:
         @command()
         @progress("Processing files")
@@ -224,24 +224,24 @@ def progress(
             columns = []
             columns.append(SpinnerColumn())
             columns.append(TextColumn("[progress.description]{task.description}"))
-            
+
             if show_bar:
                 columns.append(BarColumn())
             if show_percentage:
                 try:
                     columns.append(TaskProgressColumn())
-                except:
+                except Exception:
                     # Fallback for older rich versions
                     columns.append(TextColumn("[progress.percentage]{task.percentage:>3.0f}%"))
             if show_time:
                 columns.append(TimeRemainingColumn())
-            
+
             with Progress(*columns, transient=transient) as progress:
                 task = progress.add_task(
                     description or f.__name__,
                     total=total
                 )
-                
+
                 try:
                     for update in f(*args, **kwargs):
                         if isinstance(update, (int, float)):
@@ -261,7 +261,7 @@ def progress(
                     raise
                 finally:
                     progress.update(task, completed=total or 100)
-        
+
         return wrapper
     return decorator
 
@@ -273,13 +273,13 @@ def panel_output(
 ) -> Callable:
     """
     Decorator to display command output in a panel.
-    
+
     Args:
         title: Panel title
         style: Panel style
         expand: Expand panel to terminal width
         padding: Panel padding
-        
+
     Example:
         @command()
         @panel_output(title="System Status")
@@ -310,11 +310,11 @@ def format_output(
 ) -> Callable:
     """
     Decorator to format command output using a template.
-    
+
     Args:
         template: Format string template
         style: Rich style string
-        
+
     Example:
         @command()
         @format_output("Created user {name} with ID {id}")
@@ -331,7 +331,7 @@ def format_output(
                     output = template.format(**result)
                 else:
                     output = template.format(result)
-                
+
                 if style:
                     console.print(output, style=style)
                 else:
@@ -346,11 +346,11 @@ def pager_output(
 ) -> Callable:
     """
     Decorator to display command output in a pager.
-    
+
     Args:
         use_pager: Whether to use pager
         style: Rich style string
-        
+
     Example:
         @command()
         @pager_output()

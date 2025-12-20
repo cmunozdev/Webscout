@@ -1,14 +1,15 @@
-from uuid import uuid4
-import requests
 import json
-from typing import Union, Dict, Any, Generator
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Generator, Union
+from uuid import uuid4
+
+import requests
+
 from webscout import exceptions
-from webscout.search import DuckDuckGoSearch
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+from webscout.search import DuckDuckGoSearch
+
 
 class AndiSearch(Provider):
     required_auth = False
@@ -130,7 +131,7 @@ class AndiSearch(Provider):
                         "title": result.title,
                         "link": result.href,
                         "desc": result.body,
-                        "image": "",  
+                        "image": "",
                         "type": "website",
                         "source": result.href.split("//")[1].split("/")[0] if "//" in result.href else result.href.split("/")[0]  # Extract the domain name
                     }
@@ -231,7 +232,7 @@ class AndiSearch(Provider):
         """
         assert isinstance(response, dict), "Response should be of dict data-type only"
         return response["text"]
-        
+
 if __name__ == '__main__':
     from rich import print
     ai = AndiSearch()

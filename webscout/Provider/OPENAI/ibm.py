@@ -1,19 +1,25 @@
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
 from datetime import datetime
+from typing import Any, Dict, Generator, List, Optional, Union
+
+from curl_cffi import CurlError
 
 # Import curl_cffi for improved request handling
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage,
-    format_prompt, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
+    format_prompt,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -43,12 +49,12 @@ class Completions(BaseCompletions):
         Mimics openai.chat.completions.create
         """
         formatted_prompt = format_prompt(
-            messages, 
-            add_special_tokens=False, 
+            messages,
+            add_special_tokens=False,
             do_continue=True,
             include_system=True
         )
-        
+
         if not formatted_prompt:
             raise ValueError("No valid prompt could be generated from messages")
 
@@ -101,7 +107,7 @@ class Completions(BaseCompletions):
                 timeout=self._client.timeout,
                 impersonate="chrome110"
             )
-            
+
             if response.status_code in [401, 403]:
                 # Token expired, refresh and retry once
                 self._client.get_token()
@@ -123,56 +129,56 @@ class Completions(BaseCompletions):
             for chunk in response.iter_content(chunk_size=None):
                 if not chunk:
                     continue
-                
+
                 # Decode bytes to string
                 try:
                     chunk_str = chunk.decode('utf-8') if isinstance(chunk, bytes) else chunk
                 except UnicodeDecodeError:
                     continue
-                
+
                 buffer += chunk_str
-                
+
                 # Process complete lines
                 while '\n' in buffer:
                     line, buffer = buffer.split('\n', 1)
                     line = line.strip()
-                    
+
                     if not line:
                         continue
-                    
+
                     # Parse SSE format: "data: {...}"
                     if line.startswith("data:"):
                         json_str = line[5:].strip()  # Remove "data:" prefix
-                        
+
                         # Skip [DONE] marker
                         if json_str == "[DONE]":
                             break
-                        
+
                         try:
                             # Parse JSON
                             data = json.loads(json_str)
-                            
+
                             # Extract content from IBM format
                             if data.get("type") == "message.part":
                                 part = data.get("part", {})
                                 content = part.get("content")
-                                
+
                                 if content:
                                     completion_tokens += 1
-                                    
+
                                     # Create the delta object
                                     delta = ChoiceDelta(
                                         content=content,
                                         role="assistant"
                                     )
-                                    
+
                                     # Create the choice object
                                     choice = Choice(
                                         index=0,
                                         delta=delta,
                                         finish_reason=None
                                     )
-                                    
+
                                     # Create the chunk object
                                     chunk = ChatCompletionChunk(
                                         id=request_id,
@@ -181,9 +187,9 @@ class Completions(BaseCompletions):
                                         model=model,
                                         system_fingerprint=None
                                     )
-                                    
+
                                     yield chunk
-                                    
+
                         except json.JSONDecodeError:
                             # Skip malformed JSON lines
                             continue
@@ -309,7 +315,7 @@ class IBM(OpenAICompatibleProvider):
     def __init__(self, api_key: str = None, timeout: Optional[int] = 30, browser: str = "chrome"):
         """
         Initialize IBM client.
-        
+
         Args:
             api_key: Not required for IBM Granite Playground (uses dynamic bearer token)
             timeout: Request timeout in seconds
@@ -317,15 +323,15 @@ class IBM(OpenAICompatibleProvider):
         """
         self.timeout = timeout
         self.base_url = "https://d1eh1ubv87xmm5.cloudfront.net/granite/playground/api/v1/acp/runs"
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
-        
+
         # Initialize LitAgent for browser fingerprinting
         try:
             agent = LitAgent()
             fingerprint = agent.generate_fingerprint(browser)
-            
+
             self.headers = {
                 "Accept": "text/event-stream",
                 "Accept-Language": fingerprint.get("accept_language", "en-US,en;q=0.9"),
@@ -362,23 +368,23 @@ class IBM(OpenAICompatibleProvider):
                 "Sec-CH-UA-Mobile": "?0",
                 "Sec-CH-UA-Platform": '"Windows"',
             }
-        
+
         # Update session headers
         self.session.headers.update(self.headers)
 
         # Fetch initial token
         self.get_token()
-        
+
         # Initialize chat interface
         self.chat = Chat(self)
 
     @classmethod
     def get_models(cls, api_key: str = None):
         """Get available models.
-        
+
         Args:
             api_key: Not used for IBM (kept for compatibility)
-            
+
         Returns:
             list: List of available model IDs
         """
@@ -397,7 +403,7 @@ class IBM(OpenAICompatibleProvider):
 if __name__ == "__main__":
     # Test the IBM client
     client = IBM()
-    
+
     # Test streaming
     print("Testing streaming:")
     response = client.chat.completions.create(
@@ -407,12 +413,12 @@ if __name__ == "__main__":
         ],
         stream=True
     )
-    
+
     for chunk in response:
         if chunk.choices and chunk.choices[0].delta.content:
             print(chunk.choices[0].delta.content, end="", flush=True)
     print("\n")
-    
+
     # Test non-streaming
     print("Testing non-streaming:")
     response = client.chat.completions.create(
@@ -422,5 +428,5 @@ if __name__ == "__main__":
         ],
         stream=False
     )
-    
+
     print(response.choices[0].message.content)

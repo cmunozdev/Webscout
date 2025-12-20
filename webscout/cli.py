@@ -1,25 +1,29 @@
-from .swiftcli import CLI, option, table_output, panel_output
-from .search import (
-    DuckDuckGoSearch, 
-    YepSearch, 
-    BingSearch, 
-    YahooSearch,
-    Brave,
-    Mojeek,
-    Yandex,
-    Wikipedia
-)
-from .version import __version__
-from rich.console import Console
-from rich.table import Table
-from rich.panel import Panel
-from rich import print as rprint
 import sys
+from typing import Any, Dict, List, Optional, Type
+
+from rich import print as rprint
+from rich.console import Console
+from rich.panel import Panel
+from rich.table import Table
+
+from .search import (
+    BaseSearch,
+    BingSearch,
+    Brave,
+    DuckDuckGoSearch,
+    Mojeek,
+    Wikipedia,
+    YahooSearch,
+    Yandex,
+    YepSearch,
+)
+from .swiftcli import CLI, option
+from .version import __version__
 
 console = Console()
 
 # Engine mapping
-ENGINES = {
+ENGINES: Dict[str, Type[BaseSearch]] = {
     "ddg": DuckDuckGoSearch,
     "duckduckgo": DuckDuckGoSearch,
     "bing": BingSearch,
@@ -28,32 +32,32 @@ ENGINES = {
     "mojeek": Mojeek,
     "yandex": Yandex,
     "wikipedia": Wikipedia,
-    "yep": YepSearch
+    "yep": YepSearch,
 }
 
-def _get_engine(name):
+def _get_engine(name: str) -> BaseSearch:
     cls = ENGINES.get(name.lower())
     if not cls:
         rprint(f"[bold red]Error: Engine '{name}' not supported.[/bold red]")
         rprint(f"Available engines: {', '.join(sorted(set(e for e in ENGINES.keys())))}")
         sys.exit(1)
-    return cls()
+    return cls()  # type: ignore[arg-type]
 
-def _print_data(data, title="Search Results"):
+def _print_data(data: Any, title: str = "Search Results") -> None:
     """Prints data in a beautiful table."""
     if not data:
         rprint("[bold yellow]No results found.[/bold yellow]")
         return
 
     table = Table(title=title, show_header=True, header_style="bold magenta", show_lines=True)
-    
+
     if isinstance(data, list) and len(data) > 0:
         if isinstance(data[0], dict):
             keys = list(data[0].keys())
             table.add_column("#", style="dim", width=4)
             for key in keys:
                 table.add_column(key.capitalize())
-                
+
             for i, item in enumerate(data, 1):
                 row = [str(i)]
                 for key in keys:
@@ -73,44 +77,51 @@ def _print_data(data, title="Search Results"):
 
     console.print(table)
 
-def _print_weather(data):
+def _print_weather(data: Dict[str, Any]) -> None:
     """Prints weather data in a clean panel."""
-    current = data.get("current")
-    if not current:
-        rprint(f"[bold blue]Weather data:[/bold blue] {data}")
-        return
-    
+    # Be defensive when reading weather payloads
+    current = data.get("current") or {}
+    location = data.get("location", "Unknown")
+
+    temp = current.get('temperature_c', 'N/A')
+    feels_like = current.get('feels_like_c', 'N/A')
+    condition = current.get('condition', 'N/A')
+    humidity = current.get('humidity', 'N/A')
+    wind_speed = current.get('wind_speed_ms', 'N/A')
+    wind_dir = current.get('wind_direction', 'N/A')
+
     weather_info = (
-        f"[bold blue]Location:[/bold blue] {data['location']}\n"
-        f"[bold blue]Temperature:[/bold blue] {current['temperature_c']}°C (Feels like {current['feels_like_c']}°C)\n"
-        f"[bold blue]Condition:[/bold blue] {current['condition']}\n"
-        f"[bold blue]Humidity:[/bold blue] {current['humidity']}%\n"
-        f"[bold blue]Wind:[/bold blue] {current['wind_speed_ms']} m/s {current['wind_direction']}°"
+        f"[bold blue]Location:[/bold blue] {location}\n"
+        f"[bold blue]Temperature:[/bold blue] {temp}°C (Feels like {feels_like}°C)\n"
+        f"[bold blue]Condition:[/bold blue] {condition}\n"
+        f"[bold blue]Humidity:[/bold blue] {humidity}%\n"
+        f"[bold blue]Wind:[/bold blue] {wind_speed} m/s {wind_dir}°"
     )
-    
+
     panel = Panel(weather_info, title="Current Weather", border_style="green")
     console.print(panel)
-    
-    if "daily_forecast" in data:
+
+    if isinstance(data.get("daily_forecast"), list):
         forecast_table = Table(title="5-Day Forecast", show_header=True, header_style="bold cyan")
         forecast_table.add_column("Date")
         forecast_table.add_column("Condition")
         forecast_table.add_column("High")
         forecast_table.add_column("Low")
-        
-        for day in data["daily_forecast"][:5]:
-            forecast_table.add_row(
-                day['date'],
-                day['condition'],
-                f"{day['max_temp_c']:.1f}°C",
-                f"{day['min_temp_c']:.1f}°C"
-            )
+
+        for day in data.get("daily_forecast", [])[:5]:
+            date = day.get('date', 'N/A')
+            condition = day.get('condition', 'N/A')
+            max_temp = day.get('max_temp_c')
+            min_temp = day.get('min_temp_c')
+            max_temp_str = f"{max_temp:.1f}°C" if isinstance(max_temp, (int, float)) else str(max_temp)
+            min_temp_str = f"{min_temp:.1f}°C" if isinstance(min_temp, (int, float)) else str(min_temp)
+            forecast_table.add_row(date, condition, max_temp_str, min_temp_str)
         console.print(forecast_table)
 
-app = CLI(name="webscout", help="Search the web with a simple UI", version=__version__)
+app: CLI = CLI(name="webscout", help="Search the web with a simple UI", version=__version__)
 
 @app.command()
-def version():
+def version() -> None:
     """Show the version of webscout."""
     rprint(f"[bold cyan]webscout version:[/bold cyan] {__version__}")
 
@@ -121,14 +132,21 @@ def version():
 @option("--safesearch", "-s", help="SafeSearch setting", default="moderate")
 @option("--timelimit", "-t", help="Time limit for results", default=None)
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def text(keywords: str, engine: str, region: str, safesearch: str, timelimit: str, max_results: int):
+def text(
+    keywords: str,
+    engine: str,
+    region: Optional[str] = None,
+    safesearch: str = "moderate",
+    timelimit: Optional[str] = None,
+    max_results: int = 10,
+) -> None:
     """Perform a text search."""
     try:
         search_engine = _get_engine(engine)
         # Handle region defaults if not provided
         if region is None:
             region = "wt-wt" if engine.lower() in ["ddg", "duckduckgo"] else "us"
-        
+
         # Most engines use .text(), some use .search() or .run()
         if hasattr(search_engine, 'text'):
             results = search_engine.text(keywords, region=region, safesearch=safesearch, max_results=max_results)
@@ -136,7 +154,7 @@ def text(keywords: str, engine: str, region: str, safesearch: str, timelimit: st
             results = search_engine.run(keywords, region=region, safesearch=safesearch, max_results=max_results)
         else:
             results = search_engine.search(keywords, max_results=max_results)
-            
+
         _print_data(results, title=f"{engine.upper()} Text Search: {keywords}")
     except Exception as e:
         rprint(f"[bold red]Error:[/bold red] {str(e)}")
@@ -145,7 +163,7 @@ def text(keywords: str, engine: str, region: str, safesearch: str, timelimit: st
 @option("--keywords", "-k", help="Search keywords", required=True)
 @option("--engine", "-e", help="Search engine (ddg, bing, yahoo)", default="ddg")
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def images(keywords: str, engine: str, max_results: int):
+def images(keywords: str, engine: str, max_results: int) -> None:
     """Perform an images search."""
     try:
         search_engine = _get_engine(engine)
@@ -158,7 +176,7 @@ def images(keywords: str, engine: str, max_results: int):
 @option("--keywords", "-k", help="Search keywords", required=True)
 @option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def videos(keywords: str, engine: str, max_results: int):
+def videos(keywords: str, engine: str, max_results: int) -> None:
     """Perform a videos search."""
     try:
         search_engine = _get_engine(engine)
@@ -171,7 +189,7 @@ def videos(keywords: str, engine: str, max_results: int):
 @option("--keywords", "-k", help="Search keywords", required=True)
 @option("--engine", "-e", help="Search engine (ddg, bing, yahoo)", default="ddg")
 @option("--max-results", "-m", help="Maximum number of results", type=int, default=10)
-def news(keywords: str, engine: str, max_results: int):
+def news(keywords: str, engine: str, max_results: int) -> None:
     """Perform a news search."""
     try:
         search_engine = _get_engine(engine)
@@ -183,7 +201,7 @@ def news(keywords: str, engine: str, max_results: int):
 @app.command()
 @option("--location", "-l", help="Location to get weather for", required=True)
 @option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
-def weather(location: str, engine: str):
+def weather(location: str, engine: str) -> None:
     """Get weather information."""
     try:
         search_engine = _get_engine(engine)
@@ -195,7 +213,7 @@ def weather(location: str, engine: str):
 @app.command()
 @option("--keywords", "-k", help="Search keywords", required=True)
 @option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
-def answers(keywords: str, engine: str):
+def answers(keywords: str, engine: str) -> None:
     """Perform an answers search."""
     try:
         search_engine = _get_engine(engine)
@@ -207,21 +225,16 @@ def answers(keywords: str, engine: str):
 @app.command()
 @option("--query", "-q", help="Search query", required=True)
 @option("--engine", "-e", help="Search engine (ddg, bing, yahoo, yep)", default="ddg")
-def suggestions(query: str, engine: str):
+def suggestions(query: str, engine: str) -> None:
     """Get search suggestions."""
     try:
         search_engine = _get_engine(engine)
-        # Some engines use 'keywords', some 'query'
-        if engine.lower() in ["bing", "yep"]:
-            results = search_engine.suggestions(query)
-        else:
-            results = search_engine.suggestions(query)
-        
-        # Format suggestions
+        results = search_engine.suggestions(query)
+
+        # Format suggestions (Bing-style dicts)
         if isinstance(results, list) and results and isinstance(results[0], dict):
-            # Bing format
             results = [r.get("suggestion", str(r)) for r in results]
-            
+
         _print_data(results, title=f"{engine.upper()} Suggestions: {query}")
     except Exception as e:
         rprint(f"[bold red]Error:[/bold red] {str(e)}")
@@ -231,7 +244,7 @@ def suggestions(query: str, engine: str):
 @option("--from", "-f", help="Language to translate from", default=None)
 @option("--to", "-t", help="Language to translate to", default="en")
 @option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
-def translate(keywords: str, from_: str, to: str, engine: str):
+def translate(keywords: str, from_: Optional[str] = None, to: str = "en", engine: str = "ddg") -> None:
     """Perform translation."""
     try:
         search_engine = _get_engine(engine)
@@ -245,7 +258,7 @@ def translate(keywords: str, from_: str, to: str, engine: str):
 @option("--place", "-p", help="Place name")
 @option("--radius", "-r", help="Search radius (km)", type=int, default=0)
 @option("--engine", "-e", help="Search engine (ddg, yahoo)", default="ddg")
-def maps(keywords: str, place: str, radius: int, engine: str):
+def maps(keywords: str, place: Optional[str] = None, radius: int = 0, engine: str = "ddg") -> None:
     """Perform a maps search."""
     try:
         search_engine = _get_engine(engine)
@@ -259,9 +272,10 @@ def maps(keywords: str, place: str, radius: int, engine: str):
 @option("--keywords", "-k", help="Search keywords", required=True)
 @option("--engine", "-e", help="Search engine", default="ddg")
 @option("--max-results", "-m", help="Maximum results", type=int, default=10)
-def search(keywords: str, engine: str, max_results: int):
+def search(keywords: str, engine: str, max_results: int) -> None:
     """Unified search command across all engines."""
-    text.run(keywords=keywords, engine=engine, max_results=max_results)
+    # Call the local `text` function implementation (not a command object)
+    text(keywords=keywords, engine=engine, max_results=max_results)
 
 def main():
     """Main entry point for the CLI."""

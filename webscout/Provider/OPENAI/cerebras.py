@@ -1,15 +1,19 @@
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 try:
@@ -208,7 +212,7 @@ class Cerebras(OpenAICompatibleProvider):
         """Fetch available models from Cerebras API."""
         if not api_key:
             raise Exception("API key required to fetch models")
-            
+
         try:
             # Use a temporary curl_cffi session for this class method
             temp_session = Session()
@@ -216,21 +220,21 @@ class Cerebras(OpenAICompatibleProvider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.cerebras.ai/v1/models",
                 headers=headers,
                 impersonate="chrome120"
             )
-            
+
             if response.status_code != 200:
                 raise Exception(f"Failed to fetch models: HTTP {response.status_code}")
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model['id'] for model in data['data']]
             raise Exception("Invalid response format from API")
-            
+
         except (CurlError, Exception) as e:
             raise Exception(f"Failed to fetch models: {str(e)}")
 
@@ -254,7 +258,7 @@ class Cerebras(OpenAICompatibleProvider):
         }
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
-    
+
     @property
     def models(self):
         class _ModelList:

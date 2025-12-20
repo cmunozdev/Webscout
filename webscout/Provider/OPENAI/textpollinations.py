@@ -3,18 +3,26 @@ TextPollinations OpenAI-compatible provider.
 https://text.pollinations.ai/openai
 """
 
+import json
 import time
 import uuid
-import requests
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, ToolCall, ToolFunction, count_tokens
-)
+import requests
+
 from webscout.litagent import LitAgent
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    ToolCall,
+    ToolFunction,
+    count_tokens,
+)
 
 BOLD = "\033[1m"
 RED = "\033[91m"
@@ -254,7 +262,7 @@ class TextPollinations(OpenAICompatibleProvider):
     Provides free access to various models including GPT variants and open-source models.
     """
     required_auth = False
-    
+
     AVAILABLE_MODELS = ["openai", "mistral", "p1", "unity"]
 
     @classmethod
@@ -273,7 +281,7 @@ class TextPollinations(OpenAICompatibleProvider):
                 data = response.json()
                 if isinstance(data, list):
                     return [model.get("name") for model in data if isinstance(model, dict) and "name" in model]
-            
+
             return cls.AVAILABLE_MODELS
 
         except Exception:
@@ -339,7 +347,7 @@ if __name__ == "__main__":
             response = client.chat.completions.create(
                 model=model_to_use,
                 messages=[{"role": "user", "content": "Hello!"}]
-            ) 
+            )
             print(response.choices[0].message.content)
         except Exception as e:
             print(f"Error testing model: {e}")

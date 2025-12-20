@@ -13,13 +13,12 @@ import os
 import uvicorn
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import RedirectResponse
 from fastapi.openapi.docs import get_swagger_ui_html
 from starlette.responses import HTMLResponse
 
-from .config import ServerConfig, AppConfig
-from .routes import Api
+from .config import AppConfig, ServerConfig
 from .providers import initialize_provider_map, initialize_tti_provider_map
+from .routes import Api
 from .ui_templates import LANDING_PAGE_HTML, SWAGGER_CSS
 
 # Configuration constants
@@ -66,14 +65,14 @@ def create_app():
             openapi_url=app.openapi_url,
             title=app.title + " - API Documentation",
         ).body.decode("utf-8")
-        
+
         # Custom footer and styles
         footer_html = """
         <div class="webscout-footer">
             Powered by <a href='https://github.com/OEvortex/Webscout' target='_blank'>WebScout</a>
         </div>
         """
-        
+
         # Inject custom CSS and footer
         html = html.replace("</head>", f"<style>{SWAGGER_CSS}</style></head>")
         html = html.replace("</body>", f"{footer_html}</body>")
@@ -99,7 +98,7 @@ def create_app():
     api = Api(app)
     api.register_validation_exception_handler()
     api.register_routes()
-    
+
     # Initialize providers
     initialize_provider_map()
     initialize_tti_provider_map()
@@ -152,7 +151,7 @@ def run_api(
     print("Starting Webscout OpenAI API server...")
     if port is None:
         port = DEFAULT_PORT
-        
+
     AppConfig.set_config(
         api_key=None,
         default_provider=default_provider or AppConfig.default_provider,
@@ -179,10 +178,10 @@ def run_api(
         print(f"Docs URL: {api_endpoint_base}/docs")
 
         # Show authentication status
-        print(f"Authentication: 🔓 DISABLED")
+        print("Authentication: 🔓 DISABLED")
 
         # Show rate limiting status
-        print(f"Rate Limiting: ⚡ DISABLED")
+        print("Rate Limiting: ⚡ DISABLED")
 
         print(f"Default Provider: {AppConfig.default_provider}")
         print(f"Workers: {workers}")
@@ -265,14 +264,14 @@ def main():
     args = parser.parse_args()
 
     # Print configuration summary
-    print(f"Configuration:")
+    print("Configuration:")
     print(f"  Host: {args.host}")
     print(f"  Port: {args.port}")
     print(f"  Workers: {args.workers}")
     print(f"  Log Level: {args.log_level}")
     print(f"  Debug Mode: {args.debug}")
-    print(f"  Authentication: 🔓 DISABLED")
-    print(f"  Rate Limiting: ⚡ DISABLED")
+    print("  Authentication: 🔓 DISABLED")
+    print("  Rate Limiting: ⚡ DISABLED")
     print(f"  Default Provider: {args.default_provider or 'Not set'}")
     print(f"  Base URL: {args.base_url or 'Not set'}")
     print()

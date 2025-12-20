@@ -5,18 +5,23 @@ Request processing utilities for the Webscout API.
 import json
 import time
 import uuid
-from typing import List, Dict, Any
-from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_500_INTERNAL_SERVER_ERROR
+from typing import Any, Dict, List
+
 from fastapi.responses import StreamingResponse
-
-from webscout.Provider.OPENAI.utils import ChatCompletion, Choice, ChatCompletionMessage, CompletionUsage
 from litprinter import ic
+from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_500_INTERNAL_SERVER_ERROR
 
-from .request_models import Message, ChatCompletionRequest
-from .exceptions import APIError, clean_text
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionMessage,
+    Choice,
+    CompletionUsage,
+)
 
 # from .simple_logger import log_api_request, get_client_ip, generate_request_id
 from .config import AppConfig
+from .exceptions import APIError, clean_text
+from .request_models import ChatCompletionRequest, Message
 
 
 def get_client_ip(request) -> str:
@@ -24,11 +29,11 @@ def get_client_ip(request) -> str:
     forwarded_for = request.headers.get("X-Forwarded-For")
     if forwarded_for:
         return forwarded_for.split(",")[0].strip()
-    
+
     real_ip = request.headers.get("X-Real-IP")
     if real_ip:
         return real_ip.strip()
-    
+
     return getattr(request.client, "host", "unknown")
 
 
@@ -60,7 +65,7 @@ async def log_request(request_id: str, ip_address: str, model_used: str, questio
             user_agent = None
             if request_obj:
                 user_agent = request_obj.headers.get("user-agent")
-            
+
             await log_api_request(
                 request_id=request_id,
                 ip_address=ip_address,
@@ -73,7 +78,8 @@ async def log_request(request_id: str, ip_address: str, model_used: str, questio
                 user_agent=user_agent
             )
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| '); ic(f"Failed to log request {request_id}: {e}")
+        ic.configureOutput(prefix='ERROR| ')
+        ic(f"Failed to log request {request_id}: {e}")
         # Don't raise exception to avoid breaking the main request flow
 
 
@@ -134,15 +140,16 @@ def prepare_provider_params(chat_request: ChatCompletionRequest, model_name: str
 
 
 async def handle_streaming_response(provider: Any, params: Dict[str, Any], request_id: str,
-                                  ip_address: str, question: str, model_name: str, start_time: float, 
+                                  ip_address: str, question: str, model_name: str, start_time: float,
                                   provider_name: str = None, request_obj=None) -> StreamingResponse:
     """Handle streaming chat completion response."""
     collected_content = []
-    
+
     async def streaming():
         nonlocal collected_content
         try:
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Starting streaming response for request {request_id}")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Starting streaming response for request {request_id}")
             completion_stream = provider.chat.completions.create(**params)
 
             # Check if it's iterable (generator, iterator, or other iterable types)
@@ -158,7 +165,7 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                             chunk_data = chunk
                         else:  # Fallback for unknown chunk types
                             chunk_data = chunk
-                        
+
                         # Clean text content in the chunk to remove control characters
                         if isinstance(chunk_data, dict) and 'choices' in chunk_data:
                             for choice in chunk_data.get('choices', []):
@@ -175,10 +182,11 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                                         if content:
                                             collected_content.append(content)
                                         choice['message']['content'] = clean_text(content)
-                        
+
                         yield f"data: {json.dumps(chunk_data, ensure_ascii=False)}\n\n"
                 except TypeError as te:
-                    ic.configureOutput(prefix='ERROR| '); ic(f"Error iterating over completion_stream: {te}")
+                    ic.configureOutput(prefix='ERROR| ')
+                    ic(f"Error iterating over completion_stream: {te}")
                     # Fall back to treating as non-generator response
                     if hasattr(completion_stream, 'model_dump'):
                         response_data = completion_stream.model_dump(exclude_none=True)
@@ -186,7 +194,7 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                         response_data = completion_stream.dict(exclude_none=True)
                     else:
                         response_data = completion_stream
-                    
+
                     # Clean text content in the response
                     if isinstance(response_data, dict) and 'choices' in response_data:
                         for choice in response_data.get('choices', []):
@@ -201,7 +209,7 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                                     if content:
                                         collected_content.append(content)
                                     choice['message']['content'] = clean_text(content)
-                    
+
                     yield f"data: {json.dumps(response_data, ensure_ascii=False)}\n\n"
             else:  # Non-generator response
                 if hasattr(completion_stream, 'model_dump'):
@@ -210,7 +218,7 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                     response_data = completion_stream.dict(exclude_none=True)
                 else:
                     response_data = completion_stream
-                
+
                 # Clean text content in the response
                 if isinstance(response_data, dict) and 'choices' in response_data:
                     for choice in response_data.get('choices', []):
@@ -225,11 +233,12 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                                 if content:
                                     collected_content.append(content)
                                 choice['message']['content'] = clean_text(content)
-                
+
                 yield f"data: {json.dumps(response_data, ensure_ascii=False)}\n\n"
 
         except Exception as e:
-            ic.configureOutput(prefix='ERROR| '); ic(f"Error in streaming response for request {request_id}: {e}")
+            ic.configureOutput(prefix='ERROR| ')
+            ic(f"Error in streaming response for request {request_id}: {e}")
             error_message = clean_text(str(e))
             error_data = {
                 "error": {
@@ -239,7 +248,7 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                 }
             }
             yield f"data: {json.dumps(error_data, ensure_ascii=False)}\n\n"
-            
+
             # Log error request
             response_time_ms = int((time.time() - start_time) * 1000)
             await log_request(
@@ -256,7 +265,7 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
             )
         finally:
             yield "data: [DONE]\n\n"
-            
+
             # Log successful streaming request
             if collected_content:
                 answer = "".join(collected_content)
@@ -272,17 +281,18 @@ async def handle_streaming_response(provider: Any, params: Dict[str, Any], reque
                     provider=provider_name,
                     request_obj=request_obj
                 )
-    
+
     return StreamingResponse(streaming(), media_type="text/event-stream")
 
 
 async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
                                       request_id: str, start_time: float, ip_address: str,
-                                      question: str, model_name: str, provider_name: str = None, 
+                                      question: str, model_name: str, provider_name: str = None,
                                       request_obj=None) -> Dict[str, Any]:
     """Handle non-streaming chat completion response."""
     try:
-        ic.configureOutput(prefix='DEBUG| '); ic(f"Starting non-streaming response for request {request_id}")
+        ic.configureOutput(prefix='DEBUG| ')
+        ic(f"Starting non-streaming response for request {request_id}")
         completion = provider.chat.completions.create(**params)
 
         if completion is None:
@@ -298,7 +308,7 @@ async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
                 )],
                 usage=CompletionUsage(prompt_tokens=0, completion_tokens=0, total_tokens=0)
             ).model_dump(exclude_none=True)
-            
+
             # Log error request
             response_time_ms = int((time.time() - start_time) * 1000)
             await log_request(
@@ -313,7 +323,7 @@ async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
                 provider=provider_name,
                 request_obj=request_obj
             )
-            
+
             return error_response
 
         # Standardize response format
@@ -329,7 +339,7 @@ async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
                 HTTP_500_INTERNAL_SERVER_ERROR,
                 "provider_error"
             )
-        
+
         # Extract answer from response and clean text content
         answer = ""
         if isinstance(response_data, dict) and 'choices' in response_data:
@@ -343,7 +353,8 @@ async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
 
         elapsed = time.time() - start_time
         response_time_ms = int(elapsed * 1000)
-        ic.configureOutput(prefix='INFO| '); ic(f"Completed non-streaming request {request_id} in {elapsed:.2f}s")
+        ic.configureOutput(prefix='INFO| ')
+        ic(f"Completed non-streaming request {request_id} in {elapsed:.2f}s")
 
         # Log successful request
         await log_request(
@@ -361,9 +372,10 @@ async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
         return response_data
 
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| '); ic(f"Error in non-streaming response for request {request_id}: {e}")
+        ic.configureOutput(prefix='ERROR| ')
+        ic(f"Error in non-streaming response for request {request_id}: {e}")
         error_message = clean_text(str(e))
-        
+
         # Log error request
         response_time_ms = int((time.time() - start_time) * 1000)
         await log_request(
@@ -378,7 +390,7 @@ async def handle_non_streaming_response(provider: Any, params: Dict[str, Any],
             provider=provider_name,
             request_obj=request_obj
         )
-        
+
         raise APIError(
             f"Provider error: {error_message}",
             HTTP_500_INTERNAL_SERVER_ERROR,

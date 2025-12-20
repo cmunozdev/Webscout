@@ -1,13 +1,13 @@
 """
 Text processing utilities for TTS providers.
 """
-from typing import Union, List, Dict, Tuple, Set, Optional, Pattern
 import re
+from typing import Dict, List, Pattern, Set, Tuple
 
 
 class SentenceTokenizer:
     """Advanced sentence tokenizer with support for complex cases and proper formatting."""
-    
+
     def __init__(self) -> None:
         # Common abbreviations by category
         self.TITLES: Set[str] = {
@@ -15,31 +15,31 @@ class SentenceTokenizer:
             'hon', 'pres', 'gov', 'atty', 'supt', 'det', 'rev', 'col','maj', 'gen', 'capt', 'cmdr',
             'lt', 'sgt', 'cpl', 'pvt'
         }
-        
+
         self.ACADEMIC: Set[str] = {
             'ph.d', 'phd', 'm.d', 'md', 'b.a', 'ba', 'm.a', 'ma', 'd.d.s', 'dds',
             'm.b.a', 'mba', 'b.sc', 'bsc', 'm.sc', 'msc', 'llb', 'll.b', 'bl'
         }
-        
+
         self.ORGANIZATIONS: Set[str] = {
             'inc', 'ltd', 'co', 'corp', 'llc', 'llp', 'assn', 'bros', 'plc', 'cos',
             'intl', 'dept', 'est', 'dist', 'mfg', 'div'
         }
-        
+
         self.MONTHS: Set[str] = {
             'jan', 'feb', 'mar', 'apr', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'
         }
-        
+
         self.UNITS: Set[str] = {
             'oz', 'pt', 'qt', 'gal', 'ml', 'cc', 'km', 'cm', 'mm', 'ft', 'in',
             'kg', 'lb', 'lbs', 'hz', 'khz', 'mhz', 'ghz', 'kb', 'mb', 'gb', 'tb'
         }
-        
+
         self.TECHNOLOGY: Set[str] = {
             'v', 'ver', 'app', 'sys', 'dir', 'exe', 'lib', 'api', 'sdk', 'url',
             'cpu', 'gpu', 'ram', 'rom', 'hdd', 'ssd', 'lan', 'wan', 'sql', 'html'
         }
-        
+
         self.MISC: Set[str] = {
             'vs', 'etc', 'ie', 'eg', 'no', 'al', 'ca', 'cf', 'pp', 'est', 'st',
             'approx', 'appt', 'apt', 'dept', 'depts', 'min', 'max', 'avg'
@@ -60,13 +60,13 @@ class SentenceTokenizer:
         self.NUMBER_PATTERN: str = (
             r'\d+(?:\.\d+)?(?:%|°|km|cm|mm|m|kg|g|lb|ft|in|mph|kmh|hz|mhz|ghz)?'
         )
-        
+
         # Quote and bracket pairs
         self.QUOTE_PAIRS: Dict[str, str] = {
-            '"': '"', "'": "'", '"': '"', "「": "」", "『": "』",
-            "«": "»", "‹": "›", "'": "'", "‚": "'"
+            '"': '"', "'": "'", "「": "」", "『": "』",
+            "«": "»", "‹": "›", "‚": "'"
         }
-        
+
         self.BRACKETS: Dict[str, str] = {
             '(': ')', '[': ']', '{': '}', '⟨': '⟩', '「': '」',
             '『': '』', '【': '】', '〖': '〗', '｢': '｣'
@@ -84,14 +84,14 @@ class SentenceTokenizer:
             (?:
                 # Standard endings with optional quotes/brackets
                 (?<=[.!?])[\"\'\)\]\}»›」』\s]*
-                
+
                 # Ellipsis
                 |(?:\.{2,}|…)
-                
+
                 # Asian-style endings
                 |(?<=[。！？」』】\s])
             )
-            
+
             # Must be followed by whitespace and capital letter or number
             (?=\s+(?:[A-Z0-9]|["'({[\[「『《‹〈][A-Z]))
             ''',
@@ -169,30 +169,30 @@ class SentenceTokenizer:
         for sentence in sentences:
             # Restore dots in abbreviations
             sentence = sentence.replace('__DOT__', '.')
-            
+
             # Restore paragraph breaks
             sentence = sentence.replace('__PARA__', '\n\n')
-            
+
             # Clean up whitespace
             sentence = re.sub(r'\s+', ' ', sentence).strip()
-            
+
             # Capitalize first letter if it's lowercase and not an abbreviation
             words = sentence.split()
             if words and words[0].lower() not in self.all_abbreviations:
                 sentence = sentence[0].upper() + sentence[1:]
-            
+
             if sentence:
                 restored.append(sentence)
-        
+
         return restored
 
     def tokenize(self, text: str) -> List[str]:
         """
         Split text into sentences while handling complex cases.
-        
+
         Args:
             text (str): Input text to split into sentences.
-            
+
         Returns:
             List[str]: List of properly formatted sentences.
         """
@@ -201,31 +201,31 @@ class SentenceTokenizer:
 
         # Step 1: Protect special cases
         protected_text, placeholders = self._protect_special_cases(text)
-        
+
         # Step 2: Normalize whitespace
         protected_text = self._normalize_whitespace(protected_text)
-        
+
         # Step 3: Handle abbreviations
         protected_text = self._handle_abbreviations(protected_text)
-        
+
         # Step 4: Split into potential sentences
         potential_sentences = self.SENTENCE_END.split(protected_text)
-        
+
         # Step 5: Process and restore formatting
         sentences = self._restore_formatting(potential_sentences)
-        
+
         # Step 6: Restore special cases
         sentences = [self._restore_special_cases(s, placeholders) for s in sentences]
-        
+
         # Step 7: Post-process sentences
         final_sentences = []
         current_sentence = []
-        
+
         for sentence in sentences:
             # Skip empty sentences
             if not sentence.strip():
                 continue
-                
+
             # Check if sentence might be continuation of previous
             if current_sentence and sentence[0].islower():
                 current_sentence.append(sentence)
@@ -233,21 +233,21 @@ class SentenceTokenizer:
                 if current_sentence:
                     final_sentences.append(' '.join(current_sentence))
                 current_sentence = [sentence]
-        
+
         # Add last sentence if exists
         if current_sentence:
             final_sentences.append(' '.join(current_sentence))
-        
+
         return final_sentences
 
 
 def split_sentences(text: str) -> List[str]:
     """
     Convenience function to split text into sentences using SentenceTokenizer.
-    
+
     Args:
         text (str): Input text to split into sentences.
-    
+
     Returns:
         List[str]: List of properly formatted sentences.
     """
@@ -258,19 +258,19 @@ def split_sentences(text: str) -> List[str]:
 if __name__ == "__main__":
     # Test text with various challenging cases
     test_text: str = """
-    Dr. Smith (Ph.D., M.D.) visited Washington D.C. on Jan. 20, 2024! He met with Prof. Johnson at 3:30 p.m. 
-    They discussed A.I. and machine learning... "What about the U.S. market?" asked Dr. Smith. 
+    Dr. Smith (Ph.D., M.D.) visited Washington D.C. on Jan. 20, 2024! He met with Prof. Johnson at 3:30 p.m.
+    They discussed A.I. and machine learning... "What about the U.S. market?" asked Dr. Smith.
     The meeting ended at 5 p.m. Later, they went to Mr. Wilson's house (located at 123 Main St.) for dinner.
-    
+
     Visit our website at https://www.example.com or email us at test@example.com!
     The temperature was 72.5°F (22.5°C). The company's Q3 2023 revenue was $12.5M USD.
-    
+
     「これは日本語の文章です。」This is a mixed-language text! How cool is that?
-    
+
     Some technical specs: CPU: 3.5GHz, RAM: 16GB, Storage: 2TB SSD.
     Common abbreviations: etc., i.e., e.g., vs., cf., approx. 100 units.
     """
-    
+
     # Process and print each sentence
     sentences: List[str] = split_sentences(test_text)
     print("Detected sentences:")

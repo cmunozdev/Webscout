@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 from typing import Any, Optional
-from .utils import ImageResponse
 
+from .utils import ImageResponse
 
 
 class BaseImages(ABC):

@@ -1,13 +1,12 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, List, Optional, Union, Iterator
+from typing import Any, Dict, Iterator, List, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 
 
@@ -20,8 +19,8 @@ class DeepAI(Provider):
     """
     required_auth = True
     AVAILABLE_MODELS = [
-        "standard", 
-        "genius", 
+        "standard",
+        "genius",
         "online",
         "supergenius",
         "onlinegenius",

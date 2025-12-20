@@ -12,13 +12,13 @@ from .base import DuckDuckGoBase
 
 class DuckDuckGoTextSearch(DuckDuckGoBase):
     """DuckDuckGo text/web search."""
-    
+
     name = "duckduckgo"
     category = "text"
-    
+
     def run(self, *args, **kwargs) -> list[TextResult]:
         """Perform text search on DuckDuckGo.
-        
+
         Args:
             keywords: Search query.
             region: Region code (e.g., wt-wt, us-en).
@@ -26,13 +26,13 @@ class DuckDuckGoTextSearch(DuckDuckGoBase):
             timelimit: d, w, m, or y.
             backend: html, lite, or auto.
             max_results: Maximum number of results.
-            
+
         Returns:
             List of TextResult objects.
         """
         keywords = args[0] if args else kwargs.get("keywords")
         region = args[1] if len(args) > 1 else kwargs.get("region", "wt-wt")
-        safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
+        args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
         timelimit = args[3] if len(args) > 3 else kwargs.get("timelimit")
         backend = args[4] if len(args) > 4 else kwargs.get("backend", "auto")
         max_results = args[5] if len(args) > 5 else kwargs.get("max_results")

@@ -1,16 +1,21 @@
-from uuid import uuid4
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import json
 import re
 import threading
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation, sanitize_stream # Import sanitize_stream
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
-from typing import Dict, Union, Any, Optional
-from webscout.litagent import LitAgent
+from typing import Any, Dict, Optional, Union
+from uuid import uuid4
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+from webscout.litagent import LitAgent
+
 
 class PiAI(Provider):
     """

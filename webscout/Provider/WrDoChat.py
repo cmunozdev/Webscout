@@ -1,17 +1,17 @@
 import json
 import re
-from typing import Optional, Union, Any, Dict, Generator
 from datetime import datetime
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class WrDoChat(Provider):
     """
@@ -149,7 +149,7 @@ class WrDoChat(Provider):
 
     def _wrdo_extractor(self, line: Union[str, Dict[str, Any]]) -> Optional[str]:
         """Extracts content from the oi.wr.do stream format.
-        
+
         Format:
         f:{"messageId":"..."}
         0:"content chunk"
@@ -163,7 +163,7 @@ class WrDoChat(Provider):
                 # Decode potential unicode escapes like \u00e9
                 content = match.group(1).encode().decode('unicode_escape')
                 return content.replace('\\\\', '\\').replace('\\"', '"')  # Handle escaped backslashes and quotes
-            
+
             # Store message ID from 'f:' response
             elif line.startswith('f:'):
                 try:
@@ -357,9 +357,10 @@ class WrDoChat(Provider):
 
 
 if __name__ == "__main__":
-    from rich import print
     import json
-    
+
+    from rich import print
+
     # Example usage
     ai = WrDoChat(cookies_path="cookies.json")
     response = ai.chat("write me a poem about AI", stream=True)

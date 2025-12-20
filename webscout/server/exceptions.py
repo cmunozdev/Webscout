@@ -5,8 +5,10 @@ Custom exceptions for the Webscout API.
 import json
 import re
 from typing import Optional
+
 from fastapi.responses import JSONResponse
 from starlette.status import HTTP_500_INTERNAL_SERVER_ERROR
+
 from .request_models import ErrorDetail, ErrorResponse
 
 
@@ -14,10 +16,10 @@ def clean_text(text):
     """Clean text by removing null bytes and control characters except newlines and tabs."""
     if not isinstance(text, str):
         return text
-    
+
     # Remove null bytes
     text = text.replace('\x00', '')
-    
+
     # Keep newlines, tabs, and other printable characters, remove other control chars
     # This regex matches control characters except \n, \r, \t
     return re.sub(r'[\x01-\x08\x0b\x0c\x0e-\x1f\x7f]', '', text)

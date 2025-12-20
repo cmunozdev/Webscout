@@ -2,20 +2,19 @@
 
 from __future__ import annotations
 
-from ....exceptions import WebscoutE
 from ....search.results import ImagesResult
 from .base import DuckDuckGoBase
 
 
 class DuckDuckGoImages(DuckDuckGoBase):
     """DuckDuckGo image search."""
-    
+
     name = "duckduckgo"
     category = "images"
-    
+
     def run(self, *args, **kwargs) -> list[ImagesResult]:
         """Perform image search on DuckDuckGo.
-        
+
         Args:
             keywords: Search query.
             region: Region code.
@@ -27,7 +26,7 @@ class DuckDuckGoImages(DuckDuckGoBase):
             layout: Square, Tall, Wide.
             license_image: any, Public, Share, etc.
             max_results: Maximum number of results.
-            
+
         Returns:
             List of ImagesResult objects.
         """

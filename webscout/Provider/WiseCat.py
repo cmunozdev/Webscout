@@ -1,14 +1,16 @@
-import re
-import json
-from typing import Union, Any, Dict, Generator, Optional
-from curl_cffi import CurlError 
+from typing import Any, Dict, Generator, Union
+
+from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
 
 
@@ -48,14 +50,14 @@ class WiseCat(Provider):
         self.max_tokens_to_sample = max_tokens
         self.api_endpoint = "https://wise-cat-groq.vercel.app/api/chat"
         # stream_chunk_size is not directly applicable to curl_cffi iter_lines
-        # self.stream_chunk_size = 64 
+        # self.stream_chunk_size = 64
         self.timeout = timeout
         self.last_response = {}
         self.model = model
         self.system_prompt = system_prompt
         self.litagent = LitAgent()
         # Generate headers using LitAgent, but apply them to the curl_cffi session
-        self.headers = self.litagent.generate_fingerprint() 
+        self.headers = self.litagent.generate_fingerprint()
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
@@ -114,10 +116,10 @@ class WiseCat(Provider):
         def for_stream():
             try:
                 response = self.session.post(
-                    self.api_endpoint, 
-                    headers=self.headers, 
-                    json=payload, 
-                    stream=True, 
+                    self.api_endpoint,
+                    headers=self.headers,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome120"
                 )
@@ -144,7 +146,7 @@ class WiseCat(Provider):
                         # Handle unicode escaping and quote unescaping
                         extracted_content = content_chunk.encode().decode('unicode_escape')
                         extracted_content = extracted_content.replace('\\\\', '\\').replace('\\"', '"')
-                        
+
                         if raw:
                             yield extracted_content
                         else:
@@ -206,11 +208,11 @@ if __name__ == "__main__":
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test all available models
     working = 0
     total = len(WiseCat.AVAILABLE_MODELS)
-    
+
     for model in WiseCat.AVAILABLE_MODELS:
         try:
             test_ai = WiseCat(model=model, timeout=60)
@@ -219,7 +221,7 @@ if __name__ == "__main__":
             for chunk in response:
                 response_text += chunk
                 print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
-            
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

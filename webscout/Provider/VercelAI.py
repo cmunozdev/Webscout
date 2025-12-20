@@ -1,15 +1,19 @@
+import json
 import re
 import time
-from curl_cffi import requests
-import json
-from typing import Union, Any, Dict, Generator, Optional
 import uuid
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
 
 
@@ -222,7 +226,7 @@ class VercelAI(Provider):
 
     def get_message(self, response: dict) -> str:
         """Retrieves message only from response"""
-        assert isinstance(response, dict), "Response should be of dict data-type only" 
+        assert isinstance(response, dict), "Response should be of dict data-type only"
         # Formatting is handled by the extractor now
         text = response.get("text", "")
         return text.replace('\\n', '\n').replace('\\n\\n', '\n\n') # Keep newline replacement if needed
@@ -231,11 +235,11 @@ if __name__ == "__main__":
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test all available models
     working = 0
     total = len(VercelAI.AVAILABLE_MODELS)
-    
+
     for model in VercelAI.AVAILABLE_MODELS:
         try:
             test_ai = VercelAI(model=model, timeout=60)
@@ -244,7 +248,7 @@ if __name__ == "__main__":
             for chunk in response:
                 response_text += chunk
                 print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
-            
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

@@ -1,20 +1,20 @@
+import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import requests
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
 
 from webscout.litagent import LitAgent
 from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
     ChatCompletionMessage,
+    Choice,
     ChoiceDelta,
     CompletionUsage,
-    format_prompt,
-    count_tokens
+    count_tokens,
 )
 
 # ANSI escape codes for formatting
@@ -28,7 +28,7 @@ MODEL_CONFIGS = {
         "endpoint": "https://ayle.chat/api/chat",
         "models": [
             "gemini-2.5-flash",
-            "llama-3.3-70b-versatile", 
+            "llama-3.3-70b-versatile",
             "llama-3.3-70b",
             "tngtech/deepseek-r1t2-chimera:free",
             "openai/gpt-oss-120b",
@@ -64,7 +64,7 @@ class Completions(BaseCompletions):
         """
         # Determine the provider based on the model
         provider = self._client._get_provider_from_model(model)
-        
+
         # Build the appropriate payload
         payload = {
             "messages": messages,
@@ -101,7 +101,7 @@ class Completions(BaseCompletions):
             for line in response.iter_lines():
                 if not line:
                     continue
-                
+
                 try:
                     line_str = line.decode('utf-8')
                     if line_str.startswith('0:"'):
@@ -109,18 +109,18 @@ class Completions(BaseCompletions):
                         if content:
                             streaming_text += content
                             completion_tokens += count_tokens(content)
-                        
+
                         # Create a delta object for this chunk
                         delta = ChoiceDelta(content=content)
                         choice = Choice(index=0, delta=delta, finish_reason=None)
-                        
+
                         chunk = ChatCompletionChunk(
                             id=request_id,
                             choices=[choice],
                             created=created_time,
                             model=model,
                         )
-                        
+
                         yield chunk
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
@@ -128,14 +128,14 @@ class Completions(BaseCompletions):
             # Final chunk with finish_reason
             delta = ChoiceDelta(content=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop")
-            
+
             chunk = ChatCompletionChunk(
                 id=request_id,
                 choices=[choice],
                 created=created_time,
                 model=model,
             )
-            
+
             yield chunk
 
         except requests.exceptions.RequestException as e:
@@ -172,26 +172,26 @@ class Completions(BaseCompletions):
             prompt_tokens = count_tokens(str(payload.get("messages", "")))
             completion_tokens = count_tokens(full_response)
             total_tokens = prompt_tokens + completion_tokens
-            
+
             usage = CompletionUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens
             )
-            
+
             # Create the message object
             message = ChatCompletionMessage(
                 role="assistant",
                 content=full_response
             )
-            
+
             # Create the choice object
             choice = Choice(
                 index=0,
                 message=message,
                 finish_reason="stop"
             )
-            
+
             # Create the completion object
             completion = ChatCompletion(
                 id=request_id,
@@ -200,7 +200,7 @@ class Completions(BaseCompletions):
                 model=model,
                 usage=usage,
             )
-            
+
             return completion
 
         except Exception as e:
@@ -226,7 +226,7 @@ class Ayle(OpenAICompatibleProvider):
     required_auth = False
     AVAILABLE_MODELS = [
         "gemini-2.5-flash",
-        "llama-3.3-70b-versatile", 
+        "llama-3.3-70b-versatile",
         "llama-3.3-70b",
         "tngtech/deepseek-r1t2-chimera:free",
         "openai/gpt-oss-120b",
@@ -253,10 +253,10 @@ class Ayle(OpenAICompatibleProvider):
         self.timeout = timeout
         self.temperature = temperature
         self.top_p = top_p
-        
+
         # Initialize LitAgent for user agent generation
         agent = LitAgent()
-        
+
         self.headers = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9",
@@ -265,11 +265,11 @@ class Ayle(OpenAICompatibleProvider):
             "referer": "https://ayle.chat/",
             "user-agent": agent.random(),
         }
-        
+
         self.session = requests.Session()
         self.session.headers.update(self.headers)
         self.session.cookies.update({"session": uuid.uuid4().hex})
-        
+
         # Initialize the chat interface
         self.chat = Chat(self)
 
@@ -288,7 +288,7 @@ class Ayle(OpenAICompatibleProvider):
         for provider, config in MODEL_CONFIGS.items():
             if model in config["models"]:
                 return provider
-        
+
         # If model not found, use a default model
         print(f"{BOLD}Warning: Model '{model}' not found, using default model 'ayle'{RESET}")
         return "ayle"
@@ -299,12 +299,12 @@ class Ayle(OpenAICompatibleProvider):
         """
         if model in self.AVAILABLE_MODELS:
             return model
-        
+
         # Try to find a matching model
         for available_model in self.AVAILABLE_MODELS:
             if model.lower() in available_model.lower():
                 return available_model
-        
+
         # Default to gemini-2.5-flash if no match
         print(f"{BOLD}Warning: Model '{model}' not found, using default model 'gemini-2.5-flash'{RESET}")
         return "gemini-2.5-flash"
@@ -333,7 +333,7 @@ if __name__ == "__main__":
                 ],
                 stream=False
             )
-            
+
             if response and response.choices and response.choices[0].message.content:
                 status = "✓"
                 # Truncate response if too long

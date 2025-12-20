@@ -2,13 +2,15 @@
 ##  SherpaTTS Provider                                                         ##
 ##################################################################################
 import json
+import pathlib
 import random
 import string
-import time
-import pathlib
 import tempfile
+from typing import Optional
+
 import httpx
-from typing import Optional, Union, Dict, List
+from litprinter import ic
+
 from webscout import exceptions
 from webscout.litagent import LitAgent
 
@@ -17,16 +19,15 @@ try:
     from .base import BaseTTSProvider
 except ImportError:
     # Handle direct execution
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-    from webscout.Provider.TTS import utils
     from webscout.Provider.TTS.base import BaseTTSProvider
 
 class SherpaTTS(BaseTTSProvider):
     """
     Text-to-speech provider using the Next-gen Kaldi (Sherpa-ONNX) API.
-    
+
     This provider follows the OpenAI TTS API structure with support for:
     - 50+ languages including English, Chinese, Cantonese, Arabic, French, etc.
     - Multiple ONNX-based models (Kokoro, Piper, Coqui, etc.)
@@ -34,16 +35,16 @@ class SherpaTTS(BaseTTSProvider):
     - Multiple output formats
     """
     required_auth = False
-    
+
     BASE_URL = "https://k2-fsa-text-to-speech.hf.space"
-    
+
     # Request headers
     headers: dict[str, str] = {
         "User-Agent": LitAgent().random(),
         "origin": BASE_URL,
         "referer": f"{BASE_URL}/",
     }
-    
+
     SUPPORTED_MODELS = [
         "csukuangfj/kokoro-en-v0_19|11 speakers",
         "csukuangfj/kitten-kitten-en-v0_1-fp16|8 speakers",
@@ -96,7 +97,7 @@ class SherpaTTS(BaseTTSProvider):
         "csukuangfj/vits-vctk|109 speakers",
         "csukuangfj/vits-ljs|1 speaker"
     ]
-    
+
     LANGUAGES = [
         "English", "Chinese (Mandarin, 普通话)", "Chinese+English", "Persian+English",
         "Cantonese (粤语)", "Min-nan (闽南话)", "Arabic", "Afrikaans", "Bengali",
@@ -123,8 +124,8 @@ class SherpaTTS(BaseTTSProvider):
         return "".join(random.choices(string.ascii_lowercase + string.digits, k=11))
 
     def tts(
-        self, 
-        text: str, 
+        self,
+        text: str,
         language: str = "English",
         model_choice: str = "csukuangfj/kokoro-en-v0_19|11 speakers",
         speaker_id: str = "0",
@@ -146,18 +147,20 @@ class SherpaTTS(BaseTTSProvider):
         """
         if not text:
             raise ValueError("Input text must be a non-empty string")
-        
+
         model_choice = self.validate_model(model_choice)
-        
+
         session_hash = self._generate_session_hash()
         filename = pathlib.Path(tempfile.mktemp(suffix=f".{response_format}", dir=self.temp_dir))
-        
+
         if verbose:
-            ic.configureOutput(prefix='DEBUG| '); ic(f"SherpaTTS: Generating speech for '{text[:20]}...' using {language}/{model_choice}")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"SherpaTTS: Generating speech for '{text[:20]}...' using {language}/{model_choice}")
 
         client_kwargs = {"headers": self.headers, "timeout": self.timeout}
-        if self.proxy: client_kwargs["proxy"] = self.proxy
-            
+        if self.proxy:
+            client_kwargs["proxy"] = self.proxy
+
         try:
             with httpx.Client(**client_kwargs) as client:
                 # Step 1: Join the queue
@@ -169,22 +172,24 @@ class SherpaTTS(BaseTTSProvider):
                     "trigger_id": 9,
                     "session_hash": session_hash
                 }
-                
+
                 response = client.post(join_url, json=payload)
                 response.raise_for_status()
-                
+
                 # Step 2: Poll for data
                 data_url = f"{self.BASE_URL}/gradio_api/queue/data?session_hash={session_hash}"
                 audio_url = None
-                
+
                 with client.stream("GET", data_url) as stream:
                     for line in stream.iter_lines():
-                        if not line: continue
+                        if not line:
+                            continue
                         if line.startswith("data: "):
                             try:
                                 data = json.loads(line[6:])
-                            except json.JSONDecodeError: continue
-                                
+                            except json.JSONDecodeError:
+                                continue
+
                             msg = data.get("msg")
                             if msg == "process_completed":
                                 if data.get("success"):
@@ -205,17 +210,20 @@ class SherpaTTS(BaseTTSProvider):
                 # Step 3: Download the audio file
                 audio_response = client.get(audio_url)
                 audio_response.raise_for_status()
-                
+
                 with open(filename, "wb") as f:
                     f.write(audio_response.content)
-                
+
                 if verbose:
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"Speech generated successfully: {filename}")
-                
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"Speech generated successfully: {filename}")
+
                 return filename.as_posix()
 
         except Exception as e:
-            if verbose: ic.configureOutput(prefix='DEBUG| '); ic(f"Error in SherpaTTS: {e}")
+            if verbose:
+                ic.configureOutput(prefix='DEBUG| ')
+                ic(f"Error in SherpaTTS: {e}")
             raise exceptions.FailedToGenerateResponseError(f"Failed to generate audio: {e}")
 
     def create_speech(self, input: str, **kwargs) -> str:
@@ -251,6 +259,8 @@ if __name__ == "__main__":
     tts = SherpaTTS()
     try:
         path = tts.tts("This is a Sherpa-ONNX test.", verbose=True)
-        ic.configureOutput(prefix='INFO| '); ic(f"Result: {path}")
+        ic.configureOutput(prefix='INFO| ')
+        ic(f"Result: {path}")
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")
+        ic.configureOutput(prefix='ERROR| ')
+        ic(f"Error: {e}")

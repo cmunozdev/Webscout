@@ -1,11 +1,11 @@
-from curl_cffi.requests import Session, RequestsError
 import urllib.parse
-from typing import Union, Any, Dict
+from typing import Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
+from curl_cffi.requests import RequestsError, Session
+
 from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
+
 
 class AI4Chat(Provider):
     """
@@ -65,7 +65,7 @@ class AI4Chat(Provider):
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
-        self.system_prompt = system_prompt 
+        self.system_prompt = system_prompt
 
     def ask(
         self,
@@ -168,7 +168,7 @@ class AI4Chat(Provider):
 
 if __name__ == "__main__":
     from rich import print
-    ai = AI4Chat() 
+    ai = AI4Chat()
     response = ai.chat("Tell me about humans in points", stream=True)
     for c in response:
         print(c, end="")

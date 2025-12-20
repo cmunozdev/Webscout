@@ -1,17 +1,15 @@
 import json
-import os
-from typing import Any, Dict, Optional, Generator, Union, List
+from typing import Any, Dict, Generator, Union
 
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
+
 
 class K2Think(Provider):
     """
@@ -166,17 +164,16 @@ class K2Think(Provider):
                 response.raise_for_status()
 
                 streaming_text = ""
-                
+
                 # Use sanitize_stream with extract_regexes
-                import re
                 answer_pattern = r'<answer>([\s\S]*?)<\/answer>'
-                
+
                 def content_extractor(data):
                     """Extract 'content' field from JSON object"""
                     if isinstance(data, dict):
                         return data.get('content', '')
                     return None
-                
+
                 for chunk in sanitize_stream(
                     response.iter_lines(),
                     intro_value="data:",
@@ -224,7 +221,7 @@ class K2Think(Provider):
                         content = data["choices"][0].get("message", {}).get("content", "")
                     else:
                         content = data.get("content", "")
-                
+
                 # Extract using regex if needed (for reasoning models)
                 import re
                 answer_match = re.search(r'<answer>([\s\S]*?)<\/answer>', content)

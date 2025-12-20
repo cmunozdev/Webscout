@@ -6,15 +6,19 @@ https://api.sambanova.ai/v1/chat/completions
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 try:
@@ -249,7 +253,7 @@ class Sambanova(OpenAICompatibleProvider):
     Requires API key from https://cloud.sambanova.ai/
     """
     required_auth = True
-    
+
     AVAILABLE_MODELS = []
 
     @classmethod
@@ -257,27 +261,27 @@ class Sambanova(OpenAICompatibleProvider):
         """Fetch available models from Sambanova API."""
         if not api_key:
             raise ValueError("API key is required to fetch models.")
-            
+
         try:
             temp_session = Session()
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.sambanova.ai/v1/models",
                 headers=headers,
                 impersonate="chrome120"
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 if "data" in data and isinstance(data["data"], list):
                     return [model['id'] for model in data['data'] if 'id' in model]
-            
+
             return cls.AVAILABLE_MODELS
-            
+
         except Exception:
             return cls.AVAILABLE_MODELS
 
@@ -289,7 +293,7 @@ class Sambanova(OpenAICompatibleProvider):
     ):
         """
         Initialize the Sambanova OpenAI-compatible client.
-        
+
         Args:
             api_key: Your Sambanova API key (required)
             timeout: Request timeout in seconds
@@ -297,13 +301,13 @@ class Sambanova(OpenAICompatibleProvider):
         """
         if not api_key:
             raise ValueError("API key is required for Sambanova")
-        
+
         self.api_key = api_key
         self.timeout = timeout
         self.base_url = "https://api.sambanova.ai/v1/chat/completions"
-        
+
         self.session = Session()
-        
+
         # Generate browser fingerprint
         if LitAgent:
             agent = LitAgent()
@@ -325,12 +329,12 @@ class Sambanova(OpenAICompatibleProvider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-        
+
         self.session.headers.update(self.headers)
-        
+
         # Update models list dynamically
         self.update_available_models(api_key)
-        
+
         # Initialize chat interface
         self.chat = Chat(self)
 
@@ -353,14 +357,14 @@ class Sambanova(OpenAICompatibleProvider):
 if __name__ == "__main__":
     # Example usage - requires API key
     import os
-    
+
     api_key = os.environ.get("SAMBANOVA_API_KEY", "")
     if not api_key:
         print("Set SAMBANOVA_API_KEY environment variable to test")
     else:
         client = Sambanova(api_key=api_key)
         print(f"Available models: {client.models.list()}")
-        
+
         # Test non-streaming
         response = client.chat.completions.create(
             model="Meta-Llama-3.1-8B-Instruct",
@@ -369,7 +373,7 @@ if __name__ == "__main__":
             stream=False
         )
         print(f"Response: {response.choices[0].message.content}")
-        
+
         # Test streaming
         print("\nStreaming response:")
         for chunk in client.chat.completions.create(

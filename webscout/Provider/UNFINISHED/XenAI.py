@@ -1,17 +1,15 @@
-import json
-import uuid
 import random
 import string
-from typing import Any, Dict, Generator, Union
-import requests
+import uuid
 import warnings
+from typing import Any, Dict, Generator, Union
+
+import requests
 import urllib3
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream 
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
 # Suppress only the single InsecureRequestWarning from urllib3 needed for verify=False
@@ -69,7 +67,7 @@ class XenAI(Provider):
             print(f"Warning: Model '{model}' is not listed in AVAILABLE_MODELS. Proceeding with the provided model.")
 
         self.api_endpoint = "https://chat.xenai.tech/api/chat/completions"
-        
+
         self.model = model
         self.system_prompt = system_prompt
 

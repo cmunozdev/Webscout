@@ -1,16 +1,15 @@
-import requests
 import os
-import uuid
-import time
 import tempfile
-from typing import Optional, List
-from webscout.Provider.TTI.utils import (
-    ImageData,
-    ImageResponse
-)
-from webscout.Provider.TTI.base import TTICompatibleProvider, BaseImages
+import time
+import uuid
 from io import BytesIO
+from typing import Optional
+
+import requests
+
 from webscout.litagent import LitAgent
+from webscout.Provider.TTI.base import BaseImages, TTICompatibleProvider
+from webscout.Provider.TTI.utils import ImageData, ImageResponse
 
 try:
     from PIL import Image

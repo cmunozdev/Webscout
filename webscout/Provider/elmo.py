@@ -1,14 +1,17 @@
-from curl_cffi.requests import Session
+import re  # Import re for the extractor
+from typing import Any, Dict, Generator, Optional, Union
+
 from curl_cffi import CurlError
-import json
-from typing import Optional, Union, Any, Dict, Generator
+from curl_cffi.requests import Session
+
 from webscout import exceptions
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation, sanitize_stream # Import sanitize_stream
-from webscout.AIutel import AwesomePrompts
 from webscout.AIbase import Provider
-from webscout.litagent import LitAgent
-import re # Import re for the extractor
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 
 
 class Elmo(Provider):

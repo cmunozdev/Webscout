@@ -1,15 +1,21 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union
-from datetime import datetime
 import uuid
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from datetime import datetime
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
+
 
 class IBM(Provider):
     """
@@ -197,7 +203,7 @@ class IBM(Provider):
                     timeout=self.timeout,
                     impersonate="chrome110" # Use a common impersonation profile
                 )
-                
+
                 if response.status_code in [401, 403]:
                     # Token expired, refresh and retry once
                     self.get_token()
@@ -208,7 +214,7 @@ class IBM(Provider):
                         timeout=self.timeout,
                         impersonate="chrome110"
                     )
-                
+
                 response.raise_for_status() # Check for HTTP errors
 
                 # Use sanitize_stream
@@ -255,10 +261,10 @@ class IBM(Provider):
                                 final_content += chunk_data["text"]
                         elif isinstance(chunk_data, str):
                             final_content += chunk_data
-                
+
                 if not final_content:
                     raise exceptions.FailedToGenerateResponseError("Empty response from provider")
-                    
+
                 self.last_response = {"text": final_content}
                 return self.last_response if not raw else final_content
 

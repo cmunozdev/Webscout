@@ -1,16 +1,13 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import json
 import base64
-from typing import Any, Dict, Optional, Generator, Union
-import re  # Import re for parsing SSE
+import json
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
-from webscout.litagent import LitAgent
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 class TwoAI(Provider):
@@ -297,7 +294,7 @@ class TwoAI(Provider):
                 aggregated_text += response_dict["text"]
             elif isinstance(response_dict, str):
                 aggregated_text += response_dict
-        
+
         return aggregated_text
 
     def get_message(self, response: dict) -> str:

@@ -8,13 +8,19 @@ Provides OpenAI-compatible API interface for Gradient Network's distributed GPU 
 import json
 import time
 import uuid
-import requests
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+import requests
+
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # ANSI escape codes for formatting
@@ -67,7 +73,7 @@ class Completions(BaseCompletions):
         # Convert model name and get appropriate cluster mode
         converted_model = self._client.convert_model_name(model)
         actual_cluster_mode = cluster_mode or self._client.MODEL_CLUSTERS.get(converted_model, self._client.cluster_mode)
-        
+
         # Build the payload - pass messages directly as the API accepts them
         payload = {
             "model": converted_model,
@@ -117,32 +123,32 @@ class Completions(BaseCompletions):
 
                     # Parse JSON response
                     data = json.loads(decoded_line)
-                    
+
                     # Only process "reply" type chunks
                     chunk_type = data.get("type")
                     if chunk_type != "reply":
                         continue
-                    
+
                     # Extract content - prefer "content" over "reasoningContent"
                     reply_data = data.get("data", {})
                     content = reply_data.get("content") or reply_data.get("reasoningContent")
-                    
+
                     if content:
                         completion_tokens += count_tokens(content)
-                        
+
                         delta = ChoiceDelta(
                             content=content,
                             role="assistant" if first_chunk else None
                         )
                         first_chunk = False
-                        
+
                         choice = Choice(
                             index=0,
                             delta=delta,
                             finish_reason=None,
                             logprobs=None
                         )
-                        
+
                         chunk = ChatCompletionChunk(
                             id=request_id,
                             choices=[choice],
@@ -197,7 +203,7 @@ class Completions(BaseCompletions):
             # Collect all chunks from streaming
             full_content = ""
             prompt_tokens = count_tokens(str(payload.get("messages", [])))
-            
+
             response = self._client.session.post(
                 self._client.base_url,
                 headers=self._client.headers,
@@ -220,12 +226,12 @@ class Completions(BaseCompletions):
                         continue
 
                     data = json.loads(decoded_line)
-                    
+
                     # Only process "reply" type chunks
                     chunk_type = data.get("type")
                     if chunk_type != "reply":
                         continue
-                    
+
                     reply_data = data.get("data", {})
                     # Prefer "content" over "reasoningContent"
                     content = reply_data.get("content") or reply_data.get("reasoningContent")
@@ -285,10 +291,10 @@ class Chat(BaseChat):
 class Gradient(OpenAICompatibleProvider):
     """
     OpenAI-compatible client for Gradient Network API.
-    
+
     Gradient Network provides access to distributed GPU clusters running large language models.
     This provider supports real-time streaming responses.
-    
+
     Note: GPT OSS 120B works on "nvidia" cluster, Qwen3 235B works on "hybrid" cluster.
     Cluster mode is auto-detected based on model selection.
 
@@ -316,7 +322,7 @@ class Gradient(OpenAICompatibleProvider):
         "GPT OSS 120B",
         "Qwen3 235B",
     ]
-    
+
     # Model to cluster mapping
     MODEL_CLUSTERS = {
         "GPT OSS 120B": "nvidia",
@@ -343,7 +349,7 @@ class Gradient(OpenAICompatibleProvider):
         self.cluster_mode = cluster_mode
         self.enable_thinking = enable_thinking
         self.proxies = proxies or {}
-        
+
         self.base_url = "https://chat.gradient.network/api/generate"
         self.session = requests.Session()
 

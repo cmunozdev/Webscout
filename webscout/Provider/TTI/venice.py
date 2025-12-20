@@ -11,21 +11,20 @@ Examples:
     >>> print(response)
 """
 
-import requests
-from typing import Optional, List, Dict, Any
-from webscout.Provider.TTI.utils import (
-    ImageData,
-    ImageResponse
-)
-from webscout.Provider.TTI.base import TTICompatibleProvider, BaseImages
-from io import BytesIO
-import os
-import tempfile
-from webscout.litagent import LitAgent
-import time
 import json
+import os
 import random
 import string
+import tempfile
+import time
+from io import BytesIO
+from typing import Optional
+
+import requests
+
+from webscout.litagent import LitAgent
+from webscout.Provider.TTI.base import BaseImages, TTICompatibleProvider
+from webscout.Provider.TTI.utils import ImageData, ImageResponse
 
 try:
     from PIL import Image
@@ -57,7 +56,7 @@ class Images(BaseImages):
     ) -> ImageResponse:
         """
         Create images using Venice AI API.
-        
+
         Args:
             model: The model to use for image generation
             prompt: Text description of the image to generate
@@ -73,7 +72,7 @@ class Images(BaseImages):
             cfg_scale: CFG scale for generation (default: 3.5)
             steps: Number of inference steps (default: 25)
             **kwargs: Additional parameters
-            
+
         Returns:
             ImageResponse: The generated images
         """
@@ -172,7 +171,7 @@ class Images(BaseImages):
             request_id = ''.join(random.choices(string.ascii_letters + string.digits, k=7))
             message_id = ''.join(random.choices(string.ascii_letters + string.digits, k=7))
             user_id = f"user_anon_{''.join(random.choices(string.digits, k=10))}"
-            
+
             # Generate seed if not provided
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
@@ -215,7 +214,7 @@ class Images(BaseImages):
 
                 # Venice API returns binary image content directly
                 img_bytes = resp.content
-                
+
                 # Convert to png or jpeg in memory
                 with BytesIO(img_bytes) as input_io:
                     with Image.open(input_io) as im:
@@ -281,7 +280,7 @@ class VeniceAI(TTICompatibleProvider):
         "pony-realism-akash",
         "hidream",
     ]
-    
+
     MODEL_NAMES = {
         "z-image-turbo": "Z-Image Turbo",
         "stable-diffusion-3.5-rev2": "Venice SD35",
@@ -299,7 +298,7 @@ class VeniceAI(TTICompatibleProvider):
         self.api_endpoint = "https://outerface.venice.ai/api/inference/image"
         self.session = requests.Session()
         self.user_agent = LitAgent().random()
-        
+
         # Set up headers based on the provided request details
         self.headers = {
             "accept": "*/*",
@@ -320,7 +319,7 @@ class VeniceAI(TTICompatibleProvider):
             "x-venice-timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
             "x-venice-version": "interface@20251219.114735+e0ef642"
         }
-        
+
         self.session.headers.update(self.headers)
         self.images = Images(self)
 
@@ -328,23 +327,23 @@ class VeniceAI(TTICompatibleProvider):
     def models(self):
         """
         Get available models for the Venice AI provider.
-        
+
         Returns:
             Object with list() method that returns available models
         """
         class _ModelList:
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
-        
+
         return _ModelList()
 
 
 if __name__ == "__main__":
     from rich import print
-    
+
     # Example usage
     client = VeniceAI()
-    
+
     try:
         response = client.images.create(
             model="stable-diffusion-3.5-rev2",

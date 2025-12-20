@@ -1,17 +1,20 @@
-from typing import Any, AsyncGenerator, Dict, Optional, Callable, List, Union
-
-import httpx
 import json
+from typing import Any, Callable, Dict, List, Optional, Union
+
+from curl_cffi import CurlError
 
 # Import curl_cffi for improved request handling
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+
 
 class GROQ(Provider):
     """
@@ -46,20 +49,20 @@ class GROQ(Provider):
         "llama-3.2-90b-vision-preview",
         "mixtral-8x7b-32768"
     ]
-    
+
     @classmethod
     def get_models(cls, api_key: str = None):
         """Fetch available models from Groq API.
-        
+
         Args:
             api_key (str, optional): Groq API key. If not provided, returns default models.
-            
+
         Returns:
             list: List of available model IDs
         """
         if not api_key:
             return cls.AVAILABLE_MODELS
-            
+
         try:
             # Use a temporary curl_cffi session for this class method
             temp_session = Session()
@@ -67,21 +70,21 @@ class GROQ(Provider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.groq.com/openai/v1/models",
                 headers=headers,
                 impersonate="chrome110"  # Use impersonate for fetching
             )
-            
+
             if response.status_code != 200:
                 return cls.AVAILABLE_MODELS
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model["id"] for model in data["data"]]
             return cls.AVAILABLE_MODELS
-            
+
         except (CurlError, Exception):
             # Fallback to default models list if fetching fails
             return cls.AVAILABLE_MODELS
@@ -127,7 +130,7 @@ class GROQ(Provider):
         """
         # Update available models from API
         self.update_available_models(api_key)
-        
+
         # Validate model after updating available models
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
@@ -142,7 +145,7 @@ class GROQ(Provider):
         self.presence_penalty = presence_penalty
         self.frequency_penalty = frequency_penalty
         self.top_p = top_p
-        self.chat_endpoint = "https://api.groq.com/openai/v1/chat/completions" 
+        self.chat_endpoint = "https://api.groq.com/openai/v1/chat/completions"
         self.stream_chunk_size = 64
         self.timeout = timeout
         self.last_response = {}
@@ -158,10 +161,10 @@ class GROQ(Provider):
             for method in dir(Optimizers)
             if callable(getattr(Optimizers, method)) and not method.startswith("__")
         )
-        
+
         # Update curl_cffi session headers
         self.session.headers.update(self.headers)
-        
+
         # Set up conversation
         Conversation.intro = (
             AwesomePrompts().get_act(
@@ -174,10 +177,10 @@ class GROQ(Provider):
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
-        
+
         # Set proxies for curl_cffi session
         self.session.proxies = proxies
-    
+
     @staticmethod
     def _groq_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[Dict]:
         """Extracts the 'delta' object from Groq stream JSON chunks."""
@@ -258,9 +261,9 @@ class GROQ(Provider):
         def for_stream():
             try:
                 response = self.session.post(
-                    self.chat_endpoint, 
-                    json=payload, 
-                    stream=True, 
+                    self.chat_endpoint,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"  # Use impersonate for better compatibility
                 )
@@ -318,8 +321,8 @@ class GROQ(Provider):
                         # Make a second call to get the final response
                         try:
                             second_response = self.session.post(
-                                self.chat_endpoint, 
-                                json=payload, 
+                                self.chat_endpoint,
+                                json=payload,
                                 timeout=self.timeout,
                                 impersonate="chrome110"  # Use impersonate for better compatibility
                             )
@@ -341,9 +344,9 @@ class GROQ(Provider):
         def for_non_stream():
             try:
                 response = self.session.post(
-                    self.chat_endpoint, 
-                    json=payload, 
-                    stream=False, 
+                    self.chat_endpoint,
+                    json=payload,
+                    stream=False,
                     timeout=self.timeout,
                     impersonate="chrome110"  # Use impersonate for better compatibility
                 )
@@ -354,7 +357,7 @@ class GROQ(Provider):
                          # Removed response.reason_phrase
                         f"Failed to generate response - ({response.status_code}) - {response.text}"
                     )
-                
+
                 response_text = response.text # Get raw text
 
                 # Use sanitize_stream to parse the non-streaming JSON response
@@ -367,7 +370,7 @@ class GROQ(Provider):
                     yield_raw_on_error=False,
                     raw=raw
                 )
-                
+
                 # Extract the single result (the parsed JSON dictionary)
                 resp = next(processed_stream, None)
                 if raw:
@@ -403,8 +406,8 @@ class GROQ(Provider):
                         # Make a second call to get the final response
                         try:
                             second_response = self.session.post(
-                                self.chat_endpoint, 
-                                json=payload, 
+                                self.chat_endpoint,
+                                json=payload,
                                 timeout=self.timeout,
                                 impersonate="chrome110"  # Use impersonate for better compatibility
                             )

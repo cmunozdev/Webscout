@@ -1,14 +1,14 @@
 import uuid
+from typing import Any, Dict, Generator, TypeVar, Union
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from typing import Any, Dict, Optional, Generator, Union, List, TypeVar
-from webscout.AIutel import Optimizers
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
-from webscout.litagent import LitAgent
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Optimizers, sanitize_stream  # Import sanitize_stream
 from webscout.conversation import Conversation
+from webscout.litagent import LitAgent
 
 T = TypeVar('T')
 
@@ -57,7 +57,7 @@ class YEPCHAT(Provider):
             )
 
         # Initialize curl_cffi Session instead of cloudscraper
-        self.session = Session() 
+        self.session = Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.chat_endpoint = "https://api.yep.com/v1/chat/completions"
@@ -87,7 +87,7 @@ class YEPCHAT(Provider):
             "Sec-CH-UA-Platform": f'"{self.fingerprint["platform"]}"',
             "User-Agent": self.fingerprint["user_agent"],
         }
-        
+
         # Create session cookies with unique identifiers
         self.cookies = {"__Host-session": uuid.uuid4().hex, '__cf_bm': uuid.uuid4().hex}
 
@@ -114,13 +114,13 @@ class YEPCHAT(Provider):
     def refresh_identity(self, browser: str = None):
         """
         Refreshes the browser identity fingerprint.
-        
+
         Args:
             browser: Specific browser to use for the new fingerprint
         """
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
-        
+
         # Update headers with new fingerprint
         self.headers.update({
             "Accept": self.fingerprint["accept"],
@@ -129,13 +129,13 @@ class YEPCHAT(Provider):
             "Sec-CH-UA-Platform": f'"{self.fingerprint["platform"]}"',
             "User-Agent": self.fingerprint["user_agent"],
         })
-        
+
         # Update session headers
         self.session.headers.update(self.headers)
-        
+
         # Generate new cookies (will be passed in requests)
         self.cookies = {"__Host-session": uuid.uuid4().hex, '__cf_bm': uuid.uuid4().hex}
-        
+
         return self.fingerprint
 
     def ask(
@@ -237,7 +237,7 @@ class YEPCHAT(Provider):
                         )
                 if raw:
                     return response.text
-                
+
                 # Use sanitize_stream to parse the non-streaming JSON response
                 processed_stream = sanitize_stream(
                     data=response.text,
@@ -252,7 +252,7 @@ class YEPCHAT(Provider):
                 if raw:
                     return content
                 content = content if isinstance(content, str) else ""
-                
+
                 if content:
                     self.conversation.update_chat_history(prompt, content)
                     return {"text": content}
@@ -336,7 +336,7 @@ if __name__ == "__main__":
     #         test_ai = YEPCHAT(model=model, timeout=60)
     #         response = test_ai.chat("Say 'Hello' in one word")
     #         response_text = response
-            
+
     #         if response_text and len(response_text.strip()) > 0:
     #             status = "✓"
     #             # Truncate response if too long

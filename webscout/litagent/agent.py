@@ -2,7 +2,7 @@
 LitAgent: Advanced User Agent Generation and Management System.
 
 This module provides a robust and flexible system for generating realistic,
-modern user agents and managing browser fingerprints for web scraping and 
+modern user agents and managing browser fingerprints for web scraping and
 automation purposes.
 """
 
@@ -10,7 +10,7 @@ import json
 import random
 import threading
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Union, Tuple
+from typing import Any, Dict, List, Optional
 
 from webscout.litagent.constants import BROWSERS, DEVICES, FINGERPRINTS, OS_VERSIONS
 
@@ -18,7 +18,7 @@ from webscout.litagent.constants import BROWSERS, DEVICES, FINGERPRINTS, OS_VERS
 class LitAgent:
     """
     A powerful and modern user agent generator for web scraping and automation.
-    
+
     LitAgent provides tools for generating randomized but realistic user agent strings,
     managing proxy pools, rotating IPs, and simulating browser fingerprints to avoid
     detection and rate limiting.
@@ -43,7 +43,7 @@ class LitAgent:
         """
         self.thread_safe = thread_safe
         self.lock = threading.RLock() if thread_safe else None
-        
+
         # Internal state
         self._blacklist: set = set()
         self._whitelist: set = set()
@@ -54,7 +54,7 @@ class LitAgent:
         self._proxy_index: int = 0
         self._history: List[str] = []
         self._refresh_timer: Optional[threading.Timer] = None
-        
+
         # Usage statistics
         self._stats = {
             "total_generated": 100,
@@ -92,7 +92,7 @@ class LitAgent:
                     platform = f"X11; Linux {os_ver}"
 
                 agent = f"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) "
-                
+
                 if browser == 'chrome':
                     agent += f"Chrome/{version}.0.0.0 Safari/537.36"
                 elif browser == 'firefox':
@@ -105,7 +105,7 @@ class LitAgent:
                     agent += f"Chrome/{version}.0.0.0 Safari/537.36 Brave/{version}.0.0.0"
                 elif browser == 'vivaldi':
                     agent += f"Chrome/{version}.0.0.0 Safari/537.36 Vivaldi/{version}.0.{random.randint(1000, 9999)}"
-            
+
             elif browser == 'safari':
                 device = random.choice(['mac', 'ios'])
                 if device == 'mac':
@@ -115,7 +115,7 @@ class LitAgent:
                     ver = random.choice(OS_VERSIONS.get('ios', ["17_0"]))
                     device_name = random.choice(['iPhone', 'iPad'])
                     agent = f"Mozilla/5.0 ({device_name}; CPU OS {ver} like Mac OS X) "
-                
+
                 agent += f"AppleWebKit/{version}.1.15 (KHTML, like Gecko) Version/{version//10}.0 Safari/{version}.1.15"
 
             agents.append(agent)
@@ -163,7 +163,7 @@ class LitAgent:
         if not pool:
             # Fallback if somehow empty
             pool = self._generate_agents(1)
-        
+
         agent = random.choice(pool)
         self._update_stats()
         self._add_to_history(agent)
@@ -189,7 +189,7 @@ class LitAgent:
             matched = self.custom(browser=name)
         else:
             matched = random.choice(matching_agents)
-            
+
         self._update_stats(browser_type=name)
         self._add_to_history(matched)
         return matched
@@ -248,7 +248,7 @@ class LitAgent:
         browser = browser.lower() if browser else 'chrome'
         v_range = BROWSERS.get(browser, (100, 130))
         v_num = int(version.split('.')[0]) if version else random.randint(*v_range)
-        
+
         os = os.lower() if os else random.choice(['windows', 'mac', 'linux'])
         os_ver = os_version or random.choice(OS_VERSIONS.get(os, ["10.0"]))
         device_type = (device_type or 'desktop').lower()
@@ -268,7 +268,7 @@ class LitAgent:
             platform = "Windows NT 10.0; Win64; x64"
 
         agent = f"Mozilla/5.0 ({platform}) AppleWebKit/537.36 (KHTML, like Gecko) "
-        
+
         if browser == 'chrome':
             agent += f"Chrome/{v_num}.0.0.0 Safari/537.36"
         elif browser == 'firefox':
@@ -295,7 +295,7 @@ class LitAgent:
         """
         ua = self.browser(browser) if browser else self.random()
         ip = self.rotate_ip()
-        
+
         sec_ch_ua = ""
         for b_name in FINGERPRINTS.get("sec_ch_ua", {}):
             if b_name in ua.lower():
@@ -325,7 +325,7 @@ class LitAgent:
             agent = f"Mozilla/5.0 (Web0S; {tv}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.88 Safari/537.36"
         else:
             agent = f"Mozilla/5.0 (Linux; {tv}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/80.0.3987.163 Safari/537.36"
-        
+
         self._update_stats(device_type="tv")
         return agent
 
@@ -338,7 +338,7 @@ class LitAgent:
             agent = f"Mozilla/5.0 (Windows NT 10.0; Win64; x64; Xbox; {console}) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36 Edge/110.0.1587.41"
         else:
             agent = self.random()
-        
+
         self._update_stats(device_type="console")
         return agent
 
@@ -349,7 +349,7 @@ class LitAgent:
             agent = "Mozilla/5.0 (AppleWatch; CPU WatchOS like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/10.0 Mobile/15E148 Safari/605.1"
         else:
             agent = f"Mozilla/5.0 (Linux; {dev}) AppleWebKit/537.36 (KHTML, like Gecko)"
-            
+
         self._update_stats(device_type="wearable")
         return agent
 
@@ -406,7 +406,7 @@ class LitAgent:
         """Rotate through and return the next proxy from the pool."""
         if not self._proxy_pool:
             return None
-        
+
         def rot():
             proxy = self._proxy_pool[self._proxy_index]
             self._proxy_index = (self._proxy_index + 1) % len(self._proxy_pool)

@@ -1,20 +1,21 @@
+import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import requests
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
 
 from webscout.litagent import LitAgent
 from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
     ChatCompletionMessage,
+    Choice,
     ChoiceDelta,
     CompletionUsage,
+    count_tokens,
     format_prompt,
-    count_tokens
 )
 
 # ANSI escape codes for formatting
@@ -47,7 +48,7 @@ class Completions(BaseCompletions):
         # This creates a conversation in the format: "User: message\nAssistant: response\nUser: message\nAssistant:"
         # SonusAI works better with a properly formatted conversation
         question = format_prompt(messages, add_special_tokens=True, do_continue=True)
-        
+
         # Extract reasoning parameter if provided
         reasoning = kwargs.get('reasoning', False)
 
@@ -88,30 +89,30 @@ class Completions(BaseCompletions):
             for line in response.iter_lines():
                 if not line:
                     continue
-                
+
                 try:
                     # Decode the line and remove 'data: ' prefix if present
                     line_text = line.decode('utf-8')
                     if line_text.startswith('data: '):
                         line_text = line_text[6:]
-                    
+
                     data = json.loads(line_text)
                     if "content" in data:
                         content = data["content"]
                         streaming_text += content
                         completion_tokens += count_tokens(content)
-                        
+
                         # Create a delta object for this chunk
                         delta = ChoiceDelta(content=content)
                         choice = Choice(index=0, delta=delta, finish_reason=None)
-                        
+
                         chunk = ChatCompletionChunk(
                             id=request_id,
                             choices=[choice],
                             created=created_time,
                             model=model,
                         )
-                        
+
                         yield chunk
                 except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
@@ -119,14 +120,14 @@ class Completions(BaseCompletions):
             # Final chunk with finish_reason
             delta = ChoiceDelta(content=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop")
-            
+
             chunk = ChatCompletionChunk(
                 id=request_id,
                 choices=[choice],
                 created=created_time,
                 model=model,
             )
-            
+
             yield chunk
 
         except requests.exceptions.RequestException as e:
@@ -163,26 +164,26 @@ class Completions(BaseCompletions):
             prompt_tokens = count_tokens(files.get('message', ['',''])[1])
             completion_tokens = count_tokens(full_response)
             total_tokens = prompt_tokens + completion_tokens
-            
+
             usage = CompletionUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens
             )
-            
+
             # Create the message object
             message = ChatCompletionMessage(
                 role="assistant",
                 content=full_response
             )
-            
+
             # Create the choice object
             choice = Choice(
                 index=0,
                 message=message,
                 finish_reason="stop"
             )
-            
+
             # Create the completion object
             completion = ChatCompletion(
                 id=request_id,
@@ -191,7 +192,7 @@ class Completions(BaseCompletions):
                 model=model,
                 usage=usage,
             )
-            
+
             return completion
 
         except Exception as e:
@@ -233,7 +234,7 @@ class SonusAI(OpenAICompatibleProvider):
         """
         self.timeout = timeout
         self.url = "https://chat.sonus.ai/chat.php"
-        
+
         # Headers for the request
         agent = LitAgent()
         self.headers = {
@@ -243,10 +244,10 @@ class SonusAI(OpenAICompatibleProvider):
             'Referer': 'https://chat.sonus.ai/',
             'User-Agent': agent.random()
         }
-        
+
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-        
+
         # Initialize the chat interface
         self.chat = Chat(self)
 
@@ -256,12 +257,12 @@ class SonusAI(OpenAICompatibleProvider):
         """
         if model in self.AVAILABLE_MODELS:
             return model
-        
+
         # Try to find a matching model
         for available_model in self.AVAILABLE_MODELS:
             if model.lower() in available_model.lower():
                 return available_model
-        
+
         # Default to pro if no match
         print(f"{BOLD}Warning: Model '{model}' not found, using default model 'pro'{RESET}")
         return "pro"
@@ -294,7 +295,7 @@ if __name__ == "__main__":
                 ],
                 stream=False
             )
-            
+
             if response and response.choices and response.choices[0].message.content:
                 status = "✓"
                 # Truncate response if too long

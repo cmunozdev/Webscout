@@ -1,24 +1,29 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-import time
-import uuid
 import re
 import threading
-from typing import List, Dict, Optional, Union, Generator, Any
+import time
+import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
 from uuid import uuid4
 
-# Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
-)
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
+from webscout import exceptions
 
 # Attempt to import LitAgent, fallback if not available
 from webscout.litagent import LitAgent
 
-from webscout import exceptions
+# Import base classes and utility structures
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+)
 
 # --- PI.ai Client ---
 
@@ -51,9 +56,9 @@ class Completions(BaseCompletions):
             raise ValueError(f"Voice '{voice_name}' not available. Choose from: {list(self._client.AVAILABLE_VOICES.keys())}")
 
         # Use format_prompt from utils.py to convert OpenAI messages format to Pi.ai prompt
-        from webscout.Provider.OPENAI.utils import format_prompt, count_tokens
+        from webscout.Provider.OPENAI.utils import count_tokens, format_prompt
         prompt = format_prompt(messages, do_continue=True, add_special_tokens=True)
-        
+
         # Ensure conversation is started
         if not self._client.conversation_id:
             self._client.start_conversation()
@@ -66,12 +71,12 @@ class Completions(BaseCompletions):
 
         if stream:
             return self._create_stream(
-                request_id, created_time, model, prompt, 
+                request_id, created_time, model, prompt,
                 timeout, proxies, voice, voice_name, output_file, prompt_tokens
             )
         else:
             return self._create_non_stream(
-                request_id, created_time, model, prompt, 
+                request_id, created_time, model, prompt,
                 timeout, proxies, voice, voice_name, output_file, prompt_tokens
             )
 
@@ -81,9 +86,9 @@ class Completions(BaseCompletions):
         voice: bool = False, voice_name: str = "voice3", output_file: str = "PiAI.mp3",
         prompt_tokens: Optional[int] = None
     ) -> Generator[ChatCompletionChunk, None, None]:
-        
+
         from webscout.Provider.OPENAI.utils import count_tokens
-        
+
         data = {
             'text': prompt,
             'conversation': self._client.conversation_id
@@ -116,7 +121,6 @@ class Completions(BaseCompletions):
             # Track token usage across chunks
             # prompt_tokens = len(prompt.split()) if prompt else 0
             completion_tokens = 0
-            total_tokens = prompt_tokens
 
             sids = []
             streaming_text = ""
@@ -127,19 +131,19 @@ class Completions(BaseCompletions):
                 if line_bytes:
                     line = line_bytes.decode('utf-8')
                     full_raw_data_for_sids += line + "\n"
-                    
+
                     if line.startswith("data: "):
                         json_line_str = line[6:]
                         try:
                             chunk_data = json.loads(json_line_str)
                             content = chunk_data.get('text', '')
-                            
+
                             if content:
                                 # Assume content is incremental (new text since last chunk)
                                 new_content = content
                                 streaming_text += new_content
                                 completion_tokens += count_tokens(new_content) if new_content else 0
-                                total_tokens = prompt_tokens + completion_tokens
+                                prompt_tokens + completion_tokens
 
                                 # Create OpenAI-compatible chunk
                                 delta = ChoiceDelta(
@@ -202,9 +206,9 @@ class Completions(BaseCompletions):
         voice: bool = False, voice_name: str = "voice3", output_file: str = "PiAI.mp3",
         prompt_tokens: Optional[int] = None
     ) -> ChatCompletion:
-        
+
         from webscout.Provider.OPENAI.utils import count_tokens
-        
+
         # Collect streaming response into a single response
         full_content = ""
         # prompt_tokens = len(prompt.split()) if prompt else 0  # replaced
@@ -214,7 +218,7 @@ class Completions(BaseCompletions):
             prompt_tokens = count_tokens(prompt)
 
         for chunk in self._create_stream(
-            request_id, created_time, model, prompt, 
+            request_id, created_time, model, prompt,
             timeout, proxies, voice, voice_name, output_file, prompt_tokens
         ):
             if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
@@ -260,7 +264,7 @@ class Chat(BaseChat):
 class PiAI(OpenAICompatibleProvider):
     """
     PiAI provider following OpenAI-compatible interface.
-    
+
     Supports Pi.ai specific features like voice generation and conversation management.
     """
     required_auth = False
@@ -277,7 +281,7 @@ class PiAI(OpenAICompatibleProvider):
     }
 
     def __init__(
-        self, 
+        self,
         api_key: Optional[str] = None,
         timeout: int = 30,
         proxies: Optional[Dict[str, str]] = None,
@@ -285,7 +289,7 @@ class PiAI(OpenAICompatibleProvider):
     ):
         """
         Initialize PI.ai provider.
-        
+
         Args:
             api_key: Not used for Pi.ai but kept for compatibility
             timeout: Request timeout in seconds
@@ -295,11 +299,11 @@ class PiAI(OpenAICompatibleProvider):
         super().__init__(proxies=proxies)
         self.timeout = timeout
         self.conversation_id = None
-        
+
         # Setup URLs
         self.primary_url = 'https://pi.ai/api/chat'
         self.fallback_url = 'https://pi.ai/api/v2/chat'
-        
+
         # Setup headers
         self.headers = {
             'Accept': 'text/event-stream',
@@ -315,27 +319,27 @@ class PiAI(OpenAICompatibleProvider):
             'User-Agent': LitAgent().random(),
             'X-Api-Version': '3'
         }
-        
+
         # Setup cookies
         self.cookies = {
             '__cf_bm': uuid4().hex
         }
-        
+
         # Replace the base session with curl_cffi Session
         self.session = Session()
-        
+
         # Configure session
         self.session.headers.update(self.headers)
         if proxies:
             self.session.proxies = proxies
-        
+
         # Set cookies on the session
         for name, value in self.cookies.items():
             self.session.cookies.set(name, value)
-        
+
         # Initialize chat interface
         self.chat = Chat(self)
-        
+
         # Start conversation
         self.start_conversation()
 
@@ -401,7 +405,7 @@ class PiAI(OpenAICompatibleProvider):
 if __name__ == "__main__":
     # Test the OpenAI-compatible interface
     client = PiAI()
-    
+
     # Test streaming
     print("Testing streaming response:")
     response = client.chat.completions.create(
@@ -411,12 +415,12 @@ if __name__ == "__main__":
         ],
         stream=True
     )
-    
+
     for chunk in response:
         if chunk.choices and chunk.choices[0].delta and chunk.choices[0].delta.content:
             print(chunk.choices[0].delta.content, end="", flush=True)
     print()
-    
+
     # Test non-streaming
     print("\nTesting non-streaming response:")
     response = client.chat.completions.create(
@@ -426,6 +430,6 @@ if __name__ == "__main__":
         ],
         stream=False
     )
-    
+
     print(response.choices[0].message.content)
     print(f"Usage: {response.usage}")

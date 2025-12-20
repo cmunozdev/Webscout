@@ -1,18 +1,19 @@
-import subprocess
-import os 
-import sys
-import signal
-import tempfile
+import os
 import platform
+import signal
+import subprocess
+import sys
+import tempfile
 from pathlib import Path
-from typing import Optional, Dict, List, Any, Union, Literal, TypedDict, Set
+from typing import Dict, List, Optional, Set, TypedDict
 
 from huggingface_hub import HfApi
-from webscout.zeroart import figlet_format
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+
 from webscout.swiftcli import CLI, option
+from webscout.zeroart import figlet_format
 
 console = Console()
 
@@ -26,7 +27,7 @@ class QuantizationMethod(TypedDict):
 
 class ModelConverter:
     """Handles the conversion of Hugging Face models to GGUF format."""
-    
+
     VALID_METHODS: Dict[str, str] = {
         # Full precision types
         "f32": "32-bit floating point - full precision, largest size",
@@ -56,7 +57,7 @@ class ModelConverter:
         "tq1_0": "1-bit ternary quantization - experimental, extreme compression",
         "tq2_0": "2-bit ternary quantization - experimental, very small size"
     }
-    
+
     VALID_IMATRIX_METHODS: Dict[str, str] = {
         # 1-bit IQ types (extreme compression, requires imatrix)
         "iq1_s": "1-bit IQ small - extreme compression, requires imatrix",
@@ -88,7 +89,7 @@ class ModelConverter:
     }
     # Default output type options (matches llama.cpp)
     VALID_OUTTYPES: Set[str] = {"f32", "f16", "bf16", "q8_0", "tq1_0", "tq2_0", "auto"}
-    
+
     def __init__(
         self,
         model_id: str,
@@ -129,12 +130,12 @@ class ModelConverter:
         self.small_first_shard = small_first_shard
         # Determine if we only need the base conversion (no quantization)
         self.base_only = self.outtype in self.VALID_OUTTYPES and len(self.quantization_methods) == 1 and self.quantization_methods[0] in ["fp16", "f16", "f32", "bf16", "auto"]
-        
+
     def validate_inputs(self) -> None:
         """Validates all input parameters."""
-        if not '/' in self.model_id:
+        if '/' not in self.model_id:
             raise ValueError("Invalid model ID format. Expected format: 'organization/model-name'")
-            
+
         if self.use_imatrix:
             invalid_methods = [m for m in self.quantization_methods if m not in self.VALID_IMATRIX_METHODS]
             if invalid_methods:
@@ -151,32 +152,32 @@ class ModelConverter:
                     f"Invalid quantization methods: {', '.join(invalid_methods)}.\n"
                     f"Valid methods are: {', '.join(self.VALID_METHODS.keys())}"
                 )
-            
+
         if bool(self.username) != bool(self.token):
             raise ValueError("Both username and token must be provided for upload, or neither.")
-        
+
         # Validate outtype
         if self.outtype not in self.VALID_OUTTYPES:
             raise ValueError(
                 f"Invalid output type: {self.outtype}.\n"
                 f"Valid types are: {', '.join(self.VALID_OUTTYPES)}"
             )
-            
+
         if self.split_model and self.split_max_size:
             try:
                 # Support K, M, G units (like llama.cpp's split_str_to_n_bytes)
                 if self.split_max_size[-1].upper() in ['K', 'M', 'G']:
-                    size = int(self.split_max_size[:-1])
+                    int(self.split_max_size[:-1])
                     unit = self.split_max_size[-1].upper()
                     if unit not in ['K', 'M', 'G']:
                         raise ValueError("Split max size must end with K, M, or G")
                 elif self.split_max_size.isnumeric():
-                    size = int(self.split_max_size)
+                    int(self.split_max_size)
                 else:
                     raise ValueError("Invalid format")
             except (ValueError, IndexError):
                 raise ValueError("Invalid split max size format. Use format like '256M', '5G', or numeric bytes")
-                
+
     @staticmethod
     def check_dependencies() -> Dict[str, bool]:
         """Check if all required dependencies are installed with cross-platform support."""
@@ -221,7 +222,7 @@ class ModelConverter:
                 if result.returncode == 0:
                     status['python'] = True
                     break
-            except:
+            except Exception:
                 continue
 
         # Check for C++ compiler
@@ -236,14 +237,14 @@ class ModelConverter:
                 if result.returncode == 0:
                     status['cpp_compiler'] = True
                     break
-            except:
+            except Exception:
                 continue
 
         dependencies['python'] = 'Python interpreter'
         dependencies['cpp_compiler'] = 'C++ compiler (g++, clang++, or MSVC)'
 
         return status
-    
+
     def detect_hardware(self) -> Dict[str, bool]:
         """Detect available hardware acceleration with improved cross-platform support."""
         hardware: Dict[str, bool] = {
@@ -340,7 +341,7 @@ class ModelConverter:
 
         # Check for BLAS libraries
         try:
-            import numpy as np # type: ignore
+            import numpy as np  # type: ignore
             # Check if numpy is linked with optimized BLAS
             config = np.__config__.show()
             if any(lib in str(config).lower() for lib in ['openblas', 'mkl', 'atlas', 'blis']):
@@ -358,7 +359,7 @@ class ModelConverter:
                     hardware['blas'] = True
 
         return hardware
-    
+
     def setup_llama_cpp(self) -> None:
         """Sets up and builds llama.cpp repository with robust error handling."""
         llama_path = self.workspace / "llama.cpp"
@@ -401,12 +402,12 @@ class ModelConverter:
                     # In Nix, we need to use the system Python packages
                     try:
                         # Try to import required packages to check if they're available
-                        import torch # type: ignore
-                        import numpy # type: ignore
-                        import sentencepiece # type: ignore
-                        import transformers # type: ignore
+                        import numpy  # type: ignore
+                        import sentencepiece  # type: ignore
+                        import torch  # type: ignore
+                        import transformers  # type: ignore
                         console.print("[green]Required Python packages are already installed.")
-                    except ImportError as e:
+                    except ImportError:
                         console.print("[red]Missing required Python packages in Nix environment.")
                         console.print("[yellow]Please install them using:")
                         console.print("nix-shell -p python3Packages.torch python3Packages.numpy python3Packages.sentencepiece python3Packages.transformers")
@@ -515,7 +516,7 @@ class ModelConverter:
                             cmake_args.extend(['-G', 'Visual Studio 17 2022'])
                         else:
                             cmake_args.extend(['-G', 'MinGW Makefiles'])
-                    except:
+                    except Exception:
                         cmake_args.extend(['-G', 'MinGW Makefiles'])
                 else:
                     # Use Ninja if available on Unix systems
@@ -523,7 +524,7 @@ class ModelConverter:
                         ninja_cmd = 'ninja' if system != 'Windows' else 'ninja.exe'
                         if subprocess.run(['which', ninja_cmd], capture_output=True).returncode == 0:
                             cmake_args.extend(['-G', 'Ninja'])
-                    except:
+                    except Exception:
                         pass  # Fall back to default generator
 
                 # Configure the build with error handling and multiple fallback strategies
@@ -627,24 +628,24 @@ class ModelConverter:
 
             finally:
                 os.chdir(original_cwd)
-    
+
     def display_config(self) -> None:
         """Displays the current configuration in a formatted table."""
         table = Table(title="Configuration", show_header=True, header_style="bold magenta")
         table.add_column("Setting", style="cyan")
         table.add_column("Value", style="green")
-        
+
         table.add_row("Model ID", self.model_id)
         table.add_row("Model Name", self.model_name)
         table.add_row("Username", self.username or "Not provided")
         table.add_row("Token", "****" if self.token else "Not provided")
         table.add_row("Quantization Methods", "\n".join(
-            f"{method} ({self.VALID_METHODS[method]})" 
+            f"{method} ({self.VALID_METHODS[method]})"
             for method in self.quantization_methods
         ))
-        
+
         console.print(Panel(table))
-    
+
     def get_binary_path(self, binary_name: str) -> str:
         """Get the correct path to llama.cpp binaries based on platform."""
         system = platform.system()
@@ -725,7 +726,7 @@ class ModelConverter:
             raise ConversionError(f"Could not execute llama-imatrix binary: {imatrix_binary}")
 
         console.print("[green]Importance matrix generation completed.")
-    
+
     def split_model(self, model_path: str, outdir: str) -> List[str]:
         """Splits the model into smaller chunks with improved error handling."""
         split_binary = self.get_binary_path("llama-gguf-split")
@@ -774,7 +775,7 @@ class ModelConverter:
 
         console.print(f"[green]Found {len(split_files)} split files: {', '.join(split_files)}")
         return split_files
-    
+
     def upload_split_files(self, split_files: List[str], outdir: str, repo_id: str) -> None:
         """Uploads split model files to Hugging Face."""
         api = HfApi(token=self.token)
@@ -792,7 +793,7 @@ class ModelConverter:
             except Exception as e:
                 console.print(f"[red]✗ Failed to upload {file}: {e}")
                 raise ConversionError(f"Error uploading file {file}: {e}")
-    
+
     def generate_readme(self, quantized_files: List[str]) -> str:
         """Generate a README.md file for the Hugging Face Hub."""
         readme = f"""# {self.model_name} GGUF
@@ -910,22 +911,22 @@ This repository is licensed under the same terms as the original model.
             # Display banner and configuration
             console.print(f"[bold green]{figlet_format('GGUF Converter')}")
             self.display_config()
-            
+
             # Validate inputs
             self.validate_inputs()
-            
+
             # Check dependencies
             deps = self.check_dependencies()
             missing = [name for name, installed in deps.items() if not installed and name != 'ninja']
             if missing:
                 raise ConversionError(f"Missing required dependencies: {', '.join(missing)}")
-            
+
             # Setup llama.cpp
             self.setup_llama_cpp()
-            
+
             # Determine if we need temporary directories (only for uploads)
             needs_temp = bool(self.username and self.token)
-            
+
             if needs_temp:
                 # Use temporary directories for upload case
                 with tempfile.TemporaryDirectory() as outdir:
@@ -942,7 +943,7 @@ This repository is licensed under the same terms as the original model.
                     # Clean up temporary download directory
                     import shutil
                     shutil.rmtree(tmpdir, ignore_errors=True)
-            
+
             # Display success message
             console.print(Panel.fit(
                 "[bold green]✓[/] Conversion completed successfully!\n\n"
@@ -950,7 +951,7 @@ This repository is licensed under the same terms as the original model.
                 title="Success",
                 border_style="green"
             ))
-            
+
         except Exception as e:
             console.print(Panel.fit(
                 f"[bold red]✗[/] {str(e)}",
@@ -958,13 +959,13 @@ This repository is licensed under the same terms as the original model.
                 border_style="red"
             ))
             raise
-            
+
     def _convert_with_dirs(self, tmpdir: str, outdir: str) -> None:
         """Helper method to perform conversion with given directories."""
         # Use outtype for base filename (e.g., model.f16.gguf, model.bf16.gguf)
         outtype_suffix = self.outtype if self.outtype != "auto" else "f16"
         base_gguf = str(Path(outdir)/f"{self.model_name}.{outtype_suffix}.gguf")
-        
+
         # Download model (or use remote mode)
         local_dir = Path(tmpdir)/self.model_name
         if self.remote:
@@ -984,7 +985,7 @@ This repository is licensed under the same terms as the original model.
                 local_dir=local_dir,
                 local_dir_use_symlinks=False
             )
-        
+
         # Convert to GGUF with specified outtype
         console.print(f"[bold green]Converting to {self.outtype}...")
 
@@ -1014,7 +1015,7 @@ This repository is licensed under the same terms as the original model.
             "--outtype", self.outtype,
             "--outfile", base_gguf
         ]
-        
+
         # Add optional flags based on new llama.cpp features
         if self.vocab_only:
             convert_cmd.append("--vocab-only")
@@ -1048,7 +1049,7 @@ This repository is licensed under the same terms as the original model.
             raise ConversionError(f"Conversion completed but output file not found: {base_gguf}")
 
         console.print(f"[green]Model converted to {self.outtype} successfully!")
-            
+
         # If base_only is True, we're done after base conversion (no quantization needed)
         if self.base_only:
             gguf_filename = f"{self.model_name}.{outtype_suffix}.gguf"
@@ -1076,14 +1077,14 @@ This repository is licensed under the same terms as the original model.
                     console.print(f"[red]✗ Failed to upload {gguf_filename}: {e}")
                     raise ConversionError(f"Error uploading model file: {e}")
             return
-            
+
         # Generate importance matrix if needed
         imatrix_path: Optional[str] = None
         if self.use_imatrix:
             train_data_path = self.train_data_file if self.train_data_file else "llama.cpp/groups_merged.txt"
             imatrix_path = str(Path(outdir)/"imatrix.dat")
             self.generate_importance_matrix(base_gguf, train_data_path, imatrix_path)
-        
+
         # Quantize model
         console.print("[bold green]Quantizing model...")
         quantized_files: List[str] = []
@@ -1126,7 +1127,7 @@ This repository is licensed under the same terms as the original model.
 
             quantized_files.append(f"{quantized_name}.gguf")
             console.print(f"[green]Successfully quantized with {method}: {quantized_name}.gguf")
-        
+
         # Upload to Hugging Face if credentials provided
         if self.username and self.token:
             repo_id = f"{self.username}/{self.model_name}-GGUF"
@@ -1222,7 +1223,7 @@ def convert_command(
 ) -> None:
     """
     Convert and quantize HuggingFace models to GGUF format! 🚀
-    
+
     Args:
         model_id (str): Your model's HF ID (like 'OEvortex/HelpingAI-Lite-1.5T') 🎯
         username (str, optional): Your HF username for uploads 👤
@@ -1240,7 +1241,7 @@ def convert_command(
         no_lazy (bool): Disable lazy evaluation (use more RAM) 🧠
         model_name (str, optional): Custom model name override 🏷️
         small_first_shard (bool): Do not add tensors to the first split 📦
-        
+
     Example:
         >>> python -m webscout.Extra.gguf convert \\
         ...     -m "OEvortex/HelpingAI-Lite-1.5T" \\

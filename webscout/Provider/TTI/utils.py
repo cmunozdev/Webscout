@@ -1,6 +1,8 @@
 import time
 from typing import List, Optional
+
 from pydantic import BaseModel, Field
+
 
 class ImageData(BaseModel):
     url: Optional[str] = None

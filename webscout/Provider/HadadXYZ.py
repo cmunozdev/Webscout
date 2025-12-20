@@ -12,9 +12,9 @@ from typing import Any, Dict, Generator, Optional, Union
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
+from webscout import exceptions
 from webscout.AIbase import Provider
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
-from webscout import exceptions
 
 
 class _DeltaExtractor:

@@ -1,12 +1,18 @@
-from curl_cffi import CurlError
-from curl_cffi.requests import Session, Response # Import Response
 import json
 import uuid
-from typing import Any, Dict, Union, Optional, List, Generator
-from datetime import datetime
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider 
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Response, Session  # Import Response
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
 
 # Model configurations
@@ -15,7 +21,7 @@ MODEL_CONFIGS = {
         "endpoint": "https://ayle.chat/api/chat",
         "models": [
             "gemini-2.5-flash",
-            "llama-3.3-70b-versatile", 
+            "llama-3.3-70b-versatile",
             "llama-3.3-70b",
             "tngtech/deepseek-r1t2-chimera:free",
             "openai/gpt-oss-120b",
@@ -34,7 +40,7 @@ class Ayle(Provider):
     required_auth = False
     AVAILABLE_MODELS = [
         "gemini-2.5-flash",
-        "llama-3.3-70b-versatile", 
+        "llama-3.3-70b-versatile",
         "llama-3.3-70b",
         "tngtech/deepseek-r1t2-chimera:free",
         "openai/gpt-oss-120b",
@@ -65,7 +71,7 @@ class Ayle(Provider):
         """Initializes the Ayle client."""
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         self.session = Session() # Use curl_cffi Session
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
@@ -77,10 +83,10 @@ class Ayle(Provider):
         self.presence_penalty = presence_penalty
         self.frequency_penalty = frequency_penalty
         self.top_p = top_p
-        
+
         # Initialize LitAgent for user agent generation
         self.agent = LitAgent()
-        
+
         self.headers = {
             "accept": "*/*",
             "accept-language": "en-US,en;q=0.9",
@@ -89,7 +95,7 @@ class Ayle(Provider):
             "referer": "https://ayle.chat/",
             "user-agent": self.agent.random(),
         }
-        
+
         self.session.headers.update(self.headers)
         self.session.proxies = proxies # Assign proxies directly
         self.session.cookies.update({"session": uuid.uuid4().hex})
@@ -98,7 +104,7 @@ class Ayle(Provider):
             method for method in dir(Optimizers)
             if callable(getattr(Optimizers, method)) and not method.startswith("__")
         )
-        
+
         Conversation.intro = (
             AwesomePrompts().get_act(
                 act, raise_not_found=True, default=None, case_insensitive=True
@@ -106,7 +112,7 @@ class Ayle(Provider):
             if act
             else intro or Conversation.intro
         )
-        
+
         self.conversation = Conversation(
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
@@ -124,12 +130,12 @@ class Ayle(Provider):
         for provider, config in MODEL_CONFIGS.items():
             if model in config["models"]:
                 return provider
-        
+
         available_models = []
         for provider, config in MODEL_CONFIGS.items():
             for model_name in config["models"]:
                 available_models.append(f"{provider}/{model_name}")
-        
+
         error_msg = f"Invalid model: {model}\nAvailable models: {', '.join(available_models)}"
         raise ValueError(error_msg)
 
@@ -140,7 +146,7 @@ class Ayle(Provider):
             if chunk.startswith('0:"'):
                 try:
                     return json.loads(chunk[2:])
-                except:
+                except Exception:
                     return None
         elif isinstance(chunk, dict):
             return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
@@ -198,7 +204,7 @@ class Ayle(Provider):
             yield_raw_on_error=False,
             raw=raw
         )
-        
+
         if stream:
             return self._ask_stream(prompt, processed_stream, raw)
         else:

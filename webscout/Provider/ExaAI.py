@@ -1,15 +1,14 @@
-from typing import Union, Any, Dict, Generator
-from uuid import uuid4
-import requests
 import json
-import re
+from typing import Any, Dict, Generator, Union
+from uuid import uuid4
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class ExaAI(Provider):
     """
@@ -68,7 +67,7 @@ class ExaAI(Provider):
         self.timeout = timeout
         self.last_response = {}
         # self.system_prompt = system_prompt
-        
+
         # Initialize LitAgent for user agent generation
         self.agent = LitAgent()
 
@@ -150,7 +149,7 @@ class ExaAI(Provider):
                 )
 
         # Generate a unique ID for the conversation
-        conversation_id = uuid4().hex[:16] 
+        conversation_id = uuid4().hex[:16]
 
         payload = {
             "id": conversation_id,
@@ -166,7 +165,7 @@ class ExaAI(Provider):
                 raise exceptions.FailedToGenerateResponseError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
-            
+
             streaming_response = ""
             # Use sanitize_stream with extract_regexes for Exa AI format
             processed_stream = sanitize_stream(
@@ -177,7 +176,7 @@ class ExaAI(Provider):
                 yield_raw_on_error=False,
                 raw=raw
             )
-            
+
             for content in processed_stream:
                 if content:
                     if raw:
@@ -186,7 +185,7 @@ class ExaAI(Provider):
                         if isinstance(content, str):
                             streaming_response += content
                             yield dict(text=content)
-            
+
             self.last_response = {"text": streaming_response}
             self.conversation.update_chat_history(prompt, streaming_response)
 

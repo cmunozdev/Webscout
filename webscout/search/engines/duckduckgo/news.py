@@ -2,7 +2,6 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 
-from ....exceptions import WebscoutE
 from ....search.results import NewsResult
 from .base import DuckDuckGoBase
 

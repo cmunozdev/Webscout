@@ -1,15 +1,21 @@
-import time
-import uuid
-import requests
 import json
 import re
-from typing import List, Dict, Optional, Union, Generator, Any
+import time
+import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
+import requests
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -434,7 +440,7 @@ class ExaAI(OpenAICompatibleProvider):
         # ExaAI only supports O3-Mini, regardless of the input model
         print(f"Note: ExaAI only supports O3-Mini model. Ignoring provided model '{model}'.")
         return "O3-Mini"
-    
+
     @property
     def models(self):
         class _ModelList:

@@ -1,14 +1,13 @@
 
+import json
 import uuid
+from typing import Generator, Union
 
 import requests
-import json
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+
 from webscout import exceptions
-from typing import Union, Any, Generator, Dict
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 class Julius(Provider):
@@ -57,7 +56,7 @@ class Julius(Provider):
             proxies (dict, optional): Http request proxies. Defaults to {}.
             history_offset (int, optional): Limit conversation history to this number of last texts. Defaults to 10250.
             act (str|int, optional): Awesome prompt key or index. (Used as intro). Defaults to None.
-            model (str, optional): Model to use for generating text. Defaults to "Gemini Flash". 
+            model (str, optional): Model to use for generating text. Defaults to "Gemini Flash".
                                    Options: "Llama 3", "GPT-4o", "GPT-3.5", "Command R", "Gemini Flash", "Gemini 1.5".
         """
         if model not in self.AVAILABLE_MODELS:
@@ -133,7 +132,7 @@ class Julius(Provider):
                 raise Exception(
                     f"Optimizer is not one of {self.__available_optimizers}"
                 )
-        
+
         payload = {
             "message": {"content": conversation_prompt, "role": "user"},
             "provider": "default",

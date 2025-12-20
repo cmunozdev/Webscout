@@ -1,19 +1,20 @@
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import requests
-from typing import List, Dict, Optional, Union, Generator, Any
 
 from webscout.litagent import LitAgent
 from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
     ChatCompletionMessage,
+    Choice,
     ChoiceDelta,
     CompletionUsage,
+    count_tokens,
     format_prompt,
-    count_tokens
 )
 
 # ANSI escape codes for formatting

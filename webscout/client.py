@@ -12,29 +12,20 @@ Features:
 - Full streaming support
 """
 
-import time
-import uuid
-import random
-import inspect
-import importlib
-import pkgutil
 import difflib
-from typing import List, Dict, Optional, Union, Generator, Any, Type, Tuple, Set
+import importlib
+import inspect
+import pkgutil
+import random
+from typing import Any, Dict, Generator, List, Optional, Set, Tuple, Type, Union
 
-from webscout.Provider.OPENAI import *
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseCompletions, BaseChat
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
-    ChoiceDelta,
-    ChatCompletionMessage,
-    CompletionUsage,
 )
-
-from webscout.Provider.TTI import *
-from webscout.Provider.TTI.base import TTICompatibleProvider, BaseImages
-from webscout.Provider.TTI.utils import ImageData, ImageResponse
+from webscout.Provider.TTI.base import BaseImages, TTICompatibleProvider
+from webscout.Provider.TTI.utils import ImageResponse
 
 
 def load_openai_providers() -> Tuple[Dict[str, Type[OpenAICompatibleProvider]], Set[str]]:
@@ -359,7 +350,7 @@ class ClientCompletions(BaseCompletions):
                         first_chunk = next(response)
                         self._last_provider = resolved_provider.__name__
 
-                        def chained_gen(first, rest, pname):
+                        def chained_gen(first, rest, pname) -> Any:
                             if self._client.print_provider_info:
                                 print(f"\033[1;34m{pname}:{resolved_model}\033[0m\n")
                             yield first
@@ -718,7 +709,7 @@ class ClientImages(BaseImages):
                 return response
             except Exception:
                 continue
-        raise RuntimeError(f"All image providers failed.")
+        raise RuntimeError("All image providers failed.")
 
     def create(self, **kwargs) -> ImageResponse:
         """Alias for generate."""

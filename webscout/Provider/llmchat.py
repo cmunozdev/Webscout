@@ -1,14 +1,12 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import json
-from typing import Union, Any, Dict, Optional, Generator, List
+from typing import Any, Dict, Generator, Union
 
-from webscout.AIutel import Optimizers, sanitize_stream
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
-from webscout.litagent import LitAgent as Lit
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+
 
 class LLMChat(Provider):
     """
@@ -95,7 +93,7 @@ class LLMChat(Provider):
         self.last_response = {}
         self.model = model
         self.system_prompt = system_prompt
-        
+
         self.headers = {
             "Content-Type": "application/json",
             "Accept": "*/*",
@@ -161,9 +159,9 @@ class LLMChat(Provider):
             full_response = ""
             try:
                 response = self.session.post(
-                    url, 
-                    json=payload, 
-                    stream=True, 
+                    url,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"
                 )
@@ -252,11 +250,11 @@ if __name__ == "__main__":
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test all available models
     working = 0
     total = len(LLMChat.AVAILABLE_MODELS)
-    
+
     for model in LLMChat.AVAILABLE_MODELS:
         try:
             test_ai = LLMChat(model=model, timeout=60)
@@ -265,7 +263,7 @@ if __name__ == "__main__":
             for chunk in response:
                 response_text += chunk
                 print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
-            
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

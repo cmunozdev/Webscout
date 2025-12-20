@@ -1,6 +1,6 @@
 import json
 import random
-from typing import Dict, Optional, Any, List
+from typing import Dict, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -262,7 +262,7 @@ class TogetherImage(TTICompatibleProvider):
                 for model in models_data:
                     if isinstance(model, dict) and model.get("type", "").lower() == "image":
                         image_models.append(model["id"])
-            
+
             if image_models:
                 return sorted(image_models)
             else:
@@ -284,9 +284,9 @@ class TogetherImage(TTICompatibleProvider):
     def __init__(self, api_key: str = None):
         """
         Initialize the TogetherImage client.
-        
+
         Args:
-            api_key (str, optional): Together.xyz API key. 
+            api_key (str, optional): Together.xyz API key.
         """
         self.api_key = api_key
         # Update available models if API key is provided

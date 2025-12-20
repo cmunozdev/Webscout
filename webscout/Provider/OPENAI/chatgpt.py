@@ -1,18 +1,24 @@
-import time
-import uuid
-import requests
-import json
-import random
 import base64
 import hashlib
-from datetime import datetime, timedelta, timezone
-from typing import List, Dict, Optional, Union, Generator, Any
+import json
+import random
+import time
+import uuid
+from datetime import datetime, timezone
+from typing import Any, Dict, Generator, List, Optional, Union
+
+import requests
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions, Tool
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider, Tool
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # ANSI escape codes for formatting
@@ -129,24 +135,24 @@ class ChatGPTReversed:
     def generate_proof_token(self, seed: str, difficulty: str, user_agent: str = None):
         """
         Improved proof-of-work implementation based on gpt4free/g4f/Provider/openai/proofofwork.py
-        
+
         Args:
             seed: The seed string for the challenge
             difficulty: The difficulty hex string
             user_agent: Optional user agent string
-            
+
         Returns:
             The proof token starting with 'gAAAAAB'
         """
         if user_agent is None:
             user_agent = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/132.0.0.0 Safari/537.36"
-        
+
         screen = random.choice([3008, 4010, 6000]) * random.choice([1, 2, 4])
-        
+
         # Get current UTC time
         now_utc = datetime.now(timezone.utc)
         parse_time = now_utc.strftime('%a, %d %b %Y %H:%M:%S GMT')
-        
+
         proof_token = [
             screen, parse_time,
             None, 0, user_agent,
@@ -179,14 +185,14 @@ class ChatGPTReversed:
     def generate_fake_sentinel_token(self):
         """Generate a fake sentinel token for initial authentication."""
         prefix = "gAAAAAC"
-        
+
         # More realistic screen sizes
         screen = random.choice([3008, 4010, 6000]) * random.choice([1, 2, 4])
-        
+
         # Get current UTC time
         now_utc = datetime.now(timezone.utc)
         parse_time = now_utc.strftime('%a, %d %b %Y %H:%M:%S GMT')
-        
+
         config = [
             screen,
             parse_time,
@@ -219,7 +225,7 @@ class ChatGPTReversed:
                         json_data["message"].get("status") == "finished_successfully" and
                         json_data["message"].get("metadata", {}).get("is_complete")):
                         return json_data["message"]["content"]["parts"][0]
-            except:
+            except Exception:
                 pass
 
         return input_text # Return raw text if parsing fails or no complete message found
@@ -553,7 +559,6 @@ class Completions(BaseCompletions):
 
             # Track conversation state
             full_content = ""
-            finish_reason = None
             prompt_tokens = count_tokens(str(messages))
             completion_tokens = 0
             total_tokens = prompt_tokens
@@ -563,7 +568,7 @@ class Completions(BaseCompletions):
                 if line:
                     if line.startswith("data: "):
                         data_str = line[6:]  # Remove "data: " prefix
-                        
+
                         # Handle [DONE] message
                         if data_str.strip() == "[DONE]":
                             # Final chunk with finish_reason
@@ -582,26 +587,26 @@ class Completions(BaseCompletions):
                             }
                             yield chunk
                             break
-                        
+
                         try:
                             data = json.loads(data_str)
-                            
+
                             # Handle different types of messages
                             if data.get("message"):
                                 message = data["message"]
-                                
+
                                 # Handle assistant responses
                                 if message.get("author", {}).get("role") == "assistant":
                                     content_parts = message.get("content", {}).get("parts", [])
                                     if content_parts:
                                         new_content = content_parts[0]
-                                        
+
                                         # Get the delta (new content since last chunk)
                                         delta_content = new_content[len(full_content):] if new_content.startswith(full_content) else new_content
                                         full_content = new_content
                                         completion_tokens = count_tokens(full_content)
                                         total_tokens = prompt_tokens + completion_tokens
-                                        
+
                                         # Only yield chunk if there's new content
                                         if delta_content:
                                             delta = ChoiceDelta(content=delta_content, role="assistant")
@@ -618,15 +623,15 @@ class Completions(BaseCompletions):
                                                 "total_tokens": total_tokens
                                             }
                                             yield chunk
-                                
+
                                 # Handle finish status
                                 if message.get("status") == "finished_successfully":
-                                    finish_reason = "stop"
-                                    
+                                    pass
+
                             elif data.get("type") == "message_stream_complete":
                                 # Stream is complete
-                                finish_reason = "stop"
-                                
+                                pass
+
                         except json.JSONDecodeError:
                             # Skip invalid JSON lines
                             continue
@@ -729,20 +734,20 @@ class Completions(BaseCompletions):
                 if line:
                     if line.startswith("data: "):
                         data_str = line[6:]  # Remove "data: " prefix
-                        
+
                         # Handle [DONE] message
                         if data_str.strip() == "[DONE]":
                             break
-                        
+
                         try:
                             data = json.loads(data_str)
-                            
+
                             # Handle assistant responses
                             if data.get("message") and data["message"].get("author", {}).get("role") == "assistant":
                                 content_parts = data["message"].get("content", {}).get("parts", [])
                                 if content_parts:
                                     full_response = content_parts[0]
-                                    
+
                         except json.JSONDecodeError:
                             # Skip invalid JSON lines
                             continue

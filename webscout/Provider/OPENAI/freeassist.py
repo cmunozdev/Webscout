@@ -1,13 +1,18 @@
-import requests
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+import requests
+
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 try:
@@ -35,7 +40,7 @@ class Completions(BaseCompletions):
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
         """
         Create a chat completion with FreeAssist API.
-        
+
         Args:
             model: Model identifier (e.g., 'google/gemini-2.5-flash-lite')
             messages: List of message dictionaries with 'role' and 'content'
@@ -46,7 +51,7 @@ class Completions(BaseCompletions):
             timeout: Request timeout
             proxies: Proxy configuration
             **kwargs: Additional parameters
-            
+
         Returns:
             ChatCompletion or Generator of ChatCompletionChunk
         """
@@ -56,10 +61,10 @@ class Completions(BaseCompletions):
             "anonymousUserId": str(uuid.uuid4()),
             "isContinuation": False
         }
-        
+
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
-        
+
         if stream:
             return self._create_stream(request_id, created_time, model, payload, timeout, proxies)
         else:
@@ -80,52 +85,52 @@ class Completions(BaseCompletions):
                 proxies=proxies,
             )
             response.raise_for_status()
-            
+
             prompt_tokens = 0
             completion_tokens = 0
             total_tokens = 0
-            
+
             for line in response.iter_lines(decode_unicode=True):
                 if not line:
                     continue
-                    
+
                 if isinstance(line, bytes):
                     try:
                         line = line.decode("utf-8")
                     except Exception:
                         continue
-                        
+
                 if line.startswith("data: "):
                     json_str = line[6:]
                 else:
                     json_str = line
-                    
+
                 if json_str == "[DONE]":
                     break
-                    
+
                 try:
                     data = json.loads(json_str)
-                    
+
                     # Extract usage if present
                     usage_data = data.get('usage', {})
                     if usage_data:
                         prompt_tokens = usage_data.get('prompt_tokens', prompt_tokens)
                         completion_tokens = usage_data.get('completion_tokens', completion_tokens)
                         total_tokens = usage_data.get('total_tokens', total_tokens)
-                    
+
                     choices = data.get('choices')
                     if not choices and choices is not None:
                         continue
-                    
+
                     choice_data = choices[0] if choices else {}
                     delta_data = choice_data.get('delta', {})
                     finish_reason = choice_data.get('finish_reason')
-                    
+
                     # Get content
                     content_piece = None
                     role = None
                     tool_calls = None
-                    
+
                     if delta_data:
                         content_piece = delta_data.get('content')
                         role = delta_data.get('role')
@@ -135,24 +140,24 @@ class Completions(BaseCompletions):
                         role = message_d.get("role")
                         content_piece = message_d.get("content")
                         tool_calls = message_d.get("tool_calls")
-                    
+
                     if content_piece and not usage_data:
                         completion_tokens += 1
                         total_tokens = prompt_tokens + completion_tokens
-                    
+
                     delta = ChoiceDelta(
                         content=content_piece,
                         role=role,
                         tool_calls=tool_calls
                     )
-                    
+
                     choice = Choice(
                         index=choice_data.get('index', 0),
                         delta=delta,
                         finish_reason=finish_reason,
                         logprobs=choice_data.get('logprobs')
                     )
-                    
+
                     chunk = ChatCompletionChunk(
                         id=data.get('id', request_id),
                         choices=[choice],
@@ -160,19 +165,19 @@ class Completions(BaseCompletions):
                         model=data.get('model', model),
                         system_fingerprint=data.get('system_fingerprint')
                     )
-                    
+
                     chunk.usage = {
                         "prompt_tokens": prompt_tokens,
                         "completion_tokens": completion_tokens,
                         "total_tokens": total_tokens,
                         "estimated_cost": None
                     }
-                    
+
                     yield chunk
-                    
+
                 except json.JSONDecodeError:
                     continue
-            
+
             # Final chunk with finish_reason="stop"
             delta = ChoiceDelta(content=None, role=None, tool_calls=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop", logprobs=None)
@@ -190,7 +195,7 @@ class Completions(BaseCompletions):
                 "estimated_cost": None
             }
             yield chunk
-            
+
         except Exception as e:
             print(f"Error during FreeAssist stream request: {e}")
             raise IOError(f"FreeAssist request failed: {e}") from e
@@ -211,75 +216,75 @@ class Completions(BaseCompletions):
                 proxies=proxies,
             )
             response.raise_for_status()
-            
+
             full_content = ""
             prompt_tokens = 0
             completion_tokens = 0
             total_tokens = 0
             response_model = model
-            
+
             for line in response.iter_lines(decode_unicode=True):
                 if not line:
                     continue
-                    
+
                 if isinstance(line, bytes):
                     try:
                         line = line.decode("utf-8")
                     except Exception:
                         continue
-                        
+
                 if line.startswith("data: "):
                     json_str = line[6:]
                 else:
                     json_str = line
-                    
+
                 if json_str == "[DONE]":
                     break
-                    
+
                 try:
                     data = json.loads(json_str)
-                    
+
                     # Extract usage if present
                     usage_data = data.get('usage', {})
                     if usage_data:
                         prompt_tokens = usage_data.get('prompt_tokens', prompt_tokens)
                         completion_tokens = usage_data.get('completion_tokens', completion_tokens)
                         total_tokens = usage_data.get('total_tokens', total_tokens)
-                    
+
                     choices = data.get('choices')
                     if not choices and choices is not None:
                         continue
-                        
+
                     choice_data = choices[0] if choices else {}
                     delta_data = choice_data.get('delta', {})
                     content = delta_data.get('content', '')
-                    
+
                     if content:
                         full_content += content
-                    
+
                     # Get model from response
                     if data.get('model'):
                         response_model = data.get('model')
                 except json.JSONDecodeError:
                     continue
-            
+
             message = ChatCompletionMessage(
                 role='assistant',
                 content=full_content
             )
-            
+
             choice = Choice(
                 index=0,
                 message=message,
                 finish_reason='stop'
             )
-            
+
             usage = CompletionUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens
             )
-            
+
             completion = ChatCompletion(
                 id=request_id,
                 choices=[choice],
@@ -287,9 +292,9 @@ class Completions(BaseCompletions):
                 model=response_model,
                 usage=usage,
             )
-            
+
             return completion
-            
+
         except Exception as e:
             print(f"Error during FreeAssist non-stream request: {e}")
             raise IOError(f"FreeAssist request failed: {e}") from e
@@ -303,15 +308,15 @@ class Chat(BaseChat):
 class FreeAssist(OpenAICompatibleProvider):
     """
     FreeAssist - A free OpenAI-compatible provider using FreeAssist.ai
-    
+
     This provider uses the FreeAssist API which provides access to various
     AI models including Google's Gemini series.
-    
+
     Usage:
         from webscout.Provider.OPENAI import FreeAssist
-        
+
         client = FreeAssist()
-        
+
         # Streaming
         for chunk in client.chat.completions.create(
             model="google/gemini-2.5-flash-lite",
@@ -320,7 +325,7 @@ class FreeAssist(OpenAICompatibleProvider):
         ):
             if chunk.choices[0].delta.content:
                 print(chunk.choices[0].delta.content, end="", flush=True)
-        
+
         # Non-streaming
         response = client.chat.completions.create(
             model="google/gemini-2.5-flash-lite",
@@ -329,7 +334,7 @@ class FreeAssist(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
-    
+
     AVAILABLE_MODELS = [
         "google/gemini-2.5-flash-lite",
         "google/gemini-2.5-flash",
@@ -345,7 +350,7 @@ class FreeAssist(OpenAICompatibleProvider):
     ):
         """
         Initialize the FreeAssist provider.
-        
+
         Args:
             browser: Browser to impersonate for fingerprinting
             timeout: Request timeout in seconds
@@ -354,10 +359,10 @@ class FreeAssist(OpenAICompatibleProvider):
         self.timeout = timeout
         self.base_url = "https://qcpujeurnkbvwlvmylyx.supabase.co/functions/v1/chat"
         self.session = requests.Session()
-        
+
         agent = LitAgent()
         fingerprint = agent.generate_fingerprint(browser)
-        
+
         self.headers = {
             'accept': '*/*',
             'accept-language': 'en-US,en;q=0.9,en-IN;q=0.8',
@@ -374,13 +379,13 @@ class FreeAssist(OpenAICompatibleProvider):
             'sec-gpc': '1',
             'user-agent': fingerprint.get("user_agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/143.0.0.0 Safari/537.36 Edg/143.0.0.0")
         }
-        
+
         self.session.headers.update(self.headers)
         if proxies:
             self.session.proxies.update(proxies)
-            
+
         self.chat = Chat(self)
-    
+
     @property
     def models(self):
         """Return available models."""
@@ -394,9 +399,9 @@ if __name__ == "__main__":
     print("-" * 80)
     print("Testing FreeAssist Provider")
     print("-" * 80)
-    
+
     client = FreeAssist()
-    
+
     # Test streaming
     print("\n[Streaming Test]")
     try:
@@ -412,7 +417,7 @@ if __name__ == "__main__":
         print(f"\n✓ Streaming works! Response: {response_text}")
     except Exception as e:
         print(f"✗ Streaming failed: {e}")
-    
+
     # Test non-streaming
     print("\n[Non-Streaming Test]")
     try:
@@ -424,6 +429,6 @@ if __name__ == "__main__":
         print(f"✓ Non-streaming works! Response: {response.choices[0].message.content}")
     except Exception as e:
         print(f"✗ Non-streaming failed: {e}")
-    
+
     print("\n" + "-" * 80)
     print("Available models:", FreeAssist.AVAILABLE_MODELS)

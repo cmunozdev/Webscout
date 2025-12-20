@@ -1,18 +1,23 @@
 
-from curl_cffi.requests import Session, RequestsError
-from typing import List, Dict, Optional, Union, Generator, Any
-
-# Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, format_prompt, count_tokens
-)
-
 # Standard library imports
 import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
+from curl_cffi.requests import RequestsError, Session
+
+# Import base classes and utility structures
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
+)
 
 # Attempt to import LitAgent, fallback if not available
 try:
@@ -375,16 +380,8 @@ class DeepAI(OpenAICompatibleProvider):
         try:
             # Use a temporary session for this class method
             from curl_cffi.requests import Session
-            temp_session = Session()
+            Session()
 
-            headers = {
-                "Content-Type": "application/x-www-form-urlencoded",
-                "api-key": api_key,
-                "Accept": "*/*",
-                "Accept-Language": "en-US,en;q=0.9",
-                "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36",
-                "DNT": "1",
-            }
 
             # Note: DeepAI doesn't have a standard models endpoint, so we'll use a default list
             # If DeepAI has a models endpoint, you would call it here

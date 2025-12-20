@@ -1,13 +1,14 @@
-import aiohttp
 import asyncio
-import lxml.html
 import re
 import urllib.parse
-from markdownify import markdownify as md
-from typing import Dict, Optional, Generator, Union, AsyncIterator, Literal
+from typing import AsyncIterator, Dict, Generator, Literal, Optional, Union
 
-from webscout.AIbase import AISearch, SearchResponse
+import aiohttp
+import lxml.html
+from markdownify import markdownify as md
+
 from webscout import exceptions
+from webscout.AIbase import AISearch, SearchResponse
 from webscout.scout import Scout
 
 
@@ -337,7 +338,7 @@ class IAsk(AISearch):
                                     yield formatted_chunk
                                 else:
                                     yield chunk.replace("<br/>", "\n")
-                            except:
+                            except Exception:
                                 cache = cache_find(diff)
                                 if cache:
                                     if diff.get("response", None):

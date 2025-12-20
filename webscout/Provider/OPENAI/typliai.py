@@ -2,22 +2,25 @@
 TypliAI OpenAI-compatible provider.
 """
 
-import json
-import time
-import uuid
 import random
 import string
-from typing import List, Dict, Optional, Union, Generator, Any
+import time
+import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, format_prompt
-)
 from webscout.AIutel import sanitize_stream
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    format_prompt,
+)
 
 try:
     from webscout.litagent import LitAgent
@@ -107,10 +110,10 @@ class Completions(BaseCompletions):
 
             full_response = ""
             completion_tokens = 0
-            
+
             # Use chunks from iter_content
             data_generator = response.iter_content(chunk_size=None)
-            
+
             processed_stream = sanitize_stream(
                 data=data_generator,
                 intro_value="data: ",
@@ -123,7 +126,7 @@ class Completions(BaseCompletions):
                 if content and isinstance(content, str):
                     full_response += content
                     completion_tokens += 1
-                    
+
                     delta = ChoiceDelta(
                         content=content,
                         role="assistant" if completion_tokens == 1 else None
@@ -171,7 +174,7 @@ class Completions(BaseCompletions):
         for chunk in self._create_stream(request_id, created_time, model, prompt, timeout, proxies):
             if chunk.choices[0].delta.content:
                 full_content += chunk.choices[0].delta.content
-        
+
         message = ChatCompletionMessage(
             role="assistant",
             content=full_content
@@ -206,12 +209,12 @@ class TypliAI(OpenAICompatibleProvider):
     OpenAI-compatible client for TypliAI.
     """
     required_auth = False
-    
+
     AVAILABLE_MODELS = [
-        "openai/gpt-4.1-mini", 
+        "openai/gpt-4.1-mini",
         "openai/gpt-4.1",
-        "openai/gpt-5-mini", 
-        "openai/gpt-5.2", 
+        "openai/gpt-5-mini",
+        "openai/gpt-5.2",
         "openai/gpt-5.2-pro",
         "google/gemini-2.5-flash",
         "anthropic/claude-haiku-4-5",
@@ -228,11 +231,11 @@ class TypliAI(OpenAICompatibleProvider):
         self.timeout = timeout
         self.proxies = proxies or {}
         self.api_endpoint = "https://typli.ai/api/generators/chat"
-        
+
         self.session = Session()
         self.agent = LitAgent() if LitAgent else None
         user_agent = self.agent.random() if self.agent else "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
-        
+
         self.headers = {
             'accept': '/',
             'accept-language': 'en-US,en;q=0.9,en-IN;q=0.8',
@@ -250,11 +253,11 @@ class TypliAI(OpenAICompatibleProvider):
             'sec-gpc': '1',
             'user-agent': user_agent,
         }
-        
+
         self.session.headers.update(self.headers)
         if proxies:
             self.session.proxies = proxies
-            
+
         self.chat = Chat(self)
 
     @property
@@ -268,7 +271,7 @@ class TypliAI(OpenAICompatibleProvider):
 if __name__ == "__main__":
     client = TypliAI()
     print(f"Available models: {client.models.list()}")
-    
+
     # Test non-streaming
     print("\n=== Testing Non-Streaming ===")
     response = client.chat.completions.create(
@@ -277,7 +280,7 @@ if __name__ == "__main__":
         stream=False
     )
     print(f"Response: {response.choices[0].message.content}")
-    
+
     # Test streaming
     print("\n=== Testing Streaming ===")
     for chunk in client.chat.completions.create(

@@ -67,7 +67,7 @@ LANDING_PAGE_HTML = """
             left: -50%;
             width: 200%;
             height: 200%;
-            background: 
+            background:
                 radial-gradient(ellipse at 20% 20%, rgba(99, 102, 241, 0.15) 0%, transparent 50%),
                 radial-gradient(ellipse at 80% 20%, rgba(139, 92, 246, 0.12) 0%, transparent 50%),
                 radial-gradient(ellipse at 50% 80%, rgba(6, 182, 212, 0.1) 0%, transparent 50%);
@@ -699,7 +699,7 @@ LANDING_PAGE_HTML = """
             </div>
             <h1>Your All-in-One<br><span class="gradient-text">AI Toolkit</span></h1>
             <p class="hero-description">
-                Access 90+ AI providers, multi-engine web search, text-to-speech, image generation, 
+                Access 90+ AI providers, multi-engine web search, text-to-speech, image generation,
                 and powerful developer tools — all through one unified, production-ready API.
             </p>
             <div class="hero-buttons">
@@ -1033,7 +1033,7 @@ body {
     font-weight: 600 !important;
 }
 
-.swagger-ui table thead tr td, 
+.swagger-ui table thead tr td,
 .swagger-ui table thead tr th {
     color: var(--text-secondary) !important;
     border-bottom: 1px solid var(--border-color) !important;
@@ -1088,8 +1088,8 @@ body {
     font-family: 'Consolas', monospace !important;
 }
 
-.swagger-ui input, 
-.swagger-ui textarea, 
+.swagger-ui input,
+.swagger-ui textarea,
 .swagger-ui select {
     background: #ffffff !important;
     color: var(--text-primary) !important;
@@ -1099,8 +1099,8 @@ body {
     box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
 }
 
-.swagger-ui input:focus, 
-.swagger-ui textarea:focus, 
+.swagger-ui input:focus,
+.swagger-ui textarea:focus,
 .swagger-ui select:focus {
     border-color: var(--primary-color) !important;
     outline: 2px solid rgba(79, 70, 229, 0.1) !important;

@@ -1,12 +1,11 @@
-import requests
 import json
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
+
+import requests
+
 from webscout.AIbase import Provider
-from webscout import exceptions
-from typing import Union, Any, AsyncGenerator, Dict
-import httpx
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
+
+
 #------------------------------------------------------KOBOLDAI-----------------------------------------------------------
 class KOBOLDAI(Provider):
     required_auth = False

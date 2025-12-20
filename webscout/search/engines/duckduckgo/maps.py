@@ -17,7 +17,7 @@ class DuckDuckGoMaps(DuckDuckGoBase):
         lon_l_f = float(lon_l)
         lat_b_f = float(lat_b)
         lon_r_f = float(lon_r)
-        
+
         # Calculate Euclidean distance
         distance = sqrt((lat_t_f - lat_b_f) ** 2 + (lon_r_f - lon_l_f) ** 2)
         return distance

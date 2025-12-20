@@ -1,13 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union, List
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, List, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class Nvidia(Provider):
     """
@@ -26,7 +27,7 @@ class Nvidia(Provider):
             headers = {}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            
+
             response = temp_session.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
@@ -151,7 +152,7 @@ class Nvidia(Provider):
         }
 
         def for_stream():
-            streaming_text = "" 
+            streaming_text = ""
             try:
                 response = self.session.post(
                     self.url,
@@ -175,7 +176,7 @@ class Nvidia(Provider):
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:

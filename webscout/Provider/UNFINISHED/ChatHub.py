@@ -1,13 +1,12 @@
-import requests
 import json
-import os
-from typing import Any, Dict, Optional, Generator, List, Union
+from typing import Any, Dict, Generator, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+
 
 class ChatHub(Provider):
     """
@@ -31,7 +30,7 @@ class ChatHub(Provider):
     def __init__(
         self,
         is_conversation: bool = True,
-        max_tokens: int = 2049,  
+        max_tokens: int = 2049,
         timeout: int = 30,
         intro: str = None,
         filepath: str = None,
@@ -39,7 +38,7 @@ class ChatHub(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
-        model: str = "sonar-online", 
+        model: str = "sonar-online",
     ):
         """Initializes the ChatHub API client."""
         self.url = "https://app.chathub.gg"
@@ -53,8 +52,8 @@ class ChatHub(Provider):
             'X-App-Id': 'web'
         }
         self.session = requests.Session()
-        self.session.headers.update(self.headers) 
-        self.session.proxies.update(proxies) 
+        self.session.headers.update(self.headers)
+        self.session.proxies.update(proxies)
         self.timeout = timeout
         self.last_response = {}
 
@@ -127,7 +126,7 @@ class ChatHub(Provider):
         def for_stream():
             try:
                 with requests.post(self.api_endpoint, headers=self.headers, json=data, stream=True, timeout=self.timeout) as response:
-                    response.raise_for_status()  
+                    response.raise_for_status()
                     streaming_text = ""
 
                     # Use sanitize_stream for processing

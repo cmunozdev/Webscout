@@ -3,17 +3,15 @@ A class to interact with the Apriel Gradio chat API (servicenow-ai-apriel-chat.h
 
 This provider integrates the Apriel chat model into the Webscout framework.
 """
-from typing import Generator, Optional, Union, Any, Dict
-import json
 import time
+from typing import Any, Dict, Generator, Optional, Union
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
 
@@ -190,7 +188,7 @@ class Apriel(Provider):
                 )
 
         session_hash = self._get_session_hash()
-        event_id = self._join_queue(session_hash, conversation_prompt)
+        self._join_queue(session_hash, conversation_prompt)
         self._run_predict(session_hash)
 
         def for_stream():

@@ -1,9 +1,9 @@
-import requests
-import json
-from typing import Any, Dict, Generator, Optional, Union
+from typing import Dict, Generator, Optional, Union
 
-from webscout.AIbase import AISearch, SearchResponse
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import AISearch, SearchResponse
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
 

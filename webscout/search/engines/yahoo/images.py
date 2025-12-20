@@ -4,15 +4,14 @@ from __future__ import annotations
 
 from collections.abc import Mapping
 from typing import Any
-from urllib.parse import urljoin
 
-from .base import YahooSearchEngine
 from ...results import ImagesResult
+from .base import YahooSearchEngine
 
 
 class YahooImages(YahooSearchEngine[ImagesResult]):
     """Yahoo image search engine with filter support.
-    
+
     Features:
     - Size filters (small, medium, large, wallpaper)
     - Color filters (color, bw, red, orange, yellow, etc.)
@@ -20,7 +19,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
     - Layout filters (square, wide, tall)
     - Time filters
     - Pagination support
-    
+
     Note: Yahoo does not support reverse image search (searching by image upload/URL).
     For reverse image search functionality, use Google Images or Bing Images instead.
     """
@@ -38,7 +37,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
     items_xpath = "//li[contains(@class, 'ld')]"
     elements_xpath: Mapping[str, str] = {
         "title": "@data",
-        "image": "@data", 
+        "image": "@data",
         "thumbnail": "@data",
         "url": "@data",
         "source": "@data",
@@ -49,7 +48,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
     # Filter mappings
     SIZE_FILTERS = {
         "small": "small",
-        "medium": "medium", 
+        "medium": "medium",
         "large": "large",
         "wallpaper": "wallpaper",
         "all": "",
@@ -99,7 +98,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build image search payload with filters.
-        
+
         Args:
             query: Search query
             region: Region code
@@ -112,7 +111,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
                 - type: Image type filter
                 - layout: Layout/aspect ratio filter
                 - license: Usage rights filter
-                
+
         Returns:
             Query parameters dictionary
         """
@@ -169,40 +168,40 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
 
     def post_extract_results(self, results: list[ImagesResult]) -> list[ImagesResult]:
         """Post-process image results to parse JSON data.
-        
+
         Args:
             results: Raw extracted results
-            
+
         Returns:
             Cleaned results with proper URLs and metadata
         """
         import json
         from urllib.parse import unquote
-        
+
         cleaned_results = []
-        
+
         for result in results:
             # Parse JSON data from the data attribute
             if result.title and result.title.startswith('{'):
                 try:
                     data = json.loads(result.title)
-                    
+
                     # Extract title
                     result.title = data.get('desc', '') or data.get('tit', '')
-                    
+
                     # Extract URLs
                     result.url = data.get('rurl', '')
                     result.thumbnail = data.get('turl', '')
                     result.image = data.get('turlL', '') or data.get('turl', '')
-                    
+
                     # Extract dimensions
                     result.width = int(data.get('imgW', 0))
                     result.height = int(data.get('imgH', 0))
-                    
+
                 except (json.JSONDecodeError, KeyError, ValueError):
                     # If JSON parsing fails, keep original data
                     pass
-            
+
             # Clean URLs if they exist
             if result.url:
                 result.url = unquote(result.url)
@@ -210,9 +209,9 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
                 result.image = unquote(result.image)
             if result.thumbnail:
                 result.thumbnail = unquote(result.thumbnail)
-            
+
             cleaned_results.append(result)
-        
+
         return cleaned_results
 
     def search(
@@ -226,7 +225,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
         **kwargs: Any,
     ) -> list[ImagesResult] | None:
         """Search Yahoo Images with pagination.
-        
+
         Args:
             query: Image search query
             region: Region code
@@ -235,14 +234,14 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
             page: Starting page
             max_results: Maximum results to return
             **kwargs: Additional filters (size, color, type, layout)
-            
+
         Returns:
             List of ImageResult objects
         """
         results = []
         current_page = page
         max_pages = kwargs.get("max_pages", 5)
-        
+
         while current_page <= max_pages:
             payload = self.build_payload(
                 query=query,
@@ -252,29 +251,29 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
                 page=current_page,
                 **kwargs
             )
-            
+
             html_text = self.request(self.search_method, self.search_url, params=payload)
             if not html_text:
                 break
-            
+
             html_text = self.pre_process_html(html_text)
             page_results = self.extract_results(html_text)
-            
+
             if not page_results:
                 break
-            
+
             results.extend(page_results)
-            
+
             if max_results and len(results) >= max_results:
                 break
-            
+
             current_page += 1
-        
+
         results = self.post_extract_results(results)
-        
+
         if max_results:
             results = results[:max_results]
-        
+
         return results if results else None
 
     def run(
@@ -291,7 +290,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
         max_results: int | None = None,
     ) -> list[dict[str, str]]:
         """Run image search and return results as dictionaries.
-        
+
         Args:
             keywords: Search query.
             region: Region code.
@@ -303,7 +302,7 @@ class YahooImages(YahooSearchEngine[ImagesResult]):
             layout: Layout filter.
             license_image: License filter.
             max_results: Maximum number of results.
-            
+
         Returns:
             List of image result dictionaries.
         """

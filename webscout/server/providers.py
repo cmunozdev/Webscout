@@ -2,11 +2,12 @@
 Provider management and initialization for the Webscout API.
 """
 
-import sys
 import inspect
+import sys
 from typing import Any, Dict, Tuple
-from starlette.status import HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
+
 from litprinter import ic
+from starlette.status import HTTP_404_NOT_FOUND, HTTP_500_INTERNAL_SERVER_ERROR
 
 from .config import AppConfig
 from .exceptions import APIError
@@ -18,7 +19,8 @@ tti_provider_instances: Dict[str, Any] = {}
 
 def initialize_provider_map() -> None:
     """Initialize the provider map by discovering available providers."""
-    ic.configureOutput(prefix='INFO| '); ic("Initializing provider map...")
+    ic.configureOutput(prefix='INFO| ')
+    ic("Initializing provider map...")
 
     try:
         from webscout.Provider.OPENAI.base import OpenAICompatibleProvider
@@ -34,7 +36,7 @@ def initialize_provider_map() -> None:
                 and obj.__name__ != "OpenAICompatibleProvider"
             ):
                 # Only include providers that don't require authentication
-                if hasattr(obj, 'required_auth') and getattr(obj, 'required_auth', True) == False:
+                if hasattr(obj, 'required_auth') and not getattr(obj, 'required_auth', True):
                     provider_name = obj.__name__
                     AppConfig.provider_map[provider_name] = obj
                     provider_count += 1
@@ -51,7 +53,8 @@ def initialize_provider_map() -> None:
 
         # Fallback to ChatGPT if no providers found
         if not AppConfig.provider_map:
-            ic.configureOutput(prefix='WARNING| '); ic("No providers found, using ChatGPT fallback")
+            ic.configureOutput(prefix='WARNING| ')
+            ic("No providers found, using ChatGPT fallback")
             try:
                 from webscout.Provider.OPENAI.chatgpt import ChatGPT
                 fallback_models = ["gpt-4", "gpt-4o", "gpt-4o-mini", "gpt-3.5-turbo"]
@@ -66,19 +69,23 @@ def initialize_provider_map() -> None:
                 provider_count = 1
                 model_count = len(fallback_models)
             except ImportError as e:
-                ic.configureOutput(prefix='ERROR| '); ic(f"Failed to import ChatGPT fallback: {e}")
+                ic.configureOutput(prefix='ERROR| ')
+                ic(f"Failed to import ChatGPT fallback: {e}")
                 raise APIError("No providers available", HTTP_500_INTERNAL_SERVER_ERROR)
 
-        ic.configureOutput(prefix='INFO| '); ic(f"Initialized {provider_count} providers with {model_count} models")
+        ic.configureOutput(prefix='INFO| ')
+        ic(f"Initialized {provider_count} providers with {model_count} models")
 
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize provider map: {e}")
+        ic.configureOutput(prefix='ERROR| ')
+        ic(f"Failed to initialize provider map: {e}")
         raise APIError(f"Provider initialization failed: {e}", HTTP_500_INTERNAL_SERVER_ERROR)
 
 
 def initialize_tti_provider_map() -> None:
     """Initialize the TTI provider map by discovering available TTI providers."""
-    ic.configureOutput(prefix='INFO| '); ic("Initializing TTI provider map...")
+    ic.configureOutput(prefix='INFO| ')
+    ic("Initializing TTI provider map...")
 
     try:
         from webscout.Provider.TTI.base import TTICompatibleProvider
@@ -110,7 +117,8 @@ def initialize_tti_provider_map() -> None:
 
         # Fallback to PollinationsAI if no TTI providers found
         if not AppConfig.tti_provider_map:
-            ic.configureOutput(prefix='WARNING| '); ic("No TTI providers found, using PollinationsAI fallback")
+            ic.configureOutput(prefix='WARNING| ')
+            ic("No TTI providers found, using PollinationsAI fallback")
             try:
                 from webscout.Provider.TTI.pollinations import PollinationsAI
                 fallback_models = ["flux", "turbo", "gptimage"]
@@ -125,13 +133,16 @@ def initialize_tti_provider_map() -> None:
                 provider_count = 1
                 model_count = len(fallback_models)
             except ImportError as e:
-                ic.configureOutput(prefix='ERROR| '); ic(f"Failed to import PollinationsAI fallback: {e}")
+                ic.configureOutput(prefix='ERROR| ')
+                ic(f"Failed to import PollinationsAI fallback: {e}")
                 raise APIError("No TTI providers available", HTTP_500_INTERNAL_SERVER_ERROR)
 
-        ic.configureOutput(prefix='INFO| '); ic(f"Initialized {provider_count} TTI providers with {model_count} models")
+        ic.configureOutput(prefix='INFO| ')
+        ic(f"Initialized {provider_count} TTI providers with {model_count} models")
 
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize TTI provider map: {e}")
+        ic.configureOutput(prefix='ERROR| ')
+        ic(f"Failed to initialize TTI provider map: {e}")
         raise APIError(f"TTI Provider initialization failed: {e}", HTTP_500_INTERNAL_SERVER_ERROR)
 
 

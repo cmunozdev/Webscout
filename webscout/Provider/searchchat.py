@@ -1,15 +1,19 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import json
 from datetime import datetime
-from typing import Any, Dict, Optional, Generator, Union
+from typing import Any, Dict, Generator, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
+
 
 class SearchChatAI(Provider):
     """
@@ -35,12 +39,12 @@ class SearchChatAI(Provider):
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.last_response = {}
-        
+
         # Initialize LitAgent for user agent generation
         self.agent = LitAgent()
         # Use fingerprinting to create a consistent browser identity
         self.fingerprint = self.agent.generate_fingerprint("chrome")
-        
+
         # Use the fingerprint for headers
         self.headers = {
             "Accept": self.fingerprint["accept"],
@@ -57,7 +61,7 @@ class SearchChatAI(Provider):
             "Sec-CH-UA-Platform": f'"{self.fingerprint["platform"]}"',
             "User-Agent": self.fingerprint["user_agent"],
         }
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
         # Update curl_cffi session headers and proxies
@@ -85,13 +89,13 @@ class SearchChatAI(Provider):
     def refresh_identity(self, browser: str = None):
         """
         Refreshes the browser identity fingerprint.
-        
+
         Args:
             browser: Specific browser to use for the new fingerprint
         """
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
-        
+
         # Update headers with new fingerprint
         self.headers.update({
             "Accept": self.fingerprint["accept"],
@@ -100,11 +104,11 @@ class SearchChatAI(Provider):
             "Sec-CH-UA-Platform": f'"{self.fingerprint["platform"]}"',
             "User-Agent": self.fingerprint["user_agent"],
         })
-        
+
         # Update session headers (already done in the original code, should work with curl_cffi session)
         for header, value in self.headers.items():
             self.session.headers[header] = value
-        
+
         return self.fingerprint
 
     def ask(
@@ -117,14 +121,14 @@ class SearchChatAI(Provider):
     ) -> Union[Dict[str, Any], Generator]:
         """
         Send a message to the API and get the response.
-        
+
         Args:
             prompt: The message to send
             stream: Whether to stream the response
             raw: Whether to return raw response
             optimizer: The optimizer to use
             conversationally: Whether to use conversation history
-            
+
         Returns:
             Either a dictionary with the response or a generator for streaming
         """
@@ -182,7 +186,7 @@ class SearchChatAI(Provider):
                         raise exceptions.FailedToGenerateResponseError(
                             f"Request failed with status code {response.status_code} - {response.text}"
                         )
-                    
+
                 streaming_text = ""
                 # Use sanitize_stream
                 processed_stream = sanitize_stream(
@@ -197,12 +201,12 @@ class SearchChatAI(Provider):
 
                 for content_chunk in processed_stream:
                     if raw:
-                        yield content_chunk 
+                        yield content_chunk
                     else:
                         if content_chunk and isinstance(content_chunk, str):
                             streaming_text += content_chunk
                             yield dict(text=content_chunk)
-                
+
                 # Update history and last response after stream finishes
                 self.last_response = {"text": streaming_text}
                 self.conversation.update_chat_history(prompt, streaming_text)
@@ -216,13 +220,13 @@ class SearchChatAI(Provider):
             full_text = ""
             # Iterate through the generator provided by for_stream
             # Ensure raw=False so for_stream yields dicts
-            for chunk_data in for_stream(): 
+            for chunk_data in for_stream():
                 if isinstance(chunk_data, dict) and "text" in chunk_data:
                     full_text += chunk_data["text"]
                 # If raw=True was somehow passed, handle string chunks
                 elif isinstance(chunk_data, str):
                     full_text += chunk_data
-            
+
             # last_response and history are updated within for_stream
             # Return the final aggregated response dict or raw string
             return full_text if raw else self.last_response
@@ -240,13 +244,13 @@ class SearchChatAI(Provider):
     ) -> Union[str, Generator[str, None, None]]:
         """
         Chat with the API.
-        
+
         Args:
             prompt: The message to send
             stream: Whether to stream the response
             optimizer: The optimizer to use
             conversationally: Whether to use conversation history
-            
+
         Returns:
             Either a string response or a generator for streaming
         """

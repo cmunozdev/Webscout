@@ -1,13 +1,13 @@
-from uuid import uuid4
-import json
 import datetime
-from typing import Union, Dict, Any, Generator
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
+import json
+from typing import Generator, Union
+from uuid import uuid4
+
 import cloudscraper
+
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 
 
 class YouChat(Provider):
@@ -34,7 +34,7 @@ class YouChat(Provider):
         # "deepseek_r1",  # isProOnly: true
         # "deepseek_v3",  # isProOnly: true
         # "gemini_2_5_pro_experimental",  # isProOnly: true
-        
+
         # Free models (isProOnly: false)
         "gpt_4o_mini",
         "gpt_4o",
@@ -52,7 +52,7 @@ class YouChat(Provider):
         "llama3_1_405b",
         "mistral_large_2",
         "command_r_plus",
-        
+
         # Free models not enabled for user chat modes
         "llama3_3_70b",  # isAllowedForUserChatModes: false
         "llama3_2_90b",  # isAllowedForUserChatModes: false
@@ -174,10 +174,10 @@ class YouChat(Provider):
 
         trace_id = str(uuid4())
         conversation_turn_id = str(uuid4())
-        
+
         # Current timestamp in ISO format for traceId
         current_time = datetime.datetime.now().isoformat()
-        
+
         # Updated query parameters to match the new API format
         params = {
             "page": 1,
@@ -197,7 +197,7 @@ class YouChat(Provider):
             "traceId": f"{trace_id}|{conversation_turn_id}|{current_time}",
             "use_nested_youchat_updates": "true"
         }
-        
+
         # New payload format is JSON
         payload = {
             "query": conversation_prompt,
@@ -206,12 +206,12 @@ class YouChat(Provider):
 
         def for_stream():
             response = self.session.post(
-                self.chat_endpoint, 
-                headers=self.headers, 
-                cookies=self.cookies, 
+                self.chat_endpoint,
+                headers=self.headers,
+                cookies=self.cookies,
                 params=params,
                 data=json.dumps(payload),
-                stream=True, 
+                stream=True,
                 timeout=self.timeout
             )
             if not response.ok:
@@ -312,11 +312,11 @@ if __name__ == '__main__':
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test all available models
     working = 0
     total = len(YouChat.AVAILABLE_MODELS)
-    
+
     for model in YouChat.AVAILABLE_MODELS:
         try:
             test_ai = YouChat(model=model, timeout=60)
@@ -325,7 +325,7 @@ if __name__ == '__main__':
             for chunk in response:
                 response_text += chunk
                 print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
-            
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

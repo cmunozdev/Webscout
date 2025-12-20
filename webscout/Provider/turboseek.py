@@ -1,15 +1,20 @@
 
 import re
-from typing import Optional, Union, Any, AsyncGenerator, Dict
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
+from typing import Any, Optional
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
+
 
 class TurboSeek(Provider):
     """
@@ -96,34 +101,34 @@ class TurboSeek(Provider):
         """Convert basic HTML tags to Markdown."""
         if not text:
             return ""
-        
+
         # Unescape HTML entities first
         import html
         text = html.unescape(text)
 
         # Headers
         text = re.sub(r'<h[1-6][^>]*>(.*?)</h[1-6]>', r'\n# \1\n', text)
-        
+
         # Lists
         text = re.sub(r'<li[^>]*>(.*?)</li>', r'\n* \1', text)
         text = re.sub(r'<(ul|ol)[^>]*>', r'\n', text)
         text = re.sub(r'</(ul|ol)>', r'\n', text)
-        
+
         # Paragraphs and Breaks
         text = re.sub(r'</p>', r'\n\n', text)
         text = re.sub(r'<p[^>]*>', r'\n', text)
         text = re.sub(r'<br\s*/?>', r'\n', text)
-        
+
         # Bold and Italic
         text = re.sub(r'<(strong|b)[^>]*>(.*?)</\1>', r'**\2**', text)
         text = re.sub(r'<(em|i)[^>]*>(.*?)</\1>', r'*\2*', text)
-        
+
         # Remove structural tags
         text = re.sub(r'</?(section|div|span|article|header|footer)[^>]*>', '', text, flags=re.IGNORECASE)
-        
+
         # Final cleanup of remaining tags
         text = re.sub(r'<[^>]*>', '', text)
-        
+
         return text
 
     @staticmethod
@@ -163,9 +168,9 @@ class TurboSeek(Provider):
         def for_stream():
             try:
                 response = self.session.post(
-                    self.chat_endpoint, 
-                    json=payload, 
-                    stream=True, 
+                    self.chat_endpoint,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome120"
                 )
@@ -173,23 +178,23 @@ class TurboSeek(Provider):
                     raise exceptions.FailedToGenerateResponseError(
                         f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                     )
-                
+
                 streaming_text = ""
                 # The API returns raw HTML chunks now, no "data:" prefix
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None),
-                    intro_value=None, 
+                    intro_value=None,
                     to_json=False,
                     strip_chars='', # Disable default lstrip to preserve spacing
                     content_extractor=self._turboseek_extractor,
                     yield_raw_on_error=True,
                     raw=raw
                 )
-                
+
                 for content_chunk in processed_stream:
                     if content_chunk is None:
                         continue
-                    
+
                     if raw:
                         yield content_chunk
                     else:
@@ -202,7 +207,7 @@ class TurboSeek(Provider):
                                 streaming_text += clean_chunk
                                 self.last_response.update(dict(text=streaming_text))
                                 yield dict(text=clean_chunk)
-                
+
                 if not raw and streaming_text:
                     self.conversation.update_chat_history(
                         prompt, streaming_text
@@ -219,15 +224,15 @@ class TurboSeek(Provider):
                 # We use ask(..., raw=True) internally or just the local for_stream
                 # Actually, let's just make a sub-call
                 response = self.session.post(
-                    self.chat_endpoint, 
-                    json=payload, 
+                    self.chat_endpoint,
+                    json=payload,
                     timeout=self.timeout,
                     impersonate="chrome120"
                 )
                 full_html = response.text
             except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"Failed to get non-stream response: {e}") from e
-            
+
             # Convert full HTML to Markdown
             final_text = self._html_to_markdown(full_html).strip()
             self.last_response = {"text": final_text}
@@ -286,12 +291,12 @@ class TurboSeek(Provider):
         """
         assert isinstance(response, dict), "Response should be of dict data-type only"
         # Unicode escapes are handled by json.loads within sanitize_stream
-        return response.get("text", "") 
+        return response.get("text", "")
 
 if __name__ == '__main__':
     import sys
     ai = TurboSeek(timeout=60)
-    
+
     # helper for safe printing on windows
     def safe_print(text, end="\n"):
         try:
@@ -303,7 +308,7 @@ if __name__ == '__main__':
     safe_print("\n=== Testing Non-Streaming ===")
     response = ai.chat("How can I get a 6 pack in 3 months?", stream=False)
     safe_print(response)
-    
+
     safe_print("\n=== Testing Streaming ===")
     for chunk in ai.chat("How can I get a 6 pack in 3 months?", stream=True):
         safe_print(chunk, end="")

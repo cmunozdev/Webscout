@@ -1,9 +1,10 @@
 import random
-import requests
 import secrets
 import string
 import uuid
 from typing import Any, Dict, Optional, Union
+
+import requests
 
 from webscout import exceptions
 from webscout.AIbase import Provider

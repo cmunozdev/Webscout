@@ -1,15 +1,15 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
 import uuid
-from typing import Any, Dict, Optional, Generator, Union
+from typing import Any, Dict, Generator, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class HeckAI(Provider):
     """
@@ -85,11 +85,11 @@ class HeckAI(Provider):
         """
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         self.url = "https://api.heckai.weight-wave.com/api/ha/v1/chat"
         self.session_id = str(uuid.uuid4())
         self.language = language
-        
+
         # Use LitAgent (keep if needed for other headers or logic)
         self.headers = {
             'Content-Type': 'application/json',
@@ -97,7 +97,7 @@ class HeckAI(Provider):
             'Referer': 'https://heck.ai/', # Keep Referer
             'User-Agent': LitAgent().random(), # Use random user agent
         }
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
         # Update curl_cffi session headers and proxies
@@ -174,7 +174,7 @@ class HeckAI(Provider):
             "imgUrls": [],
             "superSmartMode": False  # Added based on API request data
         }
-        
+
         # Store this message as previous for next request
         self.previous_question = conversation_prompt
 
@@ -182,9 +182,9 @@ class HeckAI(Provider):
             streaming_text = "" # Initialize outside try block
             try:
                 response = self.session.post(
-                    self.url, 
-                    data=json.dumps(payload), 
-                    stream=True, 
+                    self.url,
+                    data=json.dumps(payload),
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"
                 )
@@ -213,7 +213,7 @@ class HeckAI(Provider):
                         if content_chunk and isinstance(content_chunk, str):
                             streaming_text += content_chunk
                             yield dict(text=content_chunk)
-                
+
                 # Only update history if we received a valid response
                 if streaming_text:
                     self.previous_answer = streaming_text
@@ -264,15 +264,15 @@ class HeckAI(Provider):
         if isinstance(text, dict) and "text" in text:
             try:
                 text["text"] = text["text"].encode("latin1").decode("utf-8")
-                return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes 
-            except (UnicodeError, AttributeError) as e:
-                return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes 
+                return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes
+            except (UnicodeError, AttributeError):
+                return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes
         elif isinstance(text, str):
             try:
                 return text.encode("latin1").decode("utf-8")
-            except (UnicodeError, AttributeError) as e:
-                return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes 
-        return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes 
+            except (UnicodeError, AttributeError):
+                return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes
+        return text.replace('\\\\', '\\').replace('\\"', '"') # Handle escaped backslashes
 
     def chat(
         self,
@@ -305,7 +305,7 @@ class HeckAI(Provider):
                     yield response
                 else:
                     yield self.get_message(response)
-                
+
         def for_non_stream_chat():
             # ask() returns dict or str when not streaming
             response_data = self.ask(
@@ -315,7 +315,7 @@ class HeckAI(Provider):
             if raw:
                 return response_data if isinstance(response_data, str) else str(response_data)
             return self.get_message(response_data) # get_message expects dict
-            
+
         return for_stream_chat() if stream else for_non_stream_chat()
 
     def get_message(self, response: dict) -> str:
@@ -367,7 +367,7 @@ if __name__ == "__main__":
     #             for chunk in response:
     #                 if chunk and isinstance(chunk, str):
     #                     response_text += chunk
-                
+
     #             if response_text and len(response_text.strip()) > 0:
     #                 status = "✓"
     #                 # Truncate response if too long

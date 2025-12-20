@@ -1,12 +1,12 @@
-from .utils import dup_filter
-from .video import Video
-from .channel import Channel
-from .playlist import Playlist
-from .patterns import _QueryPatterns as Patterns
-from typing import Optional, Dict, Any, List
-from .https import find_videos, find_channels, find_playlists
+from typing import List, Optional
 from urllib.parse import quote
-from .utils import request
+
+from .channel import Channel
+from .https import find_channels, find_playlists, find_videos
+from .patterns import _QueryPatterns as Patterns
+from .playlist import Playlist
+from .utils import dup_filter, request
+from .video import Video
 
 
 class Search:
@@ -42,11 +42,11 @@ class Search:
     def shorts(keywords: str, limit: int = 20) -> Optional[List[str]]:
         """
         Search for YouTube Shorts.
-        
+
         Args:
             keywords: Search query
             limit: Maximum number of results
-            
+
         Returns:
             List of video IDs for matching Shorts
         """
@@ -62,11 +62,11 @@ class Search:
     def live_streams(keywords: str, limit: int = 20) -> Optional[List[str]]:
         """
         Search for live streams.
-        
+
         Args:
             keywords: Search query
             limit: Maximum number of results
-            
+
         Returns:
             List of video IDs for live streams
         """
@@ -82,12 +82,12 @@ class Search:
     def videos_by_duration(keywords: str, duration: str = "short", limit: int = 20) -> Optional[List[str]]:
         """
         Search videos filtered by duration.
-        
+
         Args:
             keywords: Search query
             duration: Duration filter - "short" (<4 min), "medium" (4-20 min), "long" (>20 min)
             limit: Maximum number of results
-            
+
         Returns:
             List of video IDs
         """
@@ -108,12 +108,12 @@ class Search:
     def videos_by_upload_date(keywords: str, when: str = "today", limit: int = 20) -> Optional[List[str]]:
         """
         Search videos filtered by upload date.
-        
+
         Args:
             keywords: Search query
             when: Time filter - "hour", "today", "week", "month", "year"
             limit: Maximum number of results
-            
+
         Returns:
             List of video IDs
         """
@@ -137,7 +137,7 @@ if __name__ == "__main__":
     print("Testing Search.shorts:")
     shorts = Search.shorts("funny", 5)
     print(f"  Found: {shorts}")
-    
+
     print("\nTesting Search.live_streams:")
     live = Search.live_streams("music", 5)
     print(f"  Found: {live}")

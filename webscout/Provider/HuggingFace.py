@@ -1,13 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union, List
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, List, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class HuggingFace(Provider):
     """
@@ -26,7 +27,7 @@ class HuggingFace(Provider):
             headers = {}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            
+
             response = temp_session.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
@@ -162,32 +163,32 @@ class HuggingFace(Provider):
     ) -> Union[Dict[str, Any], Generator]:
         """
         Sends a prompt to the Hugging Face Router API and returns the response.
-        
+
         Args:
             prompt: The prompt to send to the API
             stream: Whether to stream the response
-            raw: If True, returns unprocessed response chunks without any 
+            raw: If True, returns unprocessed response chunks without any
                 processing or sanitization. Useful for debugging or custom
                 processing pipelines. Defaults to False.
             optimizer: Optional prompt optimizer name
             conversationally: Whether to use conversation context
-            
+
         Returns:
-            When raw=False: Dict with 'text' key (non-streaming) or 
+            When raw=False: Dict with 'text' key (non-streaming) or
                 Generator yielding dicts (streaming)
-            When raw=True: Raw string response (non-streaming) or 
+            When raw=True: Raw string response (non-streaming) or
                 Generator yielding raw string chunks (streaming)
-                
+
         Examples:
             >>> hf = HuggingFace(api_key="your-key")
             >>> # Get processed response
             >>> response = hf.ask("Hello")
             >>> print(response["text"])
-            
+
             >>> # Get raw response
             >>> raw_response = hf.ask("Hello", raw=True)
             >>> print(raw_response)
-            
+
             >>> # Stream raw chunks
             >>> for chunk in hf.ask("Hello", stream=True, raw=True):
             ...     print(chunk, end='', flush=True)
@@ -214,7 +215,7 @@ class HuggingFace(Provider):
         }
 
         def for_stream():
-            streaming_text = "" 
+            streaming_text = ""
             try:
                 response = self.session.post(
                     self.url,
@@ -237,7 +238,7 @@ class HuggingFace(Provider):
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:

@@ -2,33 +2,33 @@
 
 from __future__ import annotations
 
+from ..base import BaseSearchEngine
+from .bing import BingBase, BingImagesSearch, BingNewsSearch, BingSuggestionsSearch, BingTextSearch
 from .brave import Brave
-from .mojeek import Mojeek
-from .wikipedia import Wikipedia
-from .yandex import Yandex
-from .bing import BingBase, BingTextSearch, BingImagesSearch, BingNewsSearch, BingSuggestionsSearch
 from .duckduckgo import (
-    DuckDuckGoBase,
-    DuckDuckGoTextSearch,
-    DuckDuckGoImages,
-    DuckDuckGoVideos,
-    DuckDuckGoNews,
     DuckDuckGoAnswers,
-    DuckDuckGoSuggestions,
+    DuckDuckGoBase,
+    DuckDuckGoImages,
     DuckDuckGoMaps,
+    DuckDuckGoNews,
+    DuckDuckGoSuggestions,
+    DuckDuckGoTextSearch,
     DuckDuckGoTranslate,
+    DuckDuckGoVideos,
     DuckDuckGoWeather,
 )
-from .yep import YepBase, YepTextSearch, YepImages, YepSuggestions
+from .mojeek import Mojeek
+from .wikipedia import Wikipedia
 from .yahoo import (
-    YahooSearchEngine,
-    YahooText,
     YahooImages,
-    YahooVideos,
     YahooNews,
+    YahooSearchEngine,
     YahooSuggestions,
+    YahooText,
+    YahooVideos,
 )
-from ..base import BaseSearchEngine
+from .yandex import Yandex
+from .yep import YepBase, YepImages, YepSuggestions, YepTextSearch
 
 # Engine categories mapping
 ENGINES = {

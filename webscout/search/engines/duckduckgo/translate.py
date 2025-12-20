@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ....exceptions import WebscoutE
 from .base import DuckDuckGoBase
 
 

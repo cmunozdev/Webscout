@@ -3,7 +3,8 @@ Configuration management for the Webscout API server.
 """
 
 import os
-from typing import List, Dict, Optional, Any
+from typing import Any, Dict, List, Optional
+
 from litprinter import ic
 
 # Configuration constants
@@ -33,7 +34,8 @@ class ServerConfig:
         for key, value in kwargs.items():
             if hasattr(self, key) and value is not None:
                 setattr(self, key, value)
-                ic.configureOutput(prefix='INFO| '); ic(f"Config updated: {key} = {value}")
+                ic.configureOutput(prefix='INFO| ')
+                ic(f"Config updated: {key} = {value}")
 
     def validate(self) -> None:
         """Validate configuration settings."""
@@ -42,7 +44,8 @@ class ServerConfig:
 
         if self.default_provider not in self.provider_map and self.provider_map:
             available_providers = list(set(v.__name__ for v in self.provider_map.values()))
-            ic.configureOutput(prefix='WARNING| '); ic(f"Default provider '{self.default_provider}' not found. Available: {available_providers}")
+            ic.configureOutput(prefix='WARNING| ')
+            ic(f"Default provider '{self.default_provider}' not found. Available: {available_providers}")
 
 
 class AppConfig:

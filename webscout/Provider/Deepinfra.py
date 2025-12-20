@@ -1,13 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class DeepInfra(Provider):
     """
@@ -212,32 +213,32 @@ class DeepInfra(Provider):
     ) -> Union[Dict[str, Any], Generator]:
         """
         Sends a prompt to the DeepInfra API and returns the response.
-        
+
         Args:
             prompt: The prompt to send to the API
             stream: Whether to stream the response
-            raw: If True, returns unprocessed response chunks without any 
+            raw: If True, returns unprocessed response chunks without any
                 processing or sanitization. Useful for debugging or custom
                 processing pipelines. Defaults to False.
             optimizer: Optional prompt optimizer name
             conversationally: Whether to use conversation context
-            
+
         Returns:
-            When raw=False: Dict with 'text' key (non-streaming) or 
+            When raw=False: Dict with 'text' key (non-streaming) or
                 Generator yielding dicts (streaming)
-            When raw=True: Raw string response (non-streaming) or 
+            When raw=True: Raw string response (non-streaming) or
                 Generator yielding raw string chunks (streaming)
-                
+
         Examples:
             >>> ai = DeepInfra()
             >>> # Get processed response
             >>> response = ai.ask("Hello")
             >>> print(response["text"])
-            
+
             >>> # Get raw response
             >>> raw_response = ai.ask("Hello", raw=True)
             >>> print(raw_response)
-            
+
             >>> # Stream raw chunks
             >>> for chunk in ai.ask("Hello", stream=True, raw=True):
             ...     print(chunk, end='', flush=True)
@@ -261,7 +262,7 @@ class DeepInfra(Provider):
         }
 
         def for_stream():
-            streaming_text = "" 
+            streaming_text = ""
             try:
                 response = self.session.post(
                     self.url,
@@ -285,7 +286,7 @@ class DeepInfra(Provider):
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:
@@ -354,30 +355,30 @@ class DeepInfra(Provider):
     ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a chat response from the DeepInfra API.
-        
+
         Args:
             prompt: The prompt to send to the API
             stream: Whether to stream the response
             optimizer: Optional prompt optimizer name
-            raw: If True, returns unprocessed response chunks without any 
+            raw: If True, returns unprocessed response chunks without any
                 processing or sanitization. Useful for debugging or custom
                 processing pipelines. Defaults to False.
             conversationally: Whether to use conversation context
-            
+
         Returns:
             When raw=False: Extracted message string or Generator yielding strings
             When raw=True: Raw response or Generator yielding raw chunks
-                
+
         Examples:
             >>> ai = DeepInfra()
             >>> # Get processed response
             >>> response = ai.chat("Hello")
             >>> print(response)
-            
+
             >>> # Get raw response
             >>> raw_response = ai.chat("Hello", raw=True)
             >>> print(raw_response)
-            
+
             >>> # Stream raw chunks
             >>> for chunk in ai.chat("Hello", stream=True, raw=True):
             ...     print(chunk, end='', flush=True)

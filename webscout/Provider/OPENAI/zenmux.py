@@ -1,16 +1,17 @@
-import requests
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+import requests
+
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk,
     ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
     Choice,
     ChoiceDelta,
-    ChatCompletionMessage,
     CompletionUsage,
 )
 
@@ -281,12 +282,10 @@ class Zenmux(OpenAICompatibleProvider):
             }
             try:
                 from curl_cffi.requests import Session as CurlSession
-                from curl_cffi import CurlError
 
                 curl_available = True
             except Exception:
                 CurlSession = None
-                CurlError = Exception
                 curl_available = False
             try:
                 from webscout.litagent import LitAgent

@@ -7,15 +7,19 @@ import json
 import time
 import urllib
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 try:
@@ -176,7 +180,7 @@ class Completions(BaseCompletions):
                     try:
                         json_line = json.loads(line)
                         message_text = format_response(json_line)
-                        
+
                         if not message_text:
                             continue
 
@@ -304,7 +308,7 @@ class Completions(BaseCompletions):
             raw_response = response.text
             last_response = None
             full_message = ""
-            
+
             for line in raw_response.split("\n"):
                 try:
                     json_line = json.loads(line)
@@ -363,7 +367,7 @@ class Meta(OpenAICompatibleProvider):
     No API key required - uses web authentication.
     """
     required_auth = False
-    
+
     AVAILABLE_MODELS = [
         "meta-ai",
         "llama-3"
@@ -379,7 +383,7 @@ class Meta(OpenAICompatibleProvider):
     ):
         """
         Initialize the Meta AI OpenAI-compatible client.
-        
+
         Args:
             fb_email: Optional Facebook email for authenticated access
             fb_password: Optional Facebook password for authenticated access
@@ -391,30 +395,30 @@ class Meta(OpenAICompatibleProvider):
         self.fb_password = fb_password
         self.timeout = timeout
         self.proxies = proxies or {}
-        
+
         self.session = Session()
         if LitAgent:
             agent = LitAgent()
             self.session.headers.update({
                 "user-agent": agent.random()
             })
-        
+
         self.access_token = None
         self.is_authed = fb_password is not None and fb_email is not None
         self.cookies = self._get_cookies()
         self.external_conversation_id = None
         self.offline_threading_id = None
-        
+
         if proxies:
             self.session.proxies = proxies
-        
+
         # Initialize chat interface
         self.chat = Chat(self)
 
     def _get_cookies(self) -> dict:
         """Extracts necessary cookies from the Meta AI main page."""
         headers = {}
-        
+
         # Import Facebook login if needed
         if self.fb_email is not None and self.fb_password is not None:
             try:
@@ -513,7 +517,7 @@ if __name__ == "__main__":
     # Example usage - no API key required
     client = Meta()
     print(f"Available models: {client.models.list()}")
-    
+
     # Test non-streaming
     response = client.chat.completions.create(
         model="meta-ai",
@@ -521,7 +525,7 @@ if __name__ == "__main__":
         stream=False
     )
     print(f"Response: {response.choices[0].message.content}")
-    
+
     # Test streaming
     print("\nStreaming response:")
     for chunk in client.chat.completions.create(
