@@ -7,9 +7,15 @@ from typing import List, Dict, Optional, Union, Generator, Any
 # Import base classes and utility structures
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage,
-    format_prompt, get_system_prompt, count_tokens  # Import format_prompt, get_system_prompt and count_tokens
+    ChatCompletionChunk,
+    ChatCompletion,
+    Choice,
+    ChoiceDelta,
+    ChatCompletionMessage,
+    CompletionUsage,
+    format_prompt,
+    get_system_prompt,
+    count_tokens,  # Import format_prompt, get_system_prompt and count_tokens
 )
 
 # Import LitAgent for browser fingerprinting
@@ -24,8 +30,9 @@ BOLD = "\033[1m"
 RED = "\033[91m"
 RESET = "\033[0m"
 
+
 class Completions(BaseCompletions):
-    def __init__(self, client: 'TypefullyAI'):
+    def __init__(self, client: "TypefullyAI"):
         self._client = client
 
     def create(
@@ -38,23 +45,25 @@ class Completions(BaseCompletions):
         temperature: Optional[float] = None,
         timeout: Optional[int] = None,
         proxies: Optional[Dict[str, str]] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
         """
         Creates a model response for the given chat conversation.
         Mimics openai.chat.completions.create
         """
         # Extract system message using get_system_prompt utility
-        system_prompt = get_system_prompt(messages) or getattr(self._client, 'system_prompt', 'You are a helpful assistant.')
+        system_prompt = get_system_prompt(messages) or getattr(
+            self._client, "system_prompt", "You are a helpful assistant."
+        )
 
         # Format the conversation using format_prompt utility
         # Use add_special_tokens=True to format as "User: ... Assistant: ..."
         # Use do_continue=True to ensure it ends with "Assistant: " for model to continue
         conversation_prompt = format_prompt(
-            messages, 
-            add_special_tokens=True, 
+            messages,
+            add_special_tokens=True,
             do_continue=True,
-            include_system=False  # System prompt is sent separately
+            include_system=False,  # System prompt is sent separately
         )
 
         # Prepare the payload for Typefully API
@@ -62,16 +71,20 @@ class Completions(BaseCompletions):
             "prompt": conversation_prompt,
             "systemPrompt": system_prompt,
             "modelIdentifier": self._client.convert_model_name(model),
-            "outputLength": max_tokens if max_tokens is not None else self._client.output_length
+            "outputLength": max_tokens if max_tokens is not None else self._client.output_length,
         }
 
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
 
         if stream:
-            return self._create_streaming(request_id, created_time, model, payload, timeout, proxies)
+            return self._create_streaming(
+                request_id, created_time, model, payload, timeout, proxies
+            )
         else:
-            return self._create_non_streaming(request_id, created_time, model, payload, timeout, proxies)
+            return self._create_non_streaming(
+                request_id, created_time, model, payload, timeout, proxies
+            )
 
     def _create_streaming(
         self,
@@ -80,83 +93,65 @@ class Completions(BaseCompletions):
         model: str,
         payload: Dict[str, Any],
         timeout: Optional[int] = None,
-        proxies: Optional[Dict[str, str]] = None
+        proxies: Optional[Dict[str, str]] = None,
     ) -> Generator[ChatCompletionChunk, None, None]:
         """Implementation for streaming chat completions."""
         try:
-            from webscout.AIbase import sanitize_stream
-            
+            from webscout.sanitize import sanitize_stream
+
             # Make the streaming request
             response = self._client.session.post(
-                self._client.api_endpoint, 
-                headers=self._client.headers, 
-                json=payload, 
-                stream=True, 
+                self._client.api_endpoint,
+                headers=self._client.headers,
+                json=payload,
+                stream=True,
                 timeout=timeout or self._client.timeout,
                 proxies=proxies or getattr(self._client, "proxies", None),
-                impersonate="chrome120"
+                impersonate="chrome120",
             )
 
             if not response.ok:
-                raise IOError(f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}")
+                raise IOError(
+                    f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
+                )
 
             streaming_text = ""
-            
+
             processed_stream = sanitize_stream(
                 data=response.iter_lines(),
                 intro_value="data:",
                 to_json=True,
                 skip_markers=["[DONE]"],
-                content_extractor=lambda d: d.get("delta") if isinstance(d, dict) else None,
-                yield_raw_on_error=False
+                content_extractor=self._client._typefully_extractor,
+                yield_raw_on_error=False,
             )
 
             for content in processed_stream:
                 if content and isinstance(content, str):
                     streaming_text += content
-                    
+
                     # Create the delta object
-                    delta = ChoiceDelta(
-                        content=content,
-                        role="assistant"
-                    )
-                    
+                    delta = ChoiceDelta(content=content, role="assistant")
+
                     # Create the choice object
-                    choice = Choice(
-                        index=0,
-                        delta=delta,
-                        finish_reason=None
-                    )
-                    
+                    choice = Choice(index=0, delta=delta, finish_reason=None)
+
                     # Create the chunk object
                     chunk = ChatCompletionChunk(
-                        id=request_id,
-                        choices=[choice],
-                        created=created_time,
-                        model=model
+                        id=request_id, choices=[choice], created=created_time, model=model
                     )
-                    
+
                     yield chunk
 
             # Final chunk with finish_reason="stop"
-            delta = ChoiceDelta(
-                content=None,
-                role=None
-            )
-            
-            choice = Choice(
-                index=0,
-                delta=delta,
-                finish_reason="stop"
-            )
-            
+            delta = ChoiceDelta(content=None, role=None)
+
+            choice = Choice(index=0, delta=delta, finish_reason="stop")
+
             chunk = ChatCompletionChunk(
-                id=request_id,
-                choices=[choice],
-                created=created_time,
-                model=model
+                id=request_id, choices=[choice], created=created_time, model=model
             )
-            
+
             yield chunk
 
         except CurlError as e:
@@ -171,25 +166,27 @@ class Completions(BaseCompletions):
         model: str,
         payload: Dict[str, Any],
         timeout: Optional[int] = None,
-        proxies: Optional[Dict[str, str]] = None
+        proxies: Optional[Dict[str, str]] = None,
     ) -> ChatCompletion:
         """Implementation for non-streaming chat completions."""
         try:
-            from webscout.AIbase import sanitize_stream
-            
+            from webscout.sanitize import sanitize_stream
+
             # Make the non-streaming request
             response = self._client.session.post(
-                self._client.api_endpoint, 
-                headers=self._client.headers, 
-                json=payload, 
-                stream=True, 
+                self._client.api_endpoint,
+                headers=self._client.headers,
+                json=payload,
+                stream=True,
                 timeout=timeout or self._client.timeout,
                 proxies=proxies or getattr(self._client, "proxies", None),
-                impersonate="chrome120"
+                impersonate="chrome120",
             )
 
             if not response.ok:
-                raise IOError(f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}")
+                raise IOError(
+                    f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
+                )
 
             # Collect the full response using sanitize_stream
             full_text = ""
@@ -198,39 +195,34 @@ class Completions(BaseCompletions):
                 intro_value="data:",
                 to_json=True,
                 skip_markers=["[DONE]"],
-                content_extractor=lambda d: d.get("delta") if isinstance(d, dict) else None,
-                yield_raw_on_error=False
+                content_extractor=self._client._typefully_extractor,
+                yield_raw_on_error=False,
             )
             for content in processed_stream:
                 if content and isinstance(content, str):
                     full_text += content
 
             # Format the text (replace escaped newlines)
-            full_text = full_text.replace('\\n', '\n').replace('\\n\\n', '\n\n')
+            full_text = full_text.replace("\\n", "\n").replace("\\n\\n", "\n\n")
 
             # Estimate token counts
-            prompt_tokens = count_tokens(payload.get("prompt", "")) + count_tokens(payload.get("systemPrompt", ""))
+            prompt_tokens = count_tokens(payload.get("prompt", "")) + count_tokens(
+                payload.get("systemPrompt", "")
+            )
             completion_tokens = count_tokens(full_text)
             total_tokens = prompt_tokens + completion_tokens
 
             # Create the message object
-            message = ChatCompletionMessage(
-                role="assistant",
-                content=full_text
-            )
+            message = ChatCompletionMessage(role="assistant", content=full_text)
 
             # Create the choice object
-            choice = Choice(
-                index=0,
-                message=message,
-                finish_reason="stop"
-            )
+            choice = Choice(index=0, message=message, finish_reason="stop")
 
             # Create the usage object
             usage = CompletionUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
-                total_tokens=total_tokens
+                total_tokens=total_tokens,
             )
 
             # Create the completion object
@@ -251,9 +243,11 @@ class Completions(BaseCompletions):
             print(f"{RED}Error during Typefully non-streaming request: {e}{RESET}")
             raise IOError(f"Typefully request failed: {e}") from e
 
+
 class Chat(BaseChat):
-    def __init__(self, client: 'TypefullyAI'):
+    def __init__(self, client: "TypefullyAI"):
         self.completions = Completions(client)
+
 
 class TypefullyAI(OpenAICompatibleProvider):
     """
@@ -267,12 +261,13 @@ class TypefullyAI(OpenAICompatibleProvider):
         )
         print(response.choices[0].message.content)
     """
+
     required_auth = False
     AVAILABLE_MODELS = [
-        "openai:gpt-4o-mini", 
-        "openai:gpt-4o", 
-        "anthropic:claude-3-5-haiku-20241022", 
-        "groq:llama-3.3-70b-versatile"
+        "openai:gpt-4o-mini",
+        "openai:gpt-4o",
+        "anthropic:claude-haiku-4-5-20251001",
+        "groq:llama-3.3-70b-versatile",
     ]
 
     def __init__(
@@ -280,7 +275,7 @@ class TypefullyAI(OpenAICompatibleProvider):
         timeout: int = 30,
         system_prompt: str = "You are a helpful assistant.",
         output_length: int = 2048,
-        proxies: Optional[Dict[str, str]] = None
+        proxies: Optional[Dict[str, str]] = None,
     ):
         """
         Initialize the TypefullyAI client.
@@ -317,7 +312,7 @@ class TypefullyAI(OpenAICompatibleProvider):
             "sec-ch-ua": '"Microsoft Edge";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
-            "user-agent": self.user_agent
+            "user-agent": self.user_agent,
         }
 
         # Update curl_cffi session headers and proxies
@@ -327,15 +322,45 @@ class TypefullyAI(OpenAICompatibleProvider):
         self.chat = Chat(self)
 
     @staticmethod
-    def _typefully_extractor(chunk: str) -> Optional[str]:
-        """Extracts content from the Typefully stream format '0:"..."'."""
-        if isinstance(chunk, str):
-            match = re.search(r'0:"(.*?)"(?=,|$)', chunk)
-            if match:
-                # Decode potential unicode escapes like \u00e9 and handle escaped quotes/backslashes
-                content = match.group(1).encode().decode('unicode_escape')
-                return content.replace('\\\\', '\\').replace('\\"', '"')
-        return None
+    def _typefully_extractor(chunk) -> str:
+        """Extracts content from Typefully AI SSE format."""
+        import re
+        import json
+
+        # Handle parsed JSON objects (when to_json=True)
+        if isinstance(chunk, dict):
+            data = chunk
+        elif isinstance(chunk, str):
+            # Handle raw strings (when to_json=False or direct strings)
+            line = chunk.strip()
+            if line.startswith("data: "):
+                line = line[6:]  # Remove 'data: ' prefix
+
+                try:
+                    # Parse JSON content
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, return empty for non-JSON content
+                    return ""
+            else:
+                # For non-SSE lines, return empty
+                return ""
+        else:
+            # For other types (bytes, etc.), return empty
+            return ""
+
+        # Extract delta content for text chunks
+        if data.get("type") == "text-delta" and "delta" in data:
+            return data["delta"]
+        elif data.get("type") == "text-start":
+            # Return empty for text-start to avoid duplication
+            return ""
+        elif data.get("type") == "text-end":
+            # Return empty for text-end to avoid duplication
+            return ""
+        else:
+            # Return empty for other event types
+            return ""
 
     def convert_model_name(self, model: str) -> str:
         """
@@ -356,7 +381,7 @@ class TypefullyAI(OpenAICompatibleProvider):
             "gpt-4o-mini": "openai:gpt-4o-mini",
             "gpt-4o": "openai:gpt-4o",
             "claude-3-5-haiku": "anthropic:claude-3-5-haiku-20241022",
-            "llama-3.3-70b": "groq:llama-3.3-70b-versatile"
+            "llama-3.3-70b": "groq:llama-3.3-70b-versatile",
         }
 
         if model in model_mapping:
@@ -368,10 +393,14 @@ class TypefullyAI(OpenAICompatibleProvider):
 
     @property
     def models(self):
+        """Return object with .list() method for available models."""
+
         class _ModelList:
-            def list(inner_self):
-                return type(self).AVAILABLE_MODELS
+            def list(self):
+                return TypefullyAI.AVAILABLE_MODELS
+
         return _ModelList()
+
 
 if __name__ == "__main__":
     # Example usage
@@ -381,9 +410,9 @@ if __name__ == "__main__":
         model="gpt-4o-mini",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
-            {"role": "user", "content": "Explain the theory of relativity in simple terms."}
+            {"role": "user", "content": "Explain the theory of relativity in simple terms."},
         ],
-        max_tokens=150
+        max_tokens=150,
     )
 
     print(f"{BOLD}Response:{RESET} {response.choices[0].message.content}")
