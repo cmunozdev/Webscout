@@ -33,8 +33,11 @@ class Completions(BaseCompletions):
         if isinstance(chunk, str):
             try:
                 data = json.loads(chunk)
-                if isinstance(data, dict) and "reasoning_content" in data:
-                    return data["reasoning_content"]
+                if isinstance(data, dict):
+                    if "reasoning_content" in data and data["reasoning_content"]:
+                        return data["reasoning_content"]
+                    if "content" in data and data["content"]:
+                        return data["content"]
                 return chunk
             except json.JSONDecodeError:
                 return chunk
@@ -169,7 +172,20 @@ class Chat(BaseChat):
         self.completions = Completions(client)
 
 class ChatSandbox(OpenAICompatibleProvider):
-    AVAILABLE_MODELS = ["openai", "deepseek", "llama", "gemini", "mistral-large", "deepseek-r1", "deepseek-r1-full", "gemini-thinking", "openai-o1-mini", "llama", "mistral", "gemma-3"]
+    AVAILABLE_MODELS = [
+        "openai", 
+        "openai-gpt-4o", 
+        "openai-o1-mini", 
+        "deepseek", 
+        "deepseek-r1", 
+        "deepseek-r1-full",
+        "gemini", 
+        "gemini-thinking",
+        "mistral", 
+        "mistral-large", 
+        "gemma-3",
+        "llama"
+    ]
     required_auth = False
     chat: Chat
     def __init__(self):

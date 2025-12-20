@@ -93,7 +93,7 @@ All notable changes to this project will be documented in this file.
 - **fix**: webscout/Provider/oivscode.py - Fixed type annotation bugs by updating optional parameters to use `Optional[str]` type hints, correcting method calls, and adding proper string handling in `get_message()` method
 - **fix**: webscout/Provider/oivscode.py - Removed unwanted print statements from `fetch_available_models()` method and updated its docstring to reflect that it no longer prints models
 - **fix**: webscout/sanitize.py - Fixed import organization issues using `ruff check --fix` to properly sort and format imports according to project standards
-- **fix**: webscout/scout - Fixed multiple critical bugs and improved BeautifulSoup4 compatibility across the entire scout component.
+- **fix**: webscout/scout - Fixed multiple critical bugs, removed direct BeautifulSoup references and updated BS4-compatible messaging across the scout component. (Applied ruff checks and whitespace fixes)
 - **fix**: webscout/scout/core/scout.py - Resolved `TypeError` in `extract_metadata` and standardized `find` return types.
 - **fix**: webscout/scout/core/crawler.py - Improved domain validation security, fixed overly aggressive URL normalization, and corrected parser selection logic.
 - **fix**: webscout/scout/element.py - Fixed class matching logic and self-closing tag rendering in `prettify`.

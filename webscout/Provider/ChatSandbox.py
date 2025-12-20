@@ -38,10 +38,13 @@ class ChatSandbox(Provider):
         "openai-o1-mini", 
         "deepseek", 
         "deepseek-r1", 
+        "deepseek-r1-full",
         "gemini", 
+        "gemini-thinking",
         "mistral", 
         "mistral-large", 
-        "gemma-3"
+        "gemma-3",
+        "llama"
     ]
 
 
@@ -169,7 +172,6 @@ class ChatSandbox(Provider):
             "messages": [conversation_prompt],
             "character": self.model
         }
-        print(f"DEBUG: Payload={payload}")
 
         def for_stream():
             try:
