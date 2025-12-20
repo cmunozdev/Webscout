@@ -105,9 +105,6 @@ class Completions(BaseCompletions):
                     
                 try:
                     data = json.loads(json_str)
-                    choice_data = data.get('choices', [{}])[0]
-                    delta_data = choice_data.get('delta', {})
-                    finish_reason = choice_data.get('finish_reason')
                     
                     # Extract usage if present
                     usage_data = data.get('usage', {})
@@ -115,6 +112,14 @@ class Completions(BaseCompletions):
                         prompt_tokens = usage_data.get('prompt_tokens', prompt_tokens)
                         completion_tokens = usage_data.get('completion_tokens', completion_tokens)
                         total_tokens = usage_data.get('total_tokens', total_tokens)
+                    
+                    choices = data.get('choices')
+                    if not choices and choices is not None:
+                        continue
+                    
+                    choice_data = choices[0] if choices else {}
+                    delta_data = choice_data.get('delta', {})
+                    finish_reason = choice_data.get('finish_reason')
                     
                     # Get content
                     content_piece = None
@@ -233,7 +238,19 @@ class Completions(BaseCompletions):
                     
                 try:
                     data = json.loads(json_str)
-                    choice_data = data.get('choices', [{}])[0]
+                    
+                    # Extract usage if present
+                    usage_data = data.get('usage', {})
+                    if usage_data:
+                        prompt_tokens = usage_data.get('prompt_tokens', prompt_tokens)
+                        completion_tokens = usage_data.get('completion_tokens', completion_tokens)
+                        total_tokens = usage_data.get('total_tokens', total_tokens)
+                    
+                    choices = data.get('choices')
+                    if not choices and choices is not None:
+                        continue
+                        
+                    choice_data = choices[0] if choices else {}
                     delta_data = choice_data.get('delta', {})
                     content = delta_data.get('content', '')
                     
@@ -243,14 +260,6 @@ class Completions(BaseCompletions):
                     # Get model from response
                     if data.get('model'):
                         response_model = data.get('model')
-                    
-                    # Extract usage if present
-                    usage_data = data.get('usage', {})
-                    if usage_data:
-                        prompt_tokens = usage_data.get('prompt_tokens', prompt_tokens)
-                        completion_tokens = usage_data.get('completion_tokens', completion_tokens)
-                        total_tokens = usage_data.get('total_tokens', total_tokens)
-                        
                 except json.JSONDecodeError:
                     continue
             

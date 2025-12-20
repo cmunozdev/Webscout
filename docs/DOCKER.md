@@ -74,33 +74,38 @@ make clean
 
 ### Environment Variables
 
-All environment variables are now fully supported in the API server:
+The Webscout server reads the following environment variables at runtime. The server configuration is dynamically determined from code defaults unless explicitly overridden via environment variables.
 
 #### **Core Server Settings**
-- `WEBSCOUT_HOST` - Server host (default: 0.0.0.0)
-- `WEBSCOUT_PORT` - Server port (default: 8000)
+- `WEBSCOUT_HOST` - Server host (default: 0.0.0.0 from ServerConfig)
+- `WEBSCOUT_PORT` - Server port (default: 8000 from ServerConfig)
 - `WEBSCOUT_WORKERS` - Number of worker processes (default: 1)
 - `WEBSCOUT_LOG_LEVEL` - Log level: debug, info, warning, error, critical (default: info)
-- `WEBSCOUT_DEBUG` - Enable debug mode (default: false)
-- `WEBSCOUT_API_TITLE` - **NEW!** FastAPI app title (default: Webscout OpenAI API)
-- `WEBSCOUT_API_DESCRIPTION` - **NEW!** FastAPI app description (default: OpenAI API compatible interface for various LLM providers with enhanced authentication)
-- `WEBSCOUT_API_VERSION` - **NEW!** FastAPI app version (default: 0.2.0)
-- `WEBSCOUT_API_DOCS_URL` - **NEW!** FastAPI docs URL (default: /docs)
-- `WEBSCOUT_API_REDOC_URL` - **NEW!** FastAPI redoc URL (default: /redoc)
-- `WEBSCOUT_API_OPENAPI_URL` - **NEW!** FastAPI OpenAPI URL (default: /openapi.json)
+- `WEBSCOUT_DEBUG` - Enable debug mode (default: false from ServerConfig)
+- `WEBSCOUT_API_TITLE` - FastAPI app title (default: "Webscout API" from code)
+- `WEBSCOUT_API_DESCRIPTION` - FastAPI app description (default: "OpenAI API compatible interface for various LLM providers" from code)
+- `WEBSCOUT_API_VERSION` - FastAPI app version (default: "0.2.0" from code)
+- `WEBSCOUT_API_DOCS_URL` - FastAPI docs URL (default: /docs from code)
+- `WEBSCOUT_API_REDOC_URL` - FastAPI redoc URL (default: /redoc from code)
+- `WEBSCOUT_API_OPENAPI_URL` - FastAPI OpenAPI URL (default: /openapi.json from code)
 
 #### **Authentication & Security** 🔐
-- `WEBSCOUT_NO_AUTH` - **NEW!** Disable authentication (default: false) 🔓
-- `WEBSCOUT_NO_RATE_LIMIT` - **NEW!** Disable rate limiting (default: false) ⚡
+- `WEBSCOUT_REQUEST_LOGGING` - Enable request logging (default: true from ServerConfig)
 - `WEBSCOUT_API_KEY` - Legacy API key for authentication (optional)
 
+**Dynamic Configuration**: The server also supports configuring the following programmatically through ServerConfig class:
+- `auth_required` - Authentication required flag (default: false from ServerConfig)
+- `rate_limit_enabled` - Rate limiting enabled flag (default: false from ServerConfig)
+- `cors_origins` - CORS allowed origins (default: ["*"] from ServerConfig)
+- `max_request_size` - Maximum request size (default: 10MB from ServerConfig)
+- `request_timeout` - Request timeout in seconds (default: 300 from ServerConfig)
+
 #### **Database Configuration** 🗄️
-- `MONGODB_URL` - **NEW!** MongoDB connection string (optional)
-- `WEBSCOUT_DATA_DIR` - **NEW!** Data directory for JSON database (default: /app/data)
+- `WEBSCOUT_DATA_DIR` - Data directory for JSON database (default: /app/data from ServerConfig)
 
 #### **Provider Settings**
-- `WEBSCOUT_DEFAULT_PROVIDER` - Default LLM provider (default: ChatGPT)
-- `WEBSCOUT_BASE_URL` - Base URL for the API (optional)
+- `WEBSCOUT_DEFAULT_PROVIDER` - Default LLM provider (default: ChatGPT from ServerConfig)
+- `WEBSCOUT_BASE_URL` - Base URL for the API (default: None from ServerConfig)
 
 **Legacy Support**: For backward compatibility, the following legacy environment variables are also supported:
 - `PORT` (fallback for `WEBSCOUT_PORT`)

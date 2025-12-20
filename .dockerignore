@@ -12,10 +12,16 @@
 .gitmodules
 
 # -----------------------------------------------------------------------------
-# Documentation
+# Documentation (except essential files)
 # -----------------------------------------------------------------------------
 *.md
 docs/
+!README.md
+!LICENSE.md
+!LEGAL_NOTICE.md
+!CHANGELOG.md
+!CONTRIBUTING.md
+!Provider.md
 README*
 CHANGELOG*
 LICENSE*

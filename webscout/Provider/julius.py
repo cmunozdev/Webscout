@@ -8,7 +8,7 @@ from webscout.AIutel import Conversation
 from webscout.AIutel import AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
 from webscout import exceptions
-from typing import Union, Any, AsyncGenerator, Dict
+from typing import Union, Any, Generator, Dict
 
 
 class Julius(Provider):
@@ -155,26 +155,34 @@ class Julius(Provider):
                 raise exceptions.FailedToGenerateResponseError(
                     f"Failed to generate response - ({response.status_code}, {response.reason})"
                 )
+
             streaming_response = ""
-            for line in response.iter_lines(decode_unicode=True):
-                if line:
-                    try:
-                        json_line = json.loads(line)
-                        content = json_line['content']
-                        streaming_response += content
-                        yield content if raw else dict(text=content)
-                    except:
-                        continue
-            self.last_response.update(dict(text=streaming_response))
-            self.conversation.update_chat_history(
-                prompt, self.get_message(self.last_response)
+            # Use sanitize_stream with content_extractor for Julius JSON format
+            processed_stream = sanitize_stream(
+                data=response.iter_lines(decode_unicode=True),
+                intro_value=None,
+                to_json=True,
+                content_extractor=lambda chunk: chunk.get('content') if isinstance(chunk, dict) else None,
+                yield_raw_on_error=False,
+                raw=raw
             )
 
-        def for_non_stream():
+            for content in processed_stream:
+                if content:
+                    if raw:
+                        yield content if isinstance(content, str) else json.dumps(content)
+                    else:
+                        if isinstance(content, str):
+                            streaming_response += content
+                            yield dict(text=content)
 
+            self.last_response = {"text": streaming_response}
+            self.conversation.update_chat_history(prompt, streaming_response)
+
+        def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response
+            return self.last_response if not raw else json.dumps(self.last_response)
 
 
         return for_stream() if stream else for_non_stream()
@@ -184,32 +192,39 @@ class Julius(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> str:
+        raw: bool = False,
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
             stream (bool, optional): Flag for streaming response. Defaults to False.
             optimizer (str, optional): Prompt optimizer name - `[code, shell_command]`. Defaults to None.
             conversationally (bool, optional): Chat conversationally when using optimizer. Defaults to False.
+            raw (bool, optional): Return raw response chunks. Defaults to False.
         Returns:
             str: Response generated
         """
 
         def for_stream():
             for response in self.ask(
-                prompt, True, optimizer=optimizer, conversationally=conversationally
+                prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally
             ):
-                yield self.get_message(response)
+                if raw:
+                    yield response
+                else:
+                    yield self.get_message(response)
 
         def for_non_stream():
-            return self.get_message(
-                self.ask(
-                    prompt,
-                    False,
-                    optimizer=optimizer,
-                    conversationally=conversationally,
-                )
+            result = self.ask(
+                prompt,
+                False,
+                raw=raw,
+                optimizer=optimizer,
+                conversationally=conversationally,
             )
+            if raw:
+                return result
+            return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

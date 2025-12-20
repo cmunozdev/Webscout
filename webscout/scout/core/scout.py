@@ -1,6 +1,7 @@
 """
 Scout Main Module - HTML Parsing and Traversal
 """
+
 import hashlib
 import json
 import re
@@ -13,7 +14,6 @@ from ..parsers import ParserRegistry
 from ..utils import decode_markup
 from .search_result import ScoutSearchResult
 from .text_analyzer import ScoutTextAnalyzer
-from .text_utils import SentenceTokenizer
 from .web_analyzer import ScoutWebAnalyzer
 
 
@@ -24,8 +24,15 @@ class Scout:
     Enhanced with advanced features and intelligent parsing.
     """
 
-    def __init__(self, markup="", features='html.parser', from_encoding=None, 
-                 exclude_encodings=None, element_classes=None, **kwargs):
+    def __init__(
+        self,
+        markup="",
+        features="html.parser",
+        from_encoding=None,
+        exclude_encodings=None,
+        element_classes=None,
+        **kwargs,
+    ):
         """
         Initialize Scout with HTML content.
 
@@ -43,7 +50,7 @@ class Scout:
         self.element_classes = element_classes or {}
         self.builder_features = features
         self.contains_replacement_characters = False
-        
+
         # Intelligent markup handling
         self.markup = self._preprocess_markup(markup, from_encoding)
         self.features = features
@@ -60,20 +67,20 @@ class Scout:
 
         # Parse that HTML! 🎯
         self._soup = self.parser.parse(self.markup)
-        
+
         # Set up the root element properly
-        if hasattr(self._soup, 'name'):
+        if hasattr(self._soup, "name"):
             self.name = self._soup.name
         else:
-            self.name = '[document]'
-            
-        # BeautifulSoup-like attributes
-        self.attrs = self._soup.attrs if hasattr(self._soup, 'attrs') else {}
-        self.contents = self._soup.contents if hasattr(self._soup, 'contents') else []
+            self.name = "[document]"
+
+        # BS4-like attributes
+        self.attrs = self._soup.attrs if hasattr(self._soup, "attrs") else {}
+        self.contents = self._soup.contents if hasattr(self._soup, "contents") else []
         self.parent = None
         self.next_sibling = None
         self.previous_sibling = None
-        
+
         # Advanced parsing options and caching
         self._cache = {}
         self._tag_name_cache = {}
@@ -83,7 +90,7 @@ class Scout:
         self.text_analyzer = ScoutTextAnalyzer()
         self.web_analyzer = ScoutWebAnalyzer()
 
-    def normalize_text(self, text: str, form='NFKD') -> str:
+    def normalize_text(self, text: str, form="NFKD") -> str:
         """
         Normalize text using Unicode normalization.
 
@@ -108,12 +115,12 @@ class Scout:
         """
         parsed = urllib.parse.urlparse(url)
         return {
-            'scheme': parsed.scheme,
-            'netloc': parsed.netloc,
-            'path': parsed.path,
-            'params': parsed.params,
-            'query': parsed.query,
-            'fragment': parsed.fragment
+            "scheme": parsed.scheme,
+            "netloc": parsed.netloc,
+            "path": parsed.path,
+            "params": parsed.params,
+            "query": parsed.query,
+            "fragment": parsed.fragment,
         }
 
     def analyze_page_structure(self) -> Dict[str, Any]:
@@ -139,9 +146,9 @@ class Scout:
             text = self.get_text()
 
         return {
-            'word_count': self.text_analyzer.count_words(text),
-            'entities': self.text_analyzer.extract_entities(text),
-            'tokens': self.text_analyzer.tokenize(text)
+            "word_count": self.text_analyzer.count_words(text),
+            "entities": self.text_analyzer.extract_entities(text),
+            "tokens": self.text_analyzer.tokenize(text),
         }
 
     def extract_semantic_info(self) -> Dict[str, Any]:
@@ -152,19 +159,19 @@ class Scout:
             Dict[str, Any]: Semantic information
         """
         semantic_info = {
-            'headings': {
-                'h1': [h.get_text(strip=True) for h in self.find_all('h1')],
-                'h2': [h.get_text(strip=True) for h in self.find_all('h2')],
-                'h3': [h.get_text(strip=True) for h in self.find_all('h3')]
+            "headings": {
+                "h1": [h.get_text(strip=True) for h in self.find_all("h1")],
+                "h2": [h.get_text(strip=True) for h in self.find_all("h2")],
+                "h3": [h.get_text(strip=True) for h in self.find_all("h3")],
             },
-            'lists': {
-                'ul': [ul.find_all('li') for ul in self.find_all('ul')],
-                'ol': [ol.find_all('li') for ol in self.find_all('ol')]
+            "lists": {
+                "ul": [ul.find_all("li") for ul in self.find_all("ul")],
+                "ol": [ol.find_all("li") for ol in self.find_all("ol")],
             },
-            'tables': {
-                'count': len(self.find_all('table')),
-                'headers': [table.find_all('th') for table in self.find_all('table')]
-            }
+            "tables": {
+                "count": len(self.find_all("table")),
+                "headers": [table.find_all("th") for table in self.find_all("table")],
+            },
         }
         return semantic_info
 
@@ -183,7 +190,7 @@ class Scout:
             self._cache[key] = value
         return self._cache.get(key)
 
-    def hash_content(self, method='md5') -> str:
+    def hash_content(self, method="md5") -> str:
         """
         Generate a hash of the parsed content.
 
@@ -193,17 +200,13 @@ class Scout:
         Returns:
             str: Content hash
         """
-        hash_methods = {
-            'md5': hashlib.md5,
-            'sha1': hashlib.sha1,
-            'sha256': hashlib.sha256
-        }
+        hash_methods = {"md5": hashlib.md5, "sha1": hashlib.sha1, "sha256": hashlib.sha256}
 
         if method not in hash_methods:
             raise ValueError(f"Unsupported hash method: {method}")
 
         hasher = hash_methods[method]()
-        hasher.update(str(self._soup).encode('utf-8'))
+        hasher.update(str(self._soup).encode("utf-8"))
         return hasher.hexdigest()
 
     def extract_links(self, base_url: Optional[str] = None) -> List[Dict[str, str]]:
@@ -217,19 +220,21 @@ class Scout:
             List[Dict[str, str]]: List of link dictionaries
         """
         links = []
-        for link in self.find_all(['a', 'link']):
-            href = link.get('href')
+        for link in self.find_all(["a", "link"]):
+            href = link.get("href")
             if href:
                 # Resolve relative URLs if base_url is provided
-                if base_url and not href.startswith(('http://', 'https://', '//')):
+                if base_url and not href.startswith(("http://", "https://", "//")):
                     href = f"{base_url.rstrip('/')}/{href.lstrip('/')}"
 
-                links.append({
-                    'href': href,
-                    'text': link.get_text(strip=True),
-                    'rel': link.get('rel', [None])[0],
-                    'type': link.get('type')
-                })
+                links.append(
+                    {
+                        "href": href,
+                        "text": link.get_text(strip=True),
+                        "rel": link.get("rel", [None])[0],
+                        "type": link.get("type"),
+                    }
+                )
         return links
 
     def extract_metadata(self) -> Dict[str, Any]:
@@ -239,23 +244,31 @@ class Scout:
         Returns:
             Dict[str, Any]: Extracted metadata
         """
+        title_tag = self.find("title")
+        desc_tag = self.find("meta", attrs={"name": "description"})
+        keywords_tag = self.find("meta", attrs={"name": "keywords"})
+
         metadata = {
-            'title': self.find('title').texts()[0] if self.find('title').texts() else None,
-            'description': self.find('meta', attrs={'name': 'description'}).attrs('content')[0] if self.find('meta', attrs={'name': 'description'}).attrs('content') else None,
-            'keywords': self.find('meta', attrs={'name': 'keywords'}).attrs('content')[0].split(',') if self.find('meta', attrs={'name': 'keywords'}).attrs('content') else [],
-            'og_metadata': {},
-            'twitter_metadata': {}
+            "title": title_tag.get_text(strip=True) if title_tag else None,
+            "description": desc_tag.get("content") if desc_tag else None,
+            "keywords": keywords_tag.get("content").split(",")
+            if keywords_tag and keywords_tag.get("content")
+            else [],
+            "og_metadata": {},
+            "twitter_metadata": {},
         }
 
         # Open Graph metadata
-        for meta in self.find_all('meta', attrs={'property': re.compile(r'^og:')}):
-            key = meta.attrs('property')[0][3:]
-            metadata['og_metadata'][key] = meta.attrs('content')[0]
+        for meta in self.find_all("meta", attrs={"property": re.compile(r"^og:")}):
+            key = meta.get("property")
+            if key and key.startswith("og:"):
+                metadata["og_metadata"][key[3:]] = meta.get("content")
 
         # Twitter Card metadata
-        for meta in self.find_all('meta', attrs={'name': re.compile(r'^twitter:')}):
-            key = meta.attrs('name')[0][8:]
-            metadata['twitter_metadata'][key] = meta.attrs('content')[0]
+        for meta in self.find_all("meta", attrs={"name": re.compile(r"^twitter:")}):
+            key = meta.get("name")
+            if key and key.startswith("twitter:"):
+                metadata["twitter_metadata"][key[8:]] = meta.get("content")
 
         return metadata
 
@@ -269,40 +282,32 @@ class Scout:
         Returns:
             str: JSON representation of the document
         """
+
         def _tag_to_dict(tag):
             if isinstance(tag, NavigableString):
                 return str(tag)
 
-            result = {
-                'name': tag.name,
-                'attrs': tag.attrs,
-                'text': tag.get_text(strip=True)
-            }
+            result = {"name": tag.name, "attrs": tag.attrs, "text": tag.get_text(strip=True)}
 
             if tag.contents:
-                result['children'] = [_tag_to_dict(child) for child in tag.contents]
+                result["children"] = [_tag_to_dict(child) for child in tag.contents]
 
             return result
 
         return json.dumps(_tag_to_dict(self._soup), indent=indent)
 
-    def find(self, name=None, attrs={}, recursive=True, text=None, class_=None, **kwargs) -> ScoutSearchResult:
+    def find(
+        self, name=None, attrs={}, recursive=True, text=None, class_=None, **kwargs
+    ) -> Optional[Tag]:
         """
-        Find the first matching element.
-
-        Args:
-            name (str, optional): Tag name to search for
-            attrs (dict, optional): Attributes to match
-            recursive (bool, optional): Search recursively
-            text (str, optional): Text content to match
-
-        Returns:
-            ScoutSearchResult: First matching element
+        Find the first matching element. Returns a single Tag or None.
+        Highly compatible with BS4.
         """
-        result = self._soup.find(name, attrs, recursive, text, limit=1, class_=class_, **kwargs)
-        return ScoutSearchResult([result]) if result else ScoutSearchResult([])
+        return self._soup.find(name, attrs, recursive, text, limit=1, class_=class_, **kwargs)
 
-    def find_all(self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs) -> ScoutSearchResult:
+    def find_all(
+        self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs
+    ) -> ScoutSearchResult:
         """
         Find all matching elements.
 
@@ -332,8 +337,9 @@ class Scout:
         """
         current = self._soup.parent
         while current:
-            if (name is None or current.name == name) and \
-               all(current.get(k) == v for k, v in attrs.items()):
+            if (name is None or current.name == name) and all(
+                current.get(k) == v for k, v in attrs.items()
+            ):
                 return current
             current = current.parent
         return None
@@ -353,8 +359,9 @@ class Scout:
         parents = []
         current = self._soup.parent
         while current and (limit is None or len(parents) < limit):
-            if (name is None or current.name == name) and \
-               all(current.get(k) == v for k, v in attrs.items()):
+            if (name is None or current.name == name) and all(
+                current.get(k) == v for k, v in attrs.items()
+            ):
                 parents.append(current)
             current = current.parent
         return parents
@@ -376,10 +383,11 @@ class Scout:
         siblings = self._soup.parent.contents
         try:
             current_index = siblings.index(self._soup)
-            for sibling in siblings[current_index + 1:]:
+            for sibling in siblings[current_index + 1 :]:
                 if isinstance(sibling, Tag):
-                    if (name is None or sibling.name == name) and \
-                       all(sibling.get(k) == v for k, v in attrs.items()):
+                    if (name is None or sibling.name == name) and all(
+                        sibling.get(k) == v for k, v in attrs.items()
+                    ):
                         return sibling
         except ValueError:
             pass
@@ -404,10 +412,11 @@ class Scout:
         siblings_list = self._soup.parent.contents
         try:
             current_index = siblings_list.index(self._soup)
-            for sibling in siblings_list[current_index + 1:]:
+            for sibling in siblings_list[current_index + 1 :]:
                 if isinstance(sibling, Tag):
-                    if (name is None or sibling.name == name) and \
-                       all(sibling.get(k) == v for k, v in attrs.items()):
+                    if (name is None or sibling.name == name) and all(
+                        sibling.get(k) == v for k, v in attrs.items()
+                    ):
                         siblings.append(sibling)
                         if limit and len(siblings) == limit:
                             break
@@ -540,24 +549,26 @@ class Scout:
         """
         return self._soup.select_one(selector)
 
-    def get_text(self, separator=' ', strip=False, types=None) -> str:
+    def get_text(self, separator="", strip=False, types=None) -> str:
         """
         Extract all text from the parsed document.
-
-        Args:
-            separator (str, optional): Text separator
-            strip (bool, optional): Strip whitespace
-            types (list, optional): Types of content to extract
-
-        Returns:
-            str: Extracted text
+        Standard behavior like BS4.
         """
-        tokenizer = SentenceTokenizer()
-        text = self._soup.get_text(separator, strip, types)
-        sentences = tokenizer.tokenize(text)
-        return "\n\n".join(sentences)
+        return self._soup.get_text(separator, strip, types)
 
-    def get_text_robust(self, separator=' ', strip=False, types=None, encoding_fallbacks=None) -> str:
+    @property
+    def text(self) -> str:
+        """BS4 compatible text property."""
+        return self.get_text()
+
+    @property
+    def string(self) -> Optional[str]:
+        """BS4 compatible string property."""
+        return self._soup.string
+
+    def get_text_robust(
+        self, separator=" ", strip=False, types=None, encoding_fallbacks=None
+    ) -> str:
         """Extract text robustly, trying multiple encodings if needed."""
         try:
             return self.get_text(separator, strip, types)
@@ -581,7 +592,7 @@ class Scout:
             for tag in self._soup.find_all(tag_name):
                 tag.decompose()
 
-    def prettify(self, formatter='minimal') -> str:
+    def prettify(self, formatter="minimal") -> str:
         """
         Return a formatted, pretty-printed version of the HTML.
 
@@ -639,14 +650,14 @@ class Scout:
         """
         old_tag.replace_with(new_tag)
 
-    def encode(self, encoding='utf-8', errors='strict') -> bytes:
+    def encode(self, encoding="utf-8", errors="strict") -> bytes:
         """Encode the document to a specific encoding with error handling."""
         try:
             return str(self._soup).encode(encoding, errors)
         except Exception:
-            return str(self._soup).encode('utf-8', errors)
+            return str(self._soup).encode("utf-8", errors)
 
-    def decode(self, encoding='utf-8', errors='strict') -> str:
+    def decode(self, encoding="utf-8", errors="strict") -> str:
         """Decode the document from a specific encoding with error handling."""
         try:
             return str(self._soup).decode(encoding, errors)
@@ -687,8 +698,8 @@ class Scout:
 
         # Basic HTML cleaning
         # Remove comments, normalize whitespace, etc.
-        decoded_markup = re.sub(r'<!--.*?-->', '', decoded_markup, flags=re.DOTALL)
-        decoded_markup = re.sub(r'\s+', ' ', decoded_markup)
+        decoded_markup = re.sub(r"<!--.*?-->", "", decoded_markup, flags=re.DOTALL)
+        decoded_markup = re.sub(r"\s+", " ", decoded_markup)
 
         return decoded_markup
 
@@ -747,12 +758,20 @@ class Scout:
         """Return the previous element in document order before the root tag."""
         return self._soup.previous_element
 
-    def fetch_and_parse(self, url: str, requests_session=None, **kwargs) -> 'Scout':
-        """Fetch HTML from a URL using requests and parse it with Scout."""
-        import requests
-        session = requests_session or requests.Session()
-        resp = session.get(url, **kwargs)
-        return Scout(resp.content, features=self.features)
+    def fetch_and_parse(self, url: str, session=None, **kwargs) -> "Scout":
+        """Fetch HTML from a URL and parse it with Scout. Prefers curl_cffi."""
+        try:
+            from curl_cffi import requests as curleq
+
+            s = session or curleq.Session()
+            resp = s.get(url, **kwargs)
+            return Scout(resp.content, features=self.features)
+        except ImportError:
+            import requests
+
+            s = session or requests.Session()
+            resp = s.get(url, **kwargs)
+            return Scout(resp.content, features=self.features)
 
     def tables_to_dataframe(self, table_index=0, pandas_module=None):
         """Convert the nth table in the document to a pandas DataFrame."""
@@ -760,13 +779,13 @@ class Scout:
             if pandas_module:
                 pd = pandas_module
             else:
-                import pandas as pd # type: ignore
+                import pandas as pd  # type: ignore
         except ImportError:
             raise ImportError("pandas is required for tables_to_dataframe. Please install pandas.")
-        tables = self.find_all('table')
+        tables = self.find_all("table")
         if not tables or table_index >= len(tables):
             return None
         table = tables[table_index]
-        rows = table.find_all('tr')
-        data = [[cell.get_text(strip=True) for cell in row.find_all(['td', 'th'])] for row in rows]
+        rows = table.find_all("tr")
+        data = [[cell.get_text(strip=True) for cell in row.find_all(["td", "th"])] for row in rows]
         return pd.DataFrame(data)

@@ -56,7 +56,7 @@ class Completions(BaseCompletions):
         """
         Creates a model response for the given chat conversation using YEPCHAT API.
         Mimics openai.chat.completions.create
-        Note: YEPCHAT does not support system messages. They will be ignored.
+        Note: YEPCHAT does not support system messages. They will be converted to user messages.
         """
         # Only accept and use the raw model name (no prefix logic)
         model_raw = model
@@ -66,20 +66,21 @@ class Completions(BaseCompletions):
                 f"Invalid model: {model}. Choose from: {self._client.AVAILABLE_MODELS}"
             )
 
-        # Filter out system messages and warn the user if any are present
+        # Convert system messages to user messages for compatibility
         filtered_messages = []
-        has_system_message = False
-        if get_system_prompt(messages) or system_prompt:  # Check both message list and explicit param
-            has_system_message = True
+
+        # If an explicit system_prompt is provided, prepend it as a user message
+        if system_prompt:
+            filtered_messages.append({"role": "user", "content": system_prompt})
 
         for msg in messages:
             if msg["role"] == "system":
-                continue  # Skip system messages
-            filtered_messages.append(msg)
-
-        if has_system_message:
-            # Print warning in bold red
-            print(f"{BOLD}{RED}Warning: YEPCHAT does not support system messages, they will be ignored.{RESET}")
+                # Convert system message to user message
+                new_msg = msg.copy()
+                new_msg["role"] = "user"
+                filtered_messages.append(new_msg)
+            else:
+                filtered_messages.append(msg)
 
         # If no messages left after filtering, raise an error
         if not filtered_messages:
@@ -138,7 +139,10 @@ class Completions(BaseCompletions):
                             break
                         try:
                             data = json.loads(json_str)
-                            choice_data = data.get('choices', [{}])[0]
+                            choices = data.get('choices')
+                            if not choices and choices is not None:
+                                continue
+                            choice_data = choices[0] if choices else {}
                             delta_data = choice_data.get('delta', {})
                             finish_reason = choice_data.get('finish_reason')
                             content = delta_data.get('content')
@@ -311,16 +315,16 @@ class YEPCHAT(OpenAICompatibleProvider):
             "DNT": "1",
             "Origin": "https://yep.com",
             "Referer": "https://yep.com/",
-            "Sec-CH-UA": fingerprint["sec_ch_ua"] or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
+            "Sec-CH-UA": fingerprint.get("sec_ch_ua") or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
             "Sec-CH-UA-Mobile": "?0",
-            "Sec-CH-UA-Platform": f'"{fingerprint["platform"]}"',
-            "User-Agent": fingerprint["user_agent"],
-            "x-forwarded-for": fingerprint["x-forwarded-for"],
-            "x-real-ip": fingerprint["x-real-ip"],
-            "x-client-ip": fingerprint["x-client-ip"],
-            "forwarded": fingerprint["forwarded"],
+            "Sec-CH-UA-Platform": f'"{fingerprint.get("platform", "Windows")}"',
+            "User-Agent": fingerprint.get("user_agent", ""),
+            "x-forwarded-for": fingerprint.get("x-forwarded-for", "127.0.0.1"),
+            "x-real-ip": fingerprint.get("x-real-ip", "127.0.0.1"),
+            "x-client-ip": fingerprint.get("x-client-ip", "127.0.0.1"),
+            "forwarded": fingerprint.get("forwarded", "for=127.0.0.1;proto=https"),
             "x-forwarded-proto": "https",
-            "x-request-id": fingerprint["x-request-id"],
+            "x-request-id": fingerprint.get("x-request-id", uuid.uuid4().hex[:8]),
         }
         self.session.headers.update(self.headers)
 

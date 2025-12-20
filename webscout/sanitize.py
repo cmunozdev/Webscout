@@ -24,41 +24,57 @@ from typing import (
     Literal,
     Optional,
     Union,
+    overload,
 )
 
 # Expanded encoding types
 EncodingType = Literal[
-    'utf-8', 'utf-16', 'utf-32', 'ascii', 'latin1', 'cp1252', 'iso-8859-1',
-    'iso-8859-2', 'windows-1250', 'windows-1251', 'windows-1252', 'gbk', 'big5',
-    'shift_jis', 'euc-jp', 'euc-kr'
+    "utf-8",
+    "utf-16",
+    "utf-32",
+    "ascii",
+    "latin1",
+    "cp1252",
+    "iso-8859-1",
+    "iso-8859-2",
+    "windows-1250",
+    "windows-1251",
+    "windows-1252",
+    "gbk",
+    "big5",
+    "shift_jis",
+    "euc-jp",
+    "euc-kr",
 ]
 
 # Public API
 __all__ = [
-    'sanitize_stream',
-    'LITSTREAM',
-    'sanitize_stream_decorator',
-    'lit_streamer',
-    'EncodingType',
+    "sanitize_stream",
+    "LITSTREAM",
+    "sanitize_stream_decorator",
+    "lit_streamer",
+    "EncodingType",
 ]
 
 
-def _compile_regexes(patterns: Optional[List[Union[str, re.Pattern[str]]]]) -> Optional[List[re.Pattern[str]]]:
+def _compile_regexes(
+    patterns: Optional[List[Union[str, re.Pattern[str]]]],
+) -> Optional[List[re.Pattern[str]]]:
     """
     Compile regex patterns from strings or return compiled patterns as-is.
-    
+
     Args:
         patterns: List of regex patterns as strings or compiled Pattern objects.
-        
+
     Returns:
         List of compiled Pattern objects, or None if input is None.
-        
+
     Raises:
         ValueError: If any pattern is invalid.
     """
     if not patterns:
         return None
-    
+
     compiled_patterns = []
     for i, pattern in enumerate(patterns):
         try:
@@ -73,8 +89,9 @@ def _compile_regexes(patterns: Optional[List[Union[str, re.Pattern[str]]]]) -> O
                 )
         except re.error as e:
             raise ValueError(f"Invalid regex pattern at index {i}: '{pattern}' - {e}")
-    
+
     return compiled_patterns
+
 
 def _process_chunk(
     chunk: str,
@@ -121,8 +138,8 @@ def _process_chunk(
 
     # Use slicing for prefix removal (faster than startswith+slicing)
     sanitized_chunk = chunk
-    if intro_value and len(chunk) >= len(intro_value) and chunk[:len(intro_value)] == intro_value:
-        sanitized_chunk = chunk[len(intro_value):]
+    if intro_value and len(chunk) >= len(intro_value) and chunk[: len(intro_value)] == intro_value:
+        sanitized_chunk = chunk[len(intro_value) :]
 
     # Optimize string stripping operations
     if strip_chars is not None:
@@ -155,7 +172,7 @@ def _process_chunk(
 
         if extracted_content is None:
             if to_json:
-                pass  
+                pass
             else:
                 return None
         else:
@@ -165,11 +182,14 @@ def _process_chunk(
         if any(regex.search(sanitized_chunk) for regex in skip_regexes):
             return None
 
-
     if to_json:
         try:
             # Only strip before JSON parsing if both boundaries are incorrect
-            if len(sanitized_chunk) >= 2 and sanitized_chunk[0] not in '{[' and sanitized_chunk[-1] not in '}]':
+            if (
+                len(sanitized_chunk) >= 2
+                and sanitized_chunk[0] not in "{["
+                and sanitized_chunk[-1] not in "}]"
+            ):
                 sanitized_chunk = sanitized_chunk.strip()
             return json.loads(sanitized_chunk)
         except (json.JSONDecodeError, Exception) as e:
@@ -184,11 +204,12 @@ def _process_chunk(
 
     return sanitized_chunk
 
+
 def _decode_byte_stream(
-    byte_iterator: Iterable[bytes],
-    encoding: EncodingType = 'utf-8',
-    errors: str = 'replace',
-    buffer_size: int = 8192
+    byte_iterator: Any,
+    encoding: EncodingType = "utf-8",
+    errors: str = "replace",
+    buffer_size: int = 8192,
 ) -> Generator[str, None, None]:
     """
     Decodes a byte stream in realtime with flexible encoding support.
@@ -216,7 +237,7 @@ def _decode_byte_stream(
         decoder = codecs.getincrementaldecoder(encoding)(errors=errors)
     except LookupError:
         # Fallback to utf-8 if the encoding is not supported
-        decoder = codecs.getincrementaldecoder('utf-8')(errors=errors)
+        decoder = codecs.getincrementaldecoder("utf-8")(errors=errors)
 
     # Process byte stream in realtime
     buffer = bytearray(buffer_size)
@@ -229,8 +250,8 @@ def _decode_byte_stream(
         try:
             # Use buffer for processing if chunk size is appropriate
             if len(chunk_bytes) <= buffer_size:
-                buffer[:len(chunk_bytes)] = chunk_bytes
-                text = decoder.decode(buffer_view[:len(chunk_bytes)], final=False)
+                buffer[: len(chunk_bytes)] = chunk_bytes
+                text = decoder.decode(buffer_view[: len(chunk_bytes)], final=False)
             else:
                 text = decoder.decode(chunk_bytes, final=False)
 
@@ -241,17 +262,18 @@ def _decode_byte_stream(
 
     # Final flush
     try:
-        final_text = decoder.decode(b'', final=True)
+        final_text = decoder.decode(b"", final=True)
         if final_text:
             yield final_text
     except UnicodeDecodeError:
         yield f"[Encoding Error: Could not decode final bytes with {encoding}]\n"
 
+
 async def _decode_byte_stream_async(
     byte_iterator: Iterable[bytes],
-    encoding: EncodingType = 'utf-8',
-    errors: str = 'replace',
-    buffer_size: int = 8192
+    encoding: EncodingType = "utf-8",
+    errors: str = "replace",
+    buffer_size: int = 8192,
 ) -> AsyncGenerator[str, None]:
     """
     Asynchronously decodes a byte stream with flexible encoding support.
@@ -277,7 +299,7 @@ async def _decode_byte_stream_async(
     try:
         decoder = codecs.getincrementaldecoder(encoding)(errors=errors)
     except LookupError:
-        decoder = codecs.getincrementaldecoder('utf-8')(errors=errors)
+        decoder = codecs.getincrementaldecoder("utf-8")(errors=errors)
 
     buffer = bytearray(buffer_size)
     buffer_view = memoryview(buffer)
@@ -287,8 +309,8 @@ async def _decode_byte_stream_async(
             continue
         try:
             if len(chunk_bytes) <= buffer_size:
-                buffer[:len(chunk_bytes)] = chunk_bytes
-                text = decoder.decode(buffer_view[:len(chunk_bytes)], final=False)
+                buffer[: len(chunk_bytes)] = chunk_bytes
+                text = decoder.decode(buffer_view[: len(chunk_bytes)], final=False)
             else:
                 text = decoder.decode(chunk_bytes, final=False)
             if text:
@@ -297,14 +319,15 @@ async def _decode_byte_stream_async(
             yield f"[Encoding Error: Could not decode bytes with {encoding}]\n"
 
     try:
-        final_text = decoder.decode(b'', final=True)
+        final_text = decoder.decode(b"", final=True)
         if final_text:
             yield final_text
     except UnicodeDecodeError:
         yield f"[Encoding Error: Could not decode final bytes with {encoding}]\n"
 
+
 def _sanitize_stream_sync(
-    data: Union[str, Iterable[str], Iterable[bytes]],
+    data: Any,
     intro_value: str = "data:",
     to_json: bool = True,
     skip_markers: Optional[List[str]] = None,
@@ -313,8 +336,8 @@ def _sanitize_stream_sync(
     end_marker: Optional[str] = None,
     content_extractor: Optional[Callable[[Union[str, Dict[str, Any]]], Optional[Any]]] = None,
     yield_raw_on_error: bool = True,
-    encoding: EncodingType = 'utf-8',
-    encoding_errors: str = 'replace',
+    encoding: EncodingType = "utf-8",
+    encoding_errors: str = "replace",
     buffer_size: int = 8192,
     line_delimiter: Optional[str] = None,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
@@ -366,7 +389,7 @@ def _sanitize_stream_sync(
         if isinstance(data, str):
             yield data
             return
-        elif hasattr(data, '__iter__'):
+        elif hasattr(data, "__iter__"):
             for chunk in data:
                 if isinstance(chunk, (bytes, bytearray)):
                     yield chunk.decode(encoding, encoding_errors)
@@ -385,13 +408,14 @@ def _sanitize_stream_sync(
         if output_formatter is not None:
             return output_formatter(item)
         return item
+
     # --- END OUTPUT FORMATTING SETUP ---
 
     effective_skip_markers = skip_markers or []
     # Compile regex patterns
     compiled_skip_regexes = _compile_regexes(skip_regexes)
     compiled_extract_regexes = _compile_regexes(extract_regexes)
-    
+
     processing_active = start_marker is None
     buffer = ""
     found_start = False if start_marker else True
@@ -402,7 +426,7 @@ def _sanitize_stream_sync(
         # or treat it as an iterable containing a single chunk.
         temp_lines: List[str]
         if line_delimiter is None:  # Default: split by newlines if present
-            if '\n' in data or '\r' in data:
+            if "\n" in data or "\r" in data:
                 temp_lines = data.splitlines()
             else:
                 temp_lines = [data]  # Treat as a single line/chunk
@@ -411,7 +435,7 @@ def _sanitize_stream_sync(
         else:  # Custom delimiter not found, or string is effectively a single segment
             temp_lines = [data]
         line_iterator = iter(temp_lines)
-    elif hasattr(data, '__iter__'):  # data is an iterable (but not a string)
+    elif hasattr(data, "__iter__"):  # data is an iterable (but not a string)
         _iter = iter(data)
         first_item = next(_iter, None)
 
@@ -424,16 +448,18 @@ def _sanitize_stream_sync(
         if isinstance(first_item, bytes):
             # Ensure stream_input_iterable is typed as Iterable[bytes] for _decode_byte_stream
             line_iterator = _decode_byte_stream(
-                stream_input_iterable, # type: ignore
+                stream_input_iterable,  # type: ignore
                 encoding=encoding,
                 errors=encoding_errors,
-                buffer_size=buffer_size
+                buffer_size=buffer_size,
             )
         elif isinstance(first_item, str):
             # Ensure stream_input_iterable is typed as Iterable[str]
-            line_iterator = stream_input_iterable # type: ignore
+            line_iterator = stream_input_iterable  # type: ignore
         else:
-            raise TypeError(f"Iterable must yield strings or bytes, not {type(first_item).__name__}")
+            raise TypeError(
+                f"Iterable must yield strings or bytes, not {type(first_item).__name__}"
+            )
     else:  # Not a string and not an iterable
         raise TypeError(f"Input must be a string or an iterable, not {type(data).__name__}")
 
@@ -448,17 +474,17 @@ def _sanitize_stream_sync(
                     idx = buffer.find(start_marker)
                     if idx != -1:
                         found_start = True
-                        buffer = buffer[idx + len(start_marker):]
+                        buffer = buffer[idx + len(start_marker) :]
                     else:
                         # Not found, keep buffering
-                        buffer = buffer[-max(len(start_marker), 256):]  # avoid unbounded growth
+                        buffer = buffer[-max(len(start_marker), 256) :]  # avoid unbounded growth
                         break
                 # Look for end marker if needed
                 if found_start and end_marker:
                     idx = buffer.find(end_marker)
                     if idx != -1:
                         chunk = buffer[:idx]
-                        buffer = buffer[idx + len(end_marker):]
+                        buffer = buffer[idx + len(end_marker) :]
                         processing_active = False
                     else:
                         chunk = buffer
@@ -466,9 +492,15 @@ def _sanitize_stream_sync(
                         processing_active = True
                     # Process chunk if we are in active region
                     if chunk and processing_active:
-                        for subline in (chunk.split(line_delimiter) if line_delimiter is not None else chunk.splitlines()):
-                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
-                            
+                        for subline in (
+                            chunk.split(line_delimiter)
+                            if line_delimiter is not None
+                            else chunk.splitlines()
+                        ):
+                            use_extract_in_process = (
+                                compiled_extract_regexes if not content_extractor else None
+                            )
+
                             result = _process_chunk(
                                 subline,
                                 intro_value,
@@ -486,13 +518,19 @@ def _sanitize_stream_sync(
                                 try:
                                     final_content = content_extractor(result)
                                     if final_content is not None:
-                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                        if compiled_extract_regexes and isinstance(
+                                            final_content, str
+                                        ):
                                             extracted = None
                                             for regex in compiled_extract_regexes:
                                                 match = regex.search(final_content)
                                                 if match:
                                                     if match.groups():
-                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                        extracted = (
+                                                            match.group(1)
+                                                            if len(match.groups()) == 1
+                                                            else str(match.groups())
+                                                        )
                                                     else:
                                                         extracted = match.group(0)
                                                     break
@@ -513,8 +551,14 @@ def _sanitize_stream_sync(
                     chunk = buffer
                     buffer = ""
                     if chunk:
-                        for subline in (chunk.split(line_delimiter) if line_delimiter is not None else chunk.splitlines()):
-                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                        for subline in (
+                            chunk.split(line_delimiter)
+                            if line_delimiter is not None
+                            else chunk.splitlines()
+                        ):
+                            use_extract_in_process = (
+                                compiled_extract_regexes if not content_extractor else None
+                            )
 
                             result = _process_chunk(
                                 subline,
@@ -533,13 +577,19 @@ def _sanitize_stream_sync(
                                 try:
                                     final_content = content_extractor(result)
                                     if final_content is not None:
-                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                        if compiled_extract_regexes and isinstance(
+                                            final_content, str
+                                        ):
                                             extracted = None
                                             for regex in compiled_extract_regexes:
                                                 match = regex.search(final_content)
                                                 if match:
                                                     if match.groups():
-                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                        extracted = (
+                                                            match.group(1)
+                                                            if len(match.groups()) == 1
+                                                            else str(match.groups())
+                                                        )
                                                     else:
                                                         extracted = match.group(0)
                                                     break
@@ -559,7 +609,7 @@ def _sanitize_stream_sync(
 
 
 async def _sanitize_stream_async(
-    data: Union[str, Iterable[str], Iterable[bytes]],
+    data: Any,
     intro_value: str = "data:",
     to_json: bool = True,
     skip_markers: Optional[List[str]] = None,
@@ -568,8 +618,8 @@ async def _sanitize_stream_async(
     end_marker: Optional[str] = None,
     content_extractor: Optional[Callable[[Union[str, Dict[str, Any]]], Optional[Any]]] = None,
     yield_raw_on_error: bool = True,
-    encoding: EncodingType = 'utf-8',
-    encoding_errors: str = 'replace',
+    encoding: EncodingType = "utf-8",
+    encoding_errors: str = "replace",
     buffer_size: int = 8192,
     line_delimiter: Optional[str] = None,
     error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
@@ -686,13 +736,14 @@ async def _sanitize_stream_async(
         if output_formatter is not None:
             return output_formatter(item)
         return item
+
     # --- END OUTPUT FORMATTING SETUP ---
 
     effective_skip_markers = skip_markers or []
     # Compile regex patterns
     compiled_skip_regexes = _compile_regexes(skip_regexes)
     compiled_extract_regexes = _compile_regexes(extract_regexes)
-    
+
     processing_active = start_marker is None
     buffer = ""
     found_start = False if start_marker else True
@@ -703,6 +754,7 @@ async def _sanitize_stream_async(
         break
     if first_item is None:
         return
+
     async def _chain(first, it):
         yield first
         async for x in it:
@@ -720,9 +772,7 @@ async def _sanitize_stream_async(
     elif isinstance(first_item, str):
         line_iterator = stream
     else:
-        raise TypeError(
-            f"Stream must yield strings or bytes, not {type(first_item).__name__}"
-        )
+        raise TypeError(f"Stream must yield strings or bytes, not {type(first_item).__name__}")
 
     try:
         async for line in line_iterator:
@@ -735,17 +785,17 @@ async def _sanitize_stream_async(
                     idx = buffer.find(start_marker)
                     if idx != -1:
                         found_start = True
-                        buffer = buffer[idx + len(start_marker):]
+                        buffer = buffer[idx + len(start_marker) :]
                     else:
                         # Not found, keep buffering
-                        buffer = buffer[-max(len(start_marker), 256):]
+                        buffer = buffer[-max(len(start_marker), 256) :]
                         break
                 # Look for end marker if needed
                 if found_start and end_marker:
                     idx = buffer.find(end_marker)
                     if idx != -1:
                         chunk = buffer[:idx]
-                        buffer = buffer[idx + len(end_marker):]
+                        buffer = buffer[idx + len(end_marker) :]
                         processing_active = False
                     else:
                         chunk = buffer
@@ -758,8 +808,10 @@ async def _sanitize_stream_async(
                             if line_delimiter is not None
                             else chunk.splitlines()
                         ):
-                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
-                            
+                            use_extract_in_process = (
+                                compiled_extract_regexes if not content_extractor else None
+                            )
+
                             result = _process_chunk(
                                 subline,
                                 intro_value,
@@ -777,13 +829,19 @@ async def _sanitize_stream_async(
                                 try:
                                     final_content = content_extractor(result)
                                     if final_content is not None:
-                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                        if compiled_extract_regexes and isinstance(
+                                            final_content, str
+                                        ):
                                             extracted = None
                                             for regex in compiled_extract_regexes:
                                                 match = regex.search(final_content)
                                                 if match:
                                                     if match.groups():
-                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                        extracted = (
+                                                            match.group(1)
+                                                            if len(match.groups()) == 1
+                                                            else str(match.groups())
+                                                        )
                                                     else:
                                                         extracted = match.group(0)
                                                     break
@@ -791,7 +849,7 @@ async def _sanitize_stream_async(
                                                 yield _apply_output_format(extracted)
                                         else:
                                             yield _apply_output_format(final_content)
-                                except Exception as e:
+                                except Exception:
                                     pass
                             else:
                                 yield _apply_output_format(result)
@@ -809,7 +867,9 @@ async def _sanitize_stream_async(
                             if line_delimiter is not None
                             else chunk.splitlines()
                         ):
-                            use_extract_in_process = compiled_extract_regexes if not content_extractor else None
+                            use_extract_in_process = (
+                                compiled_extract_regexes if not content_extractor else None
+                            )
 
                             result = _process_chunk(
                                 subline,
@@ -829,13 +889,19 @@ async def _sanitize_stream_async(
                                     final_content = content_extractor(result)
                                     if final_content is not None:
                                         # Apply extract_regexes to extracted content if provided
-                                        if compiled_extract_regexes and isinstance(final_content, str):
+                                        if compiled_extract_regexes and isinstance(
+                                            final_content, str
+                                        ):
                                             extracted = None
                                             for regex in compiled_extract_regexes:
                                                 match = regex.search(final_content)
                                                 if match:
                                                     if match.groups():
-                                                        extracted = match.group(1) if len(match.groups()) == 1 else str(match.groups())
+                                                        extracted = (
+                                                            match.group(1)
+                                                            if len(match.groups()) == 1
+                                                            else str(match.groups())
+                                                        )
                                                     else:
                                                         extracted = match.group(0)
                                                     break
@@ -843,7 +909,7 @@ async def _sanitize_stream_async(
                                                 yield _apply_output_format(extracted)
                                         else:
                                             yield _apply_output_format(final_content)
-                                except Exception as e:
+                                except Exception:
                                     pass
                             else:
                                 yield _apply_output_format(result)
@@ -854,14 +920,13 @@ async def _sanitize_stream_async(
         print(f"Async stream processing error: {e}", file=sys.stderr)
 
 
+@overload
 def sanitize_stream(
     data: Union[
         str,
         bytes,
         Iterable[str],
         Iterable[bytes],
-        AsyncIterable[str],
-        AsyncIterable[bytes],
         dict,
         list,
         int,
@@ -869,6 +934,56 @@ def sanitize_stream(
         bool,
         None,
     ],
+    intro_value: str = "data:",
+    to_json: bool = True,
+    skip_markers: Optional[List[str]] = None,
+    strip_chars: Optional[str] = None,
+    start_marker: Optional[str] = None,
+    end_marker: Optional[str] = None,
+    content_extractor: Optional[Callable[[Union[str, Dict[str, Any]]], Optional[Any]]] = None,
+    yield_raw_on_error: bool = True,
+    encoding: EncodingType = "utf-8",
+    encoding_errors: str = "replace",
+    buffer_size: int = 8192,
+    line_delimiter: Optional[str] = None,
+    error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
+    skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    object_mode: Literal["as_is", "json", "str"] = "json",
+    raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
+) -> Generator[Any, None, None]: ...
+
+
+@overload
+def sanitize_stream(
+    data: Union[
+        AsyncIterable[str],
+        AsyncIterable[bytes],
+    ],
+    intro_value: str = "data:",
+    to_json: bool = True,
+    skip_markers: Optional[List[str]] = None,
+    strip_chars: Optional[str] = None,
+    start_marker: Optional[str] = None,
+    end_marker: Optional[str] = None,
+    content_extractor: Optional[Callable[[Union[str, Dict[str, Any]]], Optional[Any]]] = None,
+    yield_raw_on_error: bool = True,
+    encoding: EncodingType = "utf-8",
+    encoding_errors: str = "replace",
+    buffer_size: int = 8192,
+    line_delimiter: Optional[str] = None,
+    error_handler: Optional[Callable[[Exception, str], Optional[Any]]] = None,
+    skip_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    extract_regexes: Optional[List[Union[str, re.Pattern[str]]]] = None,
+    object_mode: Literal["as_is", "json", "str"] = "json",
+    raw: bool = False,
+    output_formatter: Optional[Callable[[Any], Any]] = None,
+) -> AsyncGenerator[Any, None]: ...
+
+
+def sanitize_stream(
+    data: Any,
     intro_value: str = "data:",
     to_json: bool = True,
     skip_markers: Optional[List[str]] = None,
@@ -946,6 +1061,7 @@ def sanitize_stream(
         ...     print(chunk)
     """
     if raw:
+
         def _raw_passthrough_sync(source_iter):
             for chunk in source_iter:
                 if isinstance(chunk, (bytes, bytearray)):
@@ -953,6 +1069,7 @@ def sanitize_stream(
                 elif chunk is not None:
                     yield chunk
                 # Skip None chunks entirely
+
         async def _raw_passthrough_async(source_aiter):
             async for chunk in source_aiter:
                 if isinstance(chunk, (bytes, bytearray)):
@@ -960,6 +1077,7 @@ def sanitize_stream(
                     yield chunk.decode(encoding, encoding_errors)
                 elif chunk is not None:
                     yield chunk
+
         if hasattr(data, "__iter__") and not isinstance(data, (str, bytes)):
             return _raw_passthrough_sync(data)
         # Async iterable
@@ -967,13 +1085,17 @@ def sanitize_stream(
             return _raw_passthrough_async(data)
         # Single string or bytes
         if isinstance(data, (bytes, bytearray)):
+
             def _yield_single():
                 yield data.decode(encoding, encoding_errors)
+
             return _yield_single()
         else:
+
             def _yield_single():
                 if data is not None:
                     yield data
+
             return _yield_single()
     # --- END RAW MODE ---
 
@@ -982,9 +1104,11 @@ def sanitize_stream(
 
     # Handle None
     if data is None:
+
         def _empty_gen():
             if False:
                 yield None
+
         return _empty_gen()
 
     # Handle bytes directly
@@ -994,33 +1118,77 @@ def sanitize_stream(
         except Exception:
             payload = str(data)
         return _sanitize_stream_sync(
-            payload, intro_value, to_json, skip_markers, strip_chars,
-            start_marker, end_marker, content_extractor, yield_raw_on_error,
-            encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw, output_formatter,
+            payload,
+            intro_value,
+            to_json,
+            skip_markers,
+            strip_chars,
+            start_marker,
+            end_marker,
+            content_extractor,
+            yield_raw_on_error,
+            encoding,
+            encoding_errors,
+            buffer_size,
+            line_delimiter,
+            error_handler,
+            skip_regexes,
+            extract_regexes,
+            raw,
+            output_formatter,
         )
 
     # Handle string directly
     if isinstance(data, str):
         return _sanitize_stream_sync(
-            data, intro_value, to_json, skip_markers, strip_chars,
-            start_marker, end_marker, content_extractor, yield_raw_on_error,
-            encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw, output_formatter,
+            data,
+            intro_value,
+            to_json,
+            skip_markers,
+            strip_chars,
+            start_marker,
+            end_marker,
+            content_extractor,
+            yield_raw_on_error,
+            encoding,
+            encoding_errors,
+            buffer_size,
+            line_delimiter,
+            error_handler,
+            skip_regexes,
+            extract_regexes,
+            raw,
+            output_formatter,
         )
 
     # Handle dict, list, int, float, bool (non-iterable, non-string/bytes)
     if isinstance(data, (dict, list, int, float, bool)):
         if object_mode == "as_is":
+
             def _as_is_gen():
                 yield data
+
             return _as_is_gen()
         elif object_mode == "str":
             return _sanitize_stream_sync(
-                str(data), intro_value, to_json, skip_markers, strip_chars,
-                start_marker, end_marker, content_extractor, yield_raw_on_error,
-                encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-                skip_regexes, extract_regexes, raw, output_formatter,
+                str(data),
+                intro_value,
+                to_json,
+                skip_markers,
+                strip_chars,
+                start_marker,
+                end_marker,
+                content_extractor,
+                yield_raw_on_error,
+                encoding,
+                encoding_errors,
+                buffer_size,
+                line_delimiter,
+                error_handler,
+                skip_regexes,
+                extract_regexes,
+                raw,
+                output_formatter,
             )
         else:  # "json"
             try:
@@ -1028,10 +1196,24 @@ def sanitize_stream(
             except Exception:
                 json_str = str(data)
             return _sanitize_stream_sync(
-                json_str, intro_value, to_json, skip_markers, strip_chars,
-                start_marker, end_marker, content_extractor, yield_raw_on_error,
-                encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-                skip_regexes, extract_regexes, raw, output_formatter,
+                json_str,
+                intro_value,
+                to_json,
+                skip_markers,
+                strip_chars,
+                start_marker,
+                end_marker,
+                content_extractor,
+                yield_raw_on_error,
+                encoding,
+                encoding_errors,
+                buffer_size,
+                line_delimiter,
+                error_handler,
+                skip_regexes,
+                extract_regexes,
+                raw,
+                output_formatter,
             )
 
     # Handle file-like objects (optional, treat as string if .read exists)
@@ -1041,10 +1223,24 @@ def sanitize_stream(
             if isinstance(file_content, bytes):
                 file_content = file_content.decode(encoding, encoding_errors)
             return _sanitize_stream_sync(
-                file_content, intro_value, to_json, skip_markers, strip_chars,
-                start_marker, end_marker, content_extractor, yield_raw_on_error,
-                encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-                skip_regexes, extract_regexes, raw, output_formatter,
+                file_content,
+                intro_value,
+                to_json,
+                skip_markers,
+                strip_chars,
+                start_marker,
+                end_marker,
+                content_extractor,
+                yield_raw_on_error,
+                encoding,
+                encoding_errors,
+                buffer_size,
+                line_delimiter,
+                error_handler,
+                skip_regexes,
+                extract_regexes,
+                raw,
+                output_formatter,
             )
         except Exception:
             pass  # fallback to next
@@ -1053,10 +1249,24 @@ def sanitize_stream(
     if isinstance(text_attr, str):
         payload = text_attr
         return _sanitize_stream_sync(
-            payload, intro_value, to_json, skip_markers, strip_chars,
-            start_marker, end_marker, content_extractor, yield_raw_on_error,
-            encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw, output_formatter,
+            payload,
+            intro_value,
+            to_json,
+            skip_markers,
+            strip_chars,
+            start_marker,
+            end_marker,
+            content_extractor,
+            yield_raw_on_error,
+            encoding,
+            encoding_errors,
+            buffer_size,
+            line_delimiter,
+            error_handler,
+            skip_regexes,
+            extract_regexes,
+            raw,
+            output_formatter,
         )
     elif isinstance(content_attr, bytes):
         try:
@@ -1064,37 +1274,95 @@ def sanitize_stream(
         except Exception:
             payload = str(content_attr)
         return _sanitize_stream_sync(
-            payload, intro_value, to_json, skip_markers, strip_chars,
-            start_marker, end_marker, content_extractor, yield_raw_on_error,
-            encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw, output_formatter,
+            payload,
+            intro_value,
+            to_json,
+            skip_markers,
+            strip_chars,
+            start_marker,
+            end_marker,
+            content_extractor,
+            yield_raw_on_error,
+            encoding,
+            encoding_errors,
+            buffer_size,
+            line_delimiter,
+            error_handler,
+            skip_regexes,
+            extract_regexes,
+            raw,
+            output_formatter,
         )
 
     # Handle async iterables
     if hasattr(data, "__aiter__"):
         return _sanitize_stream_async(
-            data, intro_value, to_json, skip_markers, strip_chars,
-            start_marker, end_marker, content_extractor, yield_raw_on_error,
-            encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw, output_formatter,
+            data,
+            intro_value,
+            to_json,
+            skip_markers,
+            strip_chars,
+            start_marker,
+            end_marker,
+            content_extractor,
+            yield_raw_on_error,
+            encoding,
+            encoding_errors,
+            buffer_size,
+            line_delimiter,
+            error_handler,
+            skip_regexes,
+            extract_regexes,
+            raw,
+            output_formatter,
         )
     # Handle sync iterables (but not strings/bytes)
     if hasattr(data, "__iter__"):
         return _sanitize_stream_sync(
-            data, intro_value, to_json, skip_markers, strip_chars,
-            start_marker, end_marker, content_extractor, yield_raw_on_error,
-            encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-            skip_regexes, extract_regexes, raw, output_formatter,
+            data,
+            intro_value,
+            to_json,
+            skip_markers,
+            strip_chars,
+            start_marker,
+            end_marker,
+            content_extractor,
+            yield_raw_on_error,
+            encoding,
+            encoding_errors,
+            buffer_size,
+            line_delimiter,
+            error_handler,
+            skip_regexes,
+            extract_regexes,
+            raw,
+            output_formatter,
         )
     # Fallback: treat as string
     return _sanitize_stream_sync(
-        str(data), intro_value, to_json, skip_markers, strip_chars,
-        start_marker, end_marker, content_extractor, yield_raw_on_error,
-        encoding, encoding_errors, buffer_size, line_delimiter, error_handler,
-        skip_regexes, extract_regexes, raw, output_formatter,
+        str(data),
+        intro_value,
+        to_json,
+        skip_markers,
+        strip_chars,
+        start_marker,
+        end_marker,
+        content_extractor,
+        yield_raw_on_error,
+        encoding,
+        encoding_errors,
+        buffer_size,
+        line_delimiter,
+        error_handler,
+        skip_regexes,
+        extract_regexes,
+        raw,
+        output_formatter,
     )
 
+
 # --- Decorator version of sanitize_stream ---
+
 
 def _sanitize_stream_decorator(
     _func=None,
@@ -1122,8 +1390,10 @@ def _sanitize_stream_decorator(
     Decorator for sanitize_stream. Can be used as @sanitize_stream or @sanitize_stream(...).
     All arguments are the same as sanitize_stream(), including output_formatter.
     """
+
     def decorator(func):
         if asyncio.iscoroutinefunction(func):
+
             @functools.wraps(func)
             async def async_wrapper(*args, **kwargs):
                 result = await func(*args, **kwargs)
@@ -1148,8 +1418,10 @@ def _sanitize_stream_decorator(
                     raw=raw,
                     output_formatter=output_formatter,
                 )
+
             return async_wrapper
         else:
+
             @functools.wraps(func)
             def sync_wrapper(*args, **kwargs):
                 result = func(*args, **kwargs)
@@ -1174,11 +1446,14 @@ def _sanitize_stream_decorator(
                     raw=raw,
                     output_formatter=output_formatter,
                 )
+
             return sync_wrapper
+
     if _func is None:
         return decorator
     else:
         return decorator(_func)
+
 
 # Alias for decorator usage
 LITSTREAM = sanitize_stream
@@ -1192,13 +1467,14 @@ sanitize_stream.__decorator__ = _sanitize_stream_decorator
 LITSTREAM.__decorator__ = _sanitize_stream_decorator
 lit_streamer.__decorator__ = _sanitize_stream_decorator
 
+
 def __getattr__(name):
-    if name == 'sanitize_stream':
+    if name == "sanitize_stream":
         return sanitize_stream
-    if name == 'LITSTREAM':
+    if name == "LITSTREAM":
         return LITSTREAM
-    if name == 'sanitize_stream_decorator':
+    if name == "sanitize_stream_decorator":
         return _sanitize_stream_decorator
-    if name == 'lit_streamer':
+    if name == "lit_streamer":
         return _sanitize_stream_decorator
     raise AttributeError(f"module {__name__} has no attribute {name}")

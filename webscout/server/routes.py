@@ -113,9 +113,17 @@ class Api:
 
     def register_routes(self):
         """Register all API routes."""
+        self._register_health_route()
         self._register_model_routes()
         self._register_chat_routes()
         self._register_websearch_routes()
+
+    def _register_health_route(self):
+        """Register health check route."""
+        @self.app.get("/monitor/health", include_in_schema=False)
+        async def health_check():
+            """Health check endpoint for monitoring."""
+            return {"status": "healthy", "service": "webscout-api", "version": "0.2.0"}
 
     def _register_model_routes(self):
         """Register model listing routes."""        

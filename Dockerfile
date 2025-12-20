@@ -90,14 +90,18 @@ ENV PYTHONUNBUFFERED=1 \
     WEBSCOUT_PORT=8000 \
     WEBSCOUT_WORKERS=1 \
     WEBSCOUT_LOG_LEVEL=info \
+    WEBSCOUT_DEBUG=false \
     WEBSCOUT_DATA_DIR=/app/data \
-    # FastAPI metadata (new)
+    WEBSCOUT_REQUEST_LOGGING=true \
+    # FastAPI metadata
     WEBSCOUT_API_TITLE="Webscout OpenAI API" \
     WEBSCOUT_API_DESCRIPTION="OpenAI API compatible interface for various LLM providers" \
     WEBSCOUT_API_VERSION="0.2.0" \
     WEBSCOUT_API_DOCS_URL="/docs" \
     WEBSCOUT_API_REDOC_URL="/redoc" \
-    WEBSCOUT_API_OPENAPI_URL="/openapi.json"
+    WEBSCOUT_API_OPENAPI_URL="/openapi.json" \
+    # Dynamic configuration defaults
+    WEBSCOUT_CORS_ORIGINS="*"
 
 # Install only runtime dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \

@@ -191,7 +191,22 @@ class Images(BaseImages):
 
 
 class PollinationsAI(TTICompatibleProvider):
-    AVAILABLE_MODELS = ["flux", "turbo", "gptimage"]
+    """PollinationsAI TTI Provider - Allows setting a custom seed for reproducible results."""
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = True  # Currently working
+
+    AVAILABLE_MODELS = [
+        "flux",
+        "flux-pro",
+        "flux-realism",
+        "flux-anime",
+        "flux-3d",
+        "any-dark",
+        "turbo",
+        "gptimage"
+    ]
 
     def __init__(self):
         self.api_endpoint = "https://image.pollinations.ai/prompt"

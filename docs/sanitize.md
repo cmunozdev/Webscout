@@ -1,21 +1,47 @@
-# Stream Sanitization Utilities (`sanitize.py`)
-> Last updated: 2025-11-16
+# Stream Sanitization Utilities (`webscout.sanitize`)
+> Last updated: 2025-12-20
 > Maintained by [Webscout](https://github.com/OEvortex/Webscout)
 
-Webscout's [`sanitize.py`](../webscout/sanitize.py:1) module provides a comprehensive suite of utilities for processing, transforming, and sanitizing data streams. These tools are designed for robust, flexible, and high-performance handling of text and byte streams, including real-time data, API responses, and streaming content from various sources.
+Webscout's [`webscout.sanitize`](../webscout/sanitize.py:1) module provides a comprehensive suite of utilities for processing, transforming, and sanitizing data streams. These tools are designed for robust, flexible, and high-performance handling of text and byte streams, including real-time data, API responses, and streaming content from various sources.
 
 ## Table of Contents
 
-1. [Core Function](#core-function)
-2. [Parameters Reference](#parameters-reference)
-3. [Processing Modes](#processing-modes)
-4. [Internal Functions](#internal-functions)
-5. [Advanced Usage Examples](#advanced-usage-examples)
-6. [Error Handling](#error-handling)
-7. [Performance Considerations](#performance-considerations)
-8. [Troubleshooting](#troubleshooting)
+1. [Core Components](#core-components)
+2. [Main Function](#main-function)
+3. [Parameters Reference](#parameters-reference)
+4. [Processing Modes](#processing-modes)
+5. [Internal Functions](#internal-functions)
+6. [Advanced Usage Examples](#advanced-usage-examples)
+7. [Error Handling](#error-handling)
+8. [Performance Considerations](#performance-considerations)
+9. [Troubleshooting](#troubleshooting)
+10. [Integration Guide](#integration-guide)
 
-## Core Function
+## Core Components
+
+### [`sanitize.py`](../webscout/sanitize.py:1)
+
+The main sanitization module that provides comprehensive stream processing capabilities.
+
+```python
+from webscout.sanitize import sanitize_stream, LITSTREAM, sanitize_stream_decorator, lit_streamer
+
+# Basic usage
+gen = sanitize_stream(data, intro_value="data:", to_json=True)
+for item in gen:
+    print(item)
+```
+
+**Key Features:**
+- Stream processing for strings, bytes, and iterables
+- JSON parsing and validation
+- Regex-based filtering and extraction
+- Marker-based content selection
+- Custom error handling and formatting
+- Support for both synchronous and asynchronous streams
+- Flexible output formatting
+
+## Main Function
 
 ### [`sanitize_stream()`](../webscout/sanitize.py:684)
 
@@ -91,6 +117,7 @@ The [`EncodingType`](../webscout/sanitize.py:20) supports a wide range of charac
 ## Processing Modes
 
 ### Synchronous Mode
+
 Handles strings, bytes, and synchronous iterables:
 
 ```python
@@ -106,6 +133,7 @@ for item in sanitize_stream(data):
 ```
 
 ### Asynchronous Mode
+
 Handles async iterables automatically:
 
 ```python
@@ -123,6 +151,7 @@ asyncio.run(process_async())
 ```
 
 ### Raw Mode
+
 Returns unprocessed chunks as received:
 
 ```python
@@ -132,6 +161,7 @@ for chunk in sanitize_stream(data, raw=True):
 ```
 
 ### Object Mode
+
 Handles non-iterable objects:
 
 ```python
@@ -497,7 +527,6 @@ for item in sanitize_stream(
    sanitize_stream(data, encoding='latin1')  # Faster than utf-8 for some data
    ```
 
-
 ## Troubleshooting
 
 ### Common Issues
@@ -632,7 +661,7 @@ def my_generator():
     yield 'data: {"key": "value"}'
 ```
 
-## Integration Examples
+## Integration Guide
 
 ### With FastAPI
 
@@ -689,6 +718,72 @@ def stream_api_data(url):
         yield item
 ```
 
----
+### With Webscout Providers
 
-*This documentation covers the comprehensive functionality of the [`sanitize.py`](../webscout/sanitize.py:1) module. For the most up-to-date information, refer to the source code and inline documentation.*
+```python
+from webscout.Provider import ChatGPT
+from webscout.sanitize import sanitize_stream
+
+# Process streaming responses from Webscout providers
+provider = ChatGPT()
+response = provider.ask_stream("Tell me a story")
+
+# Clean and format the streaming response
+for chunk in sanitize_stream(
+    response,
+    intro_value="data:",
+    to_json=True,
+    output_formatter=lambda x: {'role': 'assistant', 'content': x}
+):
+    print(chunk)
+```
+
+### With File Processing
+
+```python
+# Process large log files efficiently
+with open('large_log_file.log', 'r') as f:
+    for item in sanitize_stream(
+        f,
+        intro_value="LOG:",
+        skip_regexes=[r'DEBUG.*', r'TRACE.*'],
+        extract_regexes=[r'ERROR: (.*)'],
+        to_json=False
+    ):
+        # Process only ERROR messages
+        log_error(item)
+```
+
+### With Data Cleaning Pipelines
+
+```python
+# Create a data cleaning pipeline
+def clean_data_pipeline(raw_data):
+    """Multi-stage data cleaning pipeline."""
+    
+    # Stage 1: Basic cleaning
+    cleaned = sanitize_stream(
+        raw_data,
+        intro_value="data:",
+        skip_markers=["[INVALID]", "[CORRUPTED]"],
+        strip_chars="\t\r\n"
+    )
+    
+    # Stage 2: JSON validation and extraction
+    validated = sanitize_stream(
+        cleaned,
+        to_json=True,
+        extract_regexes=[r'"valid_data": (.*)'],
+        error_handler=custom_json_fixer
+    )
+    
+    # Stage 3: Final formatting
+    formatted = sanitize_stream(
+        validated,
+        output_formatter=final_formatter
+    )
+    
+    return formatted
+```
+
+*This documentation covers the comprehensive functionality of the [`webscout.sanitize`](../webscout/sanitize.py:1) module. For the most up-to-date information, refer to the source code and inline documentation.*

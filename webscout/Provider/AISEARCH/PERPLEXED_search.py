@@ -9,39 +9,8 @@ from webscout.sanitize import sanitize_stream
 
 
 class PERPLEXED(AISearch):
-    """A class to interact with the PERPLEXED stream search API.
-    
-    PERPLEXED provides an AI-powered search interface that returns emotionally intelligent
-    responses based on web content. It supports both streaming and non-streaming responses.
-    
-    Basic Usage:
-        >>> from webscout import PERPLEXED
-        >>> ai = PERPLEXED()
-        >>> # Non-streaming example
-        >>> response = ai.search("What is Python?")
-        >>> print(response)
-        Python is a high-level programming language...
-        
-        >>> # Streaming example
-        >>> for chunk in ai.search("Tell me about AI", stream=True):
-        ...     print(chunk, end="", flush=True)
-        Artificial Intelligence is...
-        
-        >>> # Raw response format
-        >>> for chunk in ai.search("Hello", stream=True, raw=True):
-        ...     print(chunk)
-        {'text': 'Hello'}
-        {'text': ' there!'}
-    
-    Args:
-        timeout (int, optional): Request timeout in seconds. Defaults to 30.
-        proxies (dict, optional): Proxy configuration for requests. Defaults to None.
-    
-    Attributes:
-        api_endpoint (str): The PERPLEXED API endpoint URL.
-        stream_chunk_size (int): Size of chunks when streaming responses.
-        timeout (int): Request timeout in seconds.
-        headers (dict): HTTP headers used in requests.
+    """
+    A class to interact with the PERPLEXED stream search API.
     """
 
     def __init__(
@@ -49,16 +18,7 @@ class PERPLEXED(AISearch):
         timeout: int = 30,
         proxies: Optional[dict] = None,
     ):
-        """Initialize the PERPLEXED API client.
-        
-        Args:
-            timeout (int, optional): Request timeout in seconds. Defaults to 30.
-            proxies (dict, optional): Proxy configuration for requests. Defaults to None.
-        
-        Example:
-            >>> ai = PERPLEXED(timeout=60)  # Longer timeout
-            >>> ai = PERPLEXED(proxies={'http': 'http://proxy.com:8080'})  # With proxy
-        """
+        """Initializes the PERPLEXED API client."""
         self.session = requests.Session()
         self.api_endpoint = "https://d21l5c617zttgr.cloudfront.net/stream_search"
         self.stream_chunk_size = 64
@@ -79,7 +39,7 @@ class PERPLEXED(AISearch):
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "cross-site",
             "sec-gpc": "1",
-            "user-agent": LitAgent().random()
+            "user-agent": LitAgent().random(),
         }
         self.session.headers.update(self.headers)
         self.proxies = proxies
@@ -90,62 +50,43 @@ class PERPLEXED(AISearch):
         stream: bool = False,
         raw: bool = False,
     ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None]]:
-        """Search using the PERPLEXED API and get AI-generated responses.
-        
-        This method sends a search query to PERPLEXED and returns the AI-generated response.
-        It supports both streaming and non-streaming modes, as well as raw response format.
-        
-        Args:
-            prompt (str): The search query or prompt to send to the API.
-            stream (bool, optional): If True, yields response chunks as they arrive.
-                                   If False, returns complete response. Defaults to False.
-            raw (bool, optional): If True, returns raw response dictionaries with 'text' key.
-                                If False, returns SearchResponse objects that convert to text automatically.
-                                Defaults to False.
-        
-        Returns:
-            Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None]]: 
-                - If stream=False: Returns complete response as SearchResponse object
-                - If stream=True: Yields response chunks as either Dict or SearchResponse objects
-        
-        Raises:
-            APIConnectionError: If the API request fails
-        
-        Examples:
-            Basic search:
-            >>> ai = PERPLEXED()
-            >>> response = ai.search("What is Python?")
-            >>> print(response)
-            Python is a programming language...
-            
-            Streaming response:
-            >>> for chunk in ai.search("Tell me about AI", stream=True):
-            ...     print(chunk, end="")
-            Artificial Intelligence...
-            
-            Raw response format:
-            >>> for chunk in ai.search("Hello", stream=True, raw=True):
-            ...     print(chunk)
-            {'text': 'Hello'}
-            {'text': ' there!'}
-            
-            Error handling:
-            >>> try:
-            ...     response = ai.search("My question")
-            ... except exceptions.APIConnectionError as e:
-            ...     print(f"API error: {e}")
         """
-        payload = {
-            "user_prompt": prompt
-        }
+        Sends a prompt to the PERPLEXED API and returns the response.
+
+        Args:
+            prompt: The search query or prompt to send to the API
+            stream: Whether to stream the response
+            raw: If True, returns unprocessed response chunks without any
+                processing or sanitization. Useful for debugging or custom
+                processing pipelines. Defaults to False.
+
+        Returns:
+            When raw=False: SearchResponse object (non-streaming) or
+                Generator yielding SearchResponse objects (streaming)
+            When raw=True: Raw string response (non-streaming) or
+                Generator yielding raw string chunks (streaming)
+
+        Examples:
+            >>> ai = PERPLEXED()
+            >>> # Get processed response
+            >>> response = ai.search("Hello")
+            >>> print(response)
+
+            >>> # Get raw response
+            >>> raw_response = ai.search("Hello", raw=True)
+            >>> print(raw_response)
+
+            >>> # Stream raw chunks
+            >>> for chunk in ai.search("Hello", stream=True, raw=True):
+            ...     print(chunk, end='', flush=True)
+        """
+        payload = {"user_prompt": prompt}
 
         def extract_answer_content(data):
-            """Extract answer content from PERPLEXED response."""
+            """Extracts content from PERPLEXED stream JSON objects."""
             if isinstance(data, dict):
-                # Check if this is the final answer - answer field exists and is not empty
                 if data.get("success") and "answer" in data and data["answer"]:
                     return data["answer"]
-                # Check if this is a stage update with no answer yet
                 elif data.get("success") and data.get("stage"):
                     return None  # Skip stage updates without answers
             return None
@@ -164,48 +105,81 @@ class PERPLEXED(AISearch):
                             f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                         )
 
-                    # Use sanitize_stream directly with response iterator
+                    # Use sanitize_stream with comprehensive features
                     processed_chunks = sanitize_stream(
-                        data=response.iter_lines(decode_unicode=True),  # Pass iterator directly
-                        intro_value="",  # No prefix to remove  
-                        to_json=True,    # Parse each chunk as JSON
-                        content_extractor=lambda chunk: SearchResponse(extract_answer_content(chunk)) if extract_answer_content(chunk) else None,
-                        yield_raw_on_error=False,  # Skip invalid JSON chunks
-                        line_delimiter="[/PERPLEXED-SEPARATOR]",  # Use PERPLEXED separator to split chunks
-                        skip_markers=[],  # No specific markers to skip
-                        raw=raw  # Let sanitize_stream handle raw mode automatically
+                        data=response.iter_content(chunk_size=None),
+                        to_json=True,
+                        extract_regexes=[r"data:\s*({.*})"],
+                        content_extractor=lambda chunk: extract_answer_content(chunk),
+                        yield_raw_on_error=False,
+                        encoding='utf-8',
+                        encoding_errors='replace',
+                        line_delimiter="[/PERPLEXED-SEPARATOR]",
+                        raw=raw,
+                        output_formatter=None if raw else lambda x: SearchResponse(x) if isinstance(x, str) else x,
                     )
-                    
-                    # Yield results from sanitize_stream - it handles raw/non-raw automatically
-                    for processed_chunk in processed_chunks:
-                        if processed_chunk is not None:
-                            yield processed_chunk
+
+                    yield from processed_chunks
 
             except requests.exceptions.RequestException as e:
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
 
         def for_non_stream():
-            full_response = ""
-            for chunk in for_stream():
-                full_response += str(chunk)
-            
-            self.last_response = SearchResponse(full_response)
-            return self.last_response
+            try:
+                with self.session.post(
+                    self.api_endpoint,
+                    json=payload,
+                    stream=False,
+                    timeout=self.timeout,
+                    proxies=self.proxies,
+                ) as response:
+                    if not response.ok:
+                        raise exceptions.APIConnectionError(
+                            f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
+                        )
 
-        if stream:
-            return for_stream()
-        else:
-            if raw:
-                # For raw non-streaming, we need to yield each chunk individually
-                return for_stream()
-            else:
-                # For regular non-streaming, accumulate and return complete response
-                return for_non_stream()
+                    if raw:
+                        # Return raw response text when raw=True
+                        return response.text
+                    else:
+                        # Process response similar to streaming when raw=False
+                        processed_chunks = sanitize_stream(
+                            data=response.content,
+                            intro_value="",
+                            to_json=True,
+                            skip_markers=[],
+                            strip_chars=None,
+                            start_marker=None,
+                            end_marker=None,
+                            content_extractor=lambda chunk: extract_answer_content(chunk),
+                            yield_raw_on_error=False,
+                            encoding='utf-8',
+                            encoding_errors='replace',
+                            buffer_size=8192,
+                            line_delimiter="[/PERPLEXED-SEPARATOR]",
+                            error_handler=None,
+                            skip_regexes=None,
+                            extract_regexes=None,
+                            raw=False,
+                            output_formatter=None,
+                        )
+
+                        full_response = ""
+                        for content_chunk in processed_chunks:
+                            if content_chunk is not None and isinstance(content_chunk, str):
+                                full_response += content_chunk
+
+                        self.last_response = SearchResponse(full_response)
+                        return self.last_response
+
+            except requests.exceptions.RequestException as e:
+                raise exceptions.APIConnectionError(f"Request failed: {e}")
+
+        return for_stream() if stream else for_non_stream()
 
 
 if __name__ == "__main__":
-
     ai = PERPLEXED()
-    response = ai.search(input(">>> "), stream=True, raw=False)
+    response = ai.search("What is Python?", stream=True, raw=False)
     for chunks in response:
         print(chunks, end="", flush=True)

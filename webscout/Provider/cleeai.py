@@ -1,10 +1,13 @@
 import requests
+import json
 from uuid import uuid4
+from typing import Union, Dict, Any, Generator
 
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
+from webscout.AIutel import AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
+from webscout import exceptions
 import webscout
 
 class Cleeai(Provider):
@@ -136,23 +139,38 @@ class Cleeai(Provider):
                 timeout=self.timeout,
             )
             if not response.ok:
-                raise Exception(
+                raise exceptions.FailedToGenerateResponseError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
-            full_response = ''
-            for chunk in response.iter_content(chunk_size=self.stream_chunk_size):
-                full_response += chunk.decode('utf-8')
-                yield chunk.decode('utf-8') if raw else dict(text=chunk.decode('utf-8'))
 
-            self.last_response.update(dict(text=full_response))
-            self.conversation.update_chat_history(
-                prompt, self.get_message(self.last_response)
+            full_response = ''
+            # Use sanitize_stream for processing
+            processed_stream = sanitize_stream(
+                data=response.iter_content(chunk_size=self.stream_chunk_size),
+                intro_value=None,
+                to_json=False,
+                yield_raw_on_error=True,
+                raw=raw
             )
+
+            for content_chunk in processed_stream:
+                if content_chunk:
+                    # Decode if bytes
+                    if isinstance(content_chunk, bytes):
+                        content_chunk = content_chunk.decode('utf-8', errors='ignore')
+                    if raw:
+                        yield content_chunk
+                    else:
+                        full_response += content_chunk
+                        yield dict(text=content_chunk)
+
+            self.last_response = {"text": full_response}
+            self.conversation.update_chat_history(prompt, full_response)
 
         def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response
+            return self.last_response if not raw else json.dumps(self.last_response)
 
         return for_stream() if stream else for_non_stream()
 
@@ -162,32 +180,39 @@ class Cleeai(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> str:
+        raw: bool = False,
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
             stream (bool, optional): Flag for streaming response. Defaults to False.
             optimizer (str, optional): Prompt optimizer name - `[code, shell_command]`. Defaults to None.
             conversationally (bool, optional): Chat conversationally when using optimizer. Defaults to False.
+            raw (bool, optional): Return raw response chunks. Defaults to False.
         Returns:
             str: Response generated
         """
 
         def for_stream():
             for response in self.ask(
-                prompt, True, optimizer=optimizer, conversationally=conversationally
+                prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally
             ):
-                yield self.get_message(response)
+                if raw:
+                    yield response
+                else:
+                    yield self.get_message(response)
 
         def for_non_stream():
-            return self.get_message(
-                self.ask(
-                    prompt,
-                    False,
-                    optimizer=optimizer,
-                    conversationally=conversationally,
-                )
+            result = self.ask(
+                prompt,
+                False,
+                raw=raw,
+                optimizer=optimizer,
+                conversationally=conversationally,
             )
+            if raw:
+                return result
+            return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

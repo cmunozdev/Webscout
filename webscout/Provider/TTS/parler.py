@@ -1,111 +1,157 @@
+##################################################################################
+##  ParlerTTS Provider                                                         ##
+##################################################################################
+import json
+import random
+import string
 import time
+import pathlib
 import tempfile
-from pathlib import Path
+import httpx
+from typing import Optional, Union, Dict, List
 from webscout import exceptions
-from gradio_client import Client
-import os
-from .base import BaseTTSProvider
+from webscout.litagent import LitAgent
 
+try:
+    from . import utils
+    from .base import BaseTTSProvider
+except ImportError:
+    # Handle direct execution
+    import sys
+    import os
+    sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
+    from webscout.Provider.TTS import utils
+    from webscout.Provider.TTS.base import BaseTTSProvider
 
 class ParlerTTS(BaseTTSProvider):
     """
-    A class to interact with the Parler TTS API through Gradio Client.
+    Text-to-speech provider using the Parler-TTS API (Hugging Face Spaces).
+    
+    Features:
+    - High-fidelity speech generation
+    - Controllable via simple text prompts (description)
+    - Manual polling logic for robustness
     """
+    required_auth = False
+    
+    BASE_URL = "https://parler-tts-parler-tts.hf.space"
+    
+    # Request headers
+    headers: dict[str, str] = {
+        "User-Agent": LitAgent().random(),
+        "origin": BASE_URL,
+        "referer": f"{BASE_URL}/",
+    }
+    
+    SUPPORTED_MODELS = ["parler-mini-v1", "parler-large-v1"]
 
-    def __init__(self, timeout: int = 20, proxies: dict = None):
-        """Initializes the Parler TTS client."""
+    def __init__(self, timeout: int = 120, proxy: Optional[str] = None):
+        """
+        Initialize the ParlerTTS client.
+        """
         super().__init__()
-        self.api_endpoint = "/gen_tts"
-        self.client = Client("parler-tts/parler_tts")  # Initialize the Gradio client
         self.timeout = timeout
+        self.proxy = proxy
+        self.default_model = "parler-mini-v1"
 
-    def tts(self, text: str, description: str = "", use_large: bool = False, verbose: bool = True) -> str:
+    def _generate_session_hash(self) -> str:
+        return "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
+
+    def tts(
+        self, 
+        text: str, 
+        description: str = "A female speaker delivers a slightly expressive and animated speech with a moderate speed. The recording features a low-pitch voice and very clear audio.",
+        use_large: bool = False,
+        response_format: str = "wav",
+        verbose: bool = True
+    ) -> str:
         """
-        Converts text to speech using the Parler TTS API.
-
-        Args:
-            text (str): The text to be converted to speech.
-            description (str, optional): Description of the desired voice characteristics. Defaults to "".
-            use_large (bool, optional): Whether to use the large model variant. Defaults to False.
-            verbose (bool, optional): Whether to log detailed information. Defaults to True.
-
-        Returns:
-            str: The filename of the saved audio file.
-
-        Raises:
-            exceptions.FailedToGenerateResponseError: If there is an error generating or saving the audio.
+        Convert text to speech using Parler-TTS API.
         """
-        filename = Path(tempfile.mktemp(suffix=".wav", dir=self.temp_dir))
+        if not text:
+            raise ValueError("Input text must be a non-empty string")
+        
+        session_hash = self._generate_session_hash()
+        filename = pathlib.Path(tempfile.mktemp(suffix=f".{response_format}", dir=self.temp_dir))
+        
+        if verbose:
+            ic.configureOutput(prefix='DEBUG| '); ic(f"ParlerTTS: Generating speech for '{text[:20]}...'")
 
+        client_kwargs = {"headers": self.headers, "timeout": self.timeout}
+        if self.proxy: client_kwargs["proxy"] = self.proxy
+            
         try:
-            if verbose:
-                print(f"[debug] Generating TTS with description: {description}")
+            with httpx.Client(**client_kwargs) as client:
+                # Step 1: Join the queue
+                join_url = f"{self.BASE_URL}/queue/join?__theme=system"
+                # fn_index 0 is for the main generation task
+                payload = {
+                    "data": [text, description, use_large],
+                    "event_data": None,
+                    "fn_index": 0,
+                    "trigger_id": 8,
+                    "session_hash": session_hash
+                }
+                
+                response = client.post(join_url, json=payload)
+                response.raise_for_status()
+                
+                # Step 2: Poll for data
+                data_url = f"{self.BASE_URL}/queue/data?session_hash={session_hash}"
+                audio_url = None
+                
+                # Gradio Spaces can take time to wake up or process
+                with client.stream("GET", data_url) as stream:
+                    for line in stream.iter_lines():
+                        if not line: continue
+                        if line.startswith("data: "):
+                            try:
+                                data = json.loads(line[6:])
+                            except json.JSONDecodeError: continue
+                                
+                            msg = data.get("msg")
+                            if msg == "process_completed":
+                                if data.get("success"):
+                                    output_data = data.get("output", {}).get("data", [])
+                                    if output_data:
+                                        audio_info = output_data[0]
+                                        path = audio_info["path"] if isinstance(audio_info, dict) else audio_info
+                                        audio_url = f"{self.BASE_URL}/file={path}"
+                                    break
+                                else:
+                                    raise exceptions.FailedToGenerateResponseError(f"Generation failed: {data}")
+                            elif msg == "queue_full":
+                                raise exceptions.FailedToGenerateResponseError("Queue is full")
+                            elif msg == "send_hash":
+                                # Normal handshake
+                                pass
 
-            result = self.client.predict(
-                text=text,
-                description=description,
-                use_large=use_large,
-                api_name=self.api_endpoint,
-            )
+                if not audio_url:
+                    raise exceptions.FailedToGenerateResponseError("Failed to get audio URL from stream")
 
-            if isinstance(result, bytes):
-                audio_bytes = result
-            elif isinstance(result, str) and os.path.isfile(result):
-                with open(result, "rb") as f:
-                    audio_bytes = f.read()
-            else:
-                raise ValueError(f"Unexpected response from API: {result}")
-
-            self._save_audio(audio_bytes, filename, verbose)
-
-            if verbose:
-                print(f"[debug] Audio generated successfully: {filename}")
-
-            return filename.as_posix()
+                # Step 3: Download the audio file
+                audio_response = client.get(audio_url)
+                audio_response.raise_for_status()
+                
+                with open(filename, "wb") as f:
+                    f.write(audio_response.content)
+                
+                if verbose:
+                    ic.configureOutput(prefix='DEBUG| '); ic(f"Speech generated successfully: {filename}")
+                
+                return filename.as_posix()
 
         except Exception as e:
-            if verbose:
-                print(f"[debug] Error generating audio: {e}")
-            raise exceptions.FailedToGenerateResponseError(
-                f"Error generating audio after multiple retries: {e}"
-            ) from e
+            if verbose: ic.configureOutput(prefix='DEBUG| '); ic(f"Error in ParlerTTS: {e}")
+            raise exceptions.FailedToGenerateResponseError(f"Failed to generate audio: {e}")
 
-    def _save_audio(self, audio_data: bytes, filename: Path, verbose: bool = True):
-        """
-        Saves the audio data to a WAV file.
+    def create_speech(self, input: str, **kwargs) -> str:
+        return self.tts(text=input, **kwargs)
 
-        Args:
-            audio_data (bytes): Audio data to save
-            filename (Path): Path to save the audio file
-            verbose (bool): Whether to print debug information
-
-        Raises:
-            exceptions.FailedToGenerateResponseError: If there is an error saving the audio.
-        """
-        try:
-            with open(filename, "wb") as f:
-                f.write(audio_data)
-            if verbose:
-                print(f"[debug] Audio saved to {filename}")
-
-        except Exception as e:
-            if verbose:
-                print(f"[debug] Error saving audio: {e}")
-            raise exceptions.FailedToGenerateResponseError(f"Error saving audio: {e}")
-
-# Example usage
 if __name__ == "__main__":
-    parlertts = ParlerTTS()
-    text = (
-        "All of the data, pre-processing, training code, and weights are released "
-        "publicly under a permissive license, enabling the community to build on our work "
-        "and develop their own powerful models."
-    )
-    voice_description = (
-        "Laura's voice is monotone yet slightly fast in delivery, with a very close "
-        "recording that almost has no background noise."
-    )
-
-    print("[debug] Generating audio...")
-    audio_file = parlertts.tts(text, description=voice_description, use_large=False)
-    print(f"Audio saved to: {audio_file}")
+    tts = ParlerTTS()
+    try:
+        path = tts.tts("Testing Parler-TTS with manual polling.", verbose=True)
+        ic.configureOutput(prefix='INFO| '); ic(f"Saved to {path}")
+    except Exception as e:
+        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")

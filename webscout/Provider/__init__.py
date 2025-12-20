@@ -6,7 +6,6 @@ from webscout.Provider.Algion import Algion
 from webscout.Provider.Andi import AndiSearch
 from webscout.Provider.Apriel import Apriel
 from webscout.Provider.cerebras import Cerebras
-from webscout.Provider.ChatGPTClone import ChatGPTClone
 from webscout.Provider.ChatSandbox import ChatSandbox
 from webscout.Provider.ClaudeOnline import ClaudeOnline
 from webscout.Provider.cleeai import Cleeai
@@ -14,14 +13,17 @@ from webscout.Provider.Cohere import Cohere
 from webscout.Provider.DeepAI import DeepAI
 from webscout.Provider.Deepinfra import DeepInfra
 from webscout.Provider.elmo import Elmo
+from webscout.Provider.EssentialAI import EssentialAI
 from webscout.Provider.ExaAI import ExaAI
-from webscout.Provider.ExaChat import ExaChat
+from webscout.Provider.Ayle import Ayle
 from webscout.Provider.Gemini import GEMINI
 from webscout.Provider.geminiapi import GEMINIAPI
 from webscout.Provider.GithubChat import GithubChat
+from webscout.Provider.HadadXYZ import HadadXYZ
 from webscout.Provider.Gradient import Gradient
 from webscout.Provider.Groq import GROQ
 from webscout.Provider.HeckAI import HeckAI
+from webscout.Provider.HuggingFace import HuggingFace
 from webscout.Provider.IBM import IBM
 from webscout.Provider.Jadve import JadveOpenAI
 from webscout.Provider.julius import Julius
@@ -33,8 +35,9 @@ from webscout.Provider.llmchat import LLMChat
 from webscout.Provider.llmchatco import LLMChatCo
 from webscout.Provider.meta import Meta
 from webscout.Provider.Netwrck import Netwrck
+from webscout.Provider.Nvidia import Nvidia
 from webscout.Provider.oivscode import oivscode
-from webscout.Provider.Openai import OPENAI
+from .Openai import OPENAI
 from webscout.Provider.PI import PiAI
 from webscout.Provider.QwenLM import QwenLM
 from webscout.Provider.Sambanova import Sambanova
@@ -63,22 +66,24 @@ __all__ = [
     "AndiSearch",
     "Apriel",
     "Cerebras",
-    "ChatGPTClone",
     "ChatSandbox",
     "ClaudeOnline",
     "Cleeai",
     "Cohere",
     "DeepAI",
-    "DeepInfra",
+    "Deepinfra",
     "Elmo",
+    "EssentialAI",
     "ExaAI",
-    "ExaChat",
+    "Ayle",
     "GEMINI",
     "GEMINIAPI",
     "GithubChat",
+    "HadadXYZ",
     "Gradient",
     "GROQ",
     "HeckAI",
+    "HuggingFace",
     "IBM",
     "JadveOpenAI",
     "Julius",
@@ -90,6 +95,7 @@ __all__ = [
     "LLMChatCo",
     "Meta",
     "Netwrck",
+    "Nvidia",
     "oivscode",
     "PiAI",
     "QwenLM",

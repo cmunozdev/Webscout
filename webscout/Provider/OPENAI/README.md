@@ -31,19 +31,17 @@ Currently, the following providers are implemented with OpenAI-compatible interf
 
 - DeepInfra
 - Glider
-- ChatGPTClone
 - X0GPT
 - WiseCat
 - Venice
 - ExaAI
 - TypeGPT
-- SciraChat
 - LLMChatCo
 - YEPCHAT
 - HeckAI
 - IBM
 - SonusAI
-- ExaChat
+- Ayle
 - Netwrck
 - StandardInput
 - Writecream
@@ -176,52 +174,6 @@ for chunk in stream:
 print()  # Add a newline at the end
 ```
 
-### Basic Usage with ChatGPTClone
-
-```python
-from webscout.client import ChatGPTClone
-
-# Initialize the client
-client = ChatGPTClone()
-
-# Create a completion (non-streaming)
-response = client.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Tell me about Python programming."}
-    ],
-    temperature=0.7
-)
-
-# Print the response
-print(response.choices[0].message.content)
-```
-
-### Streaming with ChatGPTClone
-
-```python
-from webscout.client import ChatGPTClone
-
-# Initialize the client
-client = ChatGPTClone()
-
-# Create a streaming completion
-stream = client.chat.completions.create(
-    model="gpt-4",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Write a short poem about programming."}
-    ],
-    stream=True
-)
-
-# Process the streaming response
-for chunk in stream:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)
-print()  # Add a newline at the end
-```
 
 ### Basic Usage with X0GPT
 
@@ -577,52 +529,6 @@ for chunk in stream:
 print()  # Add a newline at the end
 ```
 
-### Basic Usage with SciraChat
-
-```python
-from webscout.client import SciraChat
-
-# Initialize the client
-client = SciraChat()
-
-# Create a completion (non-streaming)
-response = client.chat.completions.create(
-    model="scira-default",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Tell me about Python programming."}
-    ]
-)
-
-# Print the response
-print(response.choices[0].message.content)
-```
-
-### Streaming with SciraChat
-
-```python
-from webscout.client import SciraChat
-
-# Initialize the client
-client = SciraChat()
-
-# Create a streaming completion
-stream = client.chat.completions.create(
-    model="scira-default",
-    messages=[
-        {"role": "system", "content": "You are a helpful assistant."},
-        {"role": "user", "content": "Write a short poem about programming."}
-    ],
-    stream=True
-)
-
-# Process the streaming response
-for chunk in stream:
-    if chunk.choices[0].delta.content:
-        print(chunk.choices[0].delta.content, end="", flush=True)
-print()  # Add a newline at the end
-```
-
 ### Basic Usage with FreeAIChat
 
 ```python
@@ -810,17 +716,17 @@ for chunk in stream:
 print()  # Add a newline at the end
 ```
 
-### Basic Usage with ExaChat
+### Basic Usage with Ayle
 
 ```python
-from webscout.client import ExaChat
+from webscout.client import Ayle
 
 # Initialize the client
-client = ExaChat()
+client = Ayle()
 
 # Create a completion (non-streaming)
 response = client.chat.completions.create(
-    model="exaanswer",  # Choose from many available models
+    model="gemini-2.5-flash",  # Choose from many available models
     messages=[
         {"role": "system", "content": "You are a helpful assistant."},
         {"role": "user", "content": "Tell me about Python programming."}
@@ -831,13 +737,13 @@ response = client.chat.completions.create(
 print(response.choices[0].message.content)
 ```
 
-### Using Different ExaChat Providers
+### Using Different Ayle Models
 
 ```python
-from webscout.client import ExaChat
+from webscout.client import Ayle
 
 # Initialize the client
-client = ExaChat(timeout=60)
+client = Ayle(timeout=60)
 
 # Use a Gemini model
 gemini_response = client.chat.completions.create(
@@ -850,14 +756,14 @@ gemini_response = client.chat.completions.create(
 
 # Use a Groq model
 groq_response = client.chat.completions.create(
-    model="llama-3.1-8b-instant",
+    model="llama-3.3-70b-versatile",
     messages=[
         {"role": "user", "content": "Tell me about Python programming."}
     ]
 )
 
 # Print the response
-print(response.choices[0].message.content)
+print(gemini_response.choices[0].message.content)
 ```
 
 ### Streaming with Netwrck
@@ -1012,19 +918,17 @@ Want to add a new OpenAI-compatible provider? Follow these steps:
 - [OpenAI API Reference](https://platform.openai.com/docs/api-reference)
 - [DeepInfra Documentation](https://deepinfra.com/docs)
 - [Glider.so Website](https://glider.so/)
-- [ChatGPT Clone Website](https://chatgpt-clone-ten-nu.vercel.app/)
 - [X0GPT Website](https://x0-gpt.devwtf.in/)
 - [WiseCat Website](https://wise-cat-groq.vercel.app/)
 - [Venice AI Website](https://venice.ai/)
 - [ExaAI Website](https://o3minichat.exa.ai/)
-- [TypeGPT Website](https://chat.typegpt.net/)
-- [SciraChat Website](https://scira.ai/)
-- [FreeAIChat Website](https://freeaichatplayground.com/)
+- [Sambanova Website](https://sambanova.ai/)
+- [DeepInfra Website](https://deepinfra.com/)
 - [LLMChatCo Website](https://llmchat.co/)
 - [Yep.com Website](https://yep.com/)
 - [HeckAI Website](https://heck.ai/)
 - [SonusAI Website](https://chat.sonus.ai/)
-- [ExaChat Website](https://exa-chat.vercel.app/)
+- [Ayle Website](https://ayle.chat/)
 - [Netwrck Website](https://netwrck.com/)
 - [StandardInput Website](https://chat.standard-input.com/)
 

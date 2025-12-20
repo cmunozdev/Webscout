@@ -1,5 +1,7 @@
 """Output formatting decorators for SwiftCLI."""
 
+import json
+import yaml
 from functools import wraps
 from typing import Any, Callable, List, Optional, Union
 
@@ -112,6 +114,75 @@ def table_output(
                     table.add_row(*[str(cell) for cell in row])
                 
                 console.print(table)
+            return result
+        return wrapper
+    return decorator
+
+def json_output(
+    indent: int = 2,
+    sort_keys: bool = False,
+    ensure_ascii: bool = False
+) -> Callable:
+    """
+    Decorator to format command output as JSON.
+    
+    Args:
+        indent: Indentation level for pretty printing
+        sort_keys: Whether to sort dictionary keys
+        ensure_ascii: Whether to escape non-ASCII characters
+        
+    Example:
+        @command()
+        @json_output(indent=2)
+        def get_data():
+            '''Get data as JSON'''
+            return {"status": "success", "data": [1, 2, 3]}
+    """
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            result = f(*args, **kwargs)
+            if result:
+                json_str = json.dumps(
+                    result,
+                    indent=indent,
+                    sort_keys=sort_keys,
+                    ensure_ascii=ensure_ascii
+                )
+                console.print(json_str)
+            return result
+        return wrapper
+    return decorator
+
+def yaml_output(
+    default_flow_style: bool = False,
+    sort_keys: bool = False
+) -> Callable:
+    """
+    Decorator to format command output as YAML.
+    
+    Args:
+        default_flow_style: Whether to use flow style for collections
+        sort_keys: Whether to sort dictionary keys
+        
+    Example:
+        @command()
+        @yaml_output()
+        def get_config():
+            '''Get configuration as YAML'''
+            return {"database": {"host": "localhost", "port": 5432}}
+    """
+    def decorator(f: Callable) -> Callable:
+        @wraps(f)
+        def wrapper(*args, **kwargs):
+            result = f(*args, **kwargs)
+            if result:
+                yaml_str = yaml.safe_dump(
+                    result,
+                    default_flow_style=default_flow_style,
+                    sort_keys=sort_keys
+                )
+                console.print(yaml_str)
             return result
         return wrapper
     return decorator

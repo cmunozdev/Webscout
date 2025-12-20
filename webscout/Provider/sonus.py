@@ -118,14 +118,12 @@ class SonusAI(Provider):
         def for_stream():
             try:
                 # Use curl_cffi session post with impersonate
-                # Use `data` instead of `files` for simple key-value multipart
                 response = self.session.post(
                     self.url, 
-                    # headers are set on the session
-                    data=form_data, # Use data for multipart form fields
+                    data=form_data,
                     stream=True, 
                     timeout=self.timeout,
-                    impersonate="chrome110" # Use a common impersonation profile
+                    impersonate="chrome110"
                 )
                 if response.status_code != 200:
                     raise exceptions.FailedToGenerateResponseError(
@@ -133,31 +131,34 @@ class SonusAI(Provider):
                     )
 
                 streaming_text = ""
-                # Use sanitize_stream
-                processed_stream = sanitize_stream(
-                    data=response.iter_content(chunk_size=None), # Pass byte iterator
-                    intro_value="data:",
-                    to_json=True,     # Stream sends JSON
-                    content_extractor=self._sonus_extractor, # Use the specific extractor
-                    yield_raw_on_error=False, # Skip non-JSON lines or lines where extractor fails
-                    raw=raw
-                )
-
-                for content_chunk in processed_stream:
-                    if raw: 
-                        yield content_chunk
-                    else:
-                        if content_chunk and isinstance(content_chunk, str):
-                            streaming_text += content_chunk
-                            yield dict(text=content_chunk)
+                # Parse JSON lines directly
+                for line in response.iter_lines():
+                    if not line:
+                        continue
+                    # Decode bytes to string
+                    line_str = line.decode('utf-8') if isinstance(line, bytes) else line
+                    if line_str.startswith("data: "):
+                        json_str = line_str[6:]  # Remove "data: " prefix
+                        try:
+                            data = json.loads(json_str)
+                            if isinstance(data, dict) and "content" in data:
+                                content = data.get("content", "")
+                                if content:
+                                    streaming_text += content
+                                    if raw:
+                                        yield content
+                                    else:
+                                        yield dict(text=content)
+                        except json.JSONDecodeError:
+                            continue
                 
                 # Update history and last response after stream finishes
                 self.last_response = {"text": streaming_text}
                 self.conversation.update_chat_history(prompt, streaming_text)
                     
-            except CurlError as e: # Catch CurlError
+            except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
-            except Exception as e: # Catch other potential exceptions
+            except Exception as e:
                  raise exceptions.FailedToGenerateResponseError(f"An unexpected error occurred ({type(e).__name__}): {e}") from e
 
         def for_non_stream():
@@ -177,21 +178,19 @@ class SonusAI(Provider):
 
                 response_text_raw = response.text # Get raw text
 
-                # Use sanitize_stream to process the non-streaming text
-                processed_stream = sanitize_stream(
-                    data=response_text_raw.splitlines(), # Split into lines
-                    intro_value="data:",
-                    to_json=True,
-                    content_extractor=self._sonus_extractor,
-                    yield_raw_on_error=False,
-                    raw=raw
-                )
-
-                # Aggregate the results
+                # Parse JSON lines directly
                 full_response = ""
-                for content in processed_stream:
-                    if content and isinstance(content, str):
-                        full_response += content
+                for line in response_text_raw.splitlines():
+                    if line.startswith("data: "):
+                        json_str = line[6:]  # Remove "data: " prefix
+                        try:
+                            data = json.loads(json_str)
+                            if isinstance(data, dict) and "content" in data:
+                                content = data.get("content", "")
+                                if content:
+                                    full_response += content
+                        except json.JSONDecodeError:
+                            continue
 
                 self.last_response = {"text": full_response}
                 self.conversation.update_chat_history(prompt, full_response)

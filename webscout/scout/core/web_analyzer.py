@@ -2,8 +2,10 @@
 Scout Web Analyzer Module
 """
 
-from typing import Dict, Any
+from typing import Any, Dict
+
 from ..element import Tag
+
 
 class ScoutWebAnalyzer:
     """

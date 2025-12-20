@@ -33,6 +33,7 @@ class SpeechMaTTS(BaseTTSProvider):
     - Multiple output formats
     - Streaming support
     """
+    required_auth = False
     
     # Request headers
     headers = {
@@ -397,10 +398,10 @@ class SpeechMaTTS(BaseTTSProvider):
         # Split text into sentences using the utils module for better processing
         sentences = utils.split_sentences(text)
         if verbose:
-            print(f"[debug] Processing {len(sentences)} sentences")
-            print(f"[debug] Model: {model}")
-            print(f"[debug] Voice: {voice} -> {speechma_voice}")
-            print(f"[debug] Format: {response_format}")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Processing {len(sentences)} sentences")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Model: {model}")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Voice: {voice} -> {speechma_voice}")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Format: {response_format}")
 
         def generate_audio_for_chunk(part_text: str, part_number: int):
             """
@@ -445,7 +446,7 @@ class SpeechMaTTS(BaseTTSProvider):
                         response.content.startswith(b'ID3') or 
                         b'LAME' in response.content[:100]):
                         if verbose:
-                            print(f"[debug] Chunk {part_number} processed successfully")
+                            ic.configureOutput(prefix='DEBUG| '); ic(f"Chunk {part_number} processed successfully")
                         return part_number, response.content
                     else:
                         raise exceptions.FailedToGenerateResponseError(
@@ -459,7 +460,7 @@ class SpeechMaTTS(BaseTTSProvider):
                             f"Failed to generate audio for chunk {part_number} after {max_retries} retries: {e}"
                         )
                     if verbose:
-                        print(f"[debug] Retrying chunk {part_number} (attempt {retry_count + 1})")
+                        ic.configureOutput(prefix='DEBUG| '); ic(f"Retrying chunk {part_number} (attempt {retry_count + 1})")
                     time.sleep(1)  # Brief delay before retry
 
         # Process chunks concurrently for better performance
@@ -477,7 +478,7 @@ class SpeechMaTTS(BaseTTSProvider):
                         audio_chunks.append((chunk_number, audio_data))
                     except Exception as e:
                         if verbose:
-                            print(f"[debug] Error processing chunk: {e}")
+                            ic.configureOutput(prefix='DEBUG| '); ic(f"Error processing chunk: {e}")
                         raise
         else:
             # Single sentence, process directly
@@ -493,7 +494,7 @@ class SpeechMaTTS(BaseTTSProvider):
             with open(filename, 'wb') as f:
                 f.write(combined_audio)
             if verbose:
-                print(f"[debug] Audio saved to: {filename}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Audio saved to: {filename}")
             return filename.as_posix()
         except IOError as e:
             raise exceptions.FailedToGenerateResponseError(f"Failed to save audio file: {e}")

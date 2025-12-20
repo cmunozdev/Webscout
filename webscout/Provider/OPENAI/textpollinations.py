@@ -1,3 +1,7 @@
+"""
+TextPollinations OpenAI-compatible provider.
+https://text.pollinations.ai/openai
+"""
 
 import time
 import uuid
@@ -5,22 +9,21 @@ import requests
 import json
 from typing import List, Dict, Optional, Union, Generator, Any
 
-# Import base classes and utility structures
 from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
 from webscout.Provider.OPENAI.utils import (
     ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
     ChatCompletionMessage, CompletionUsage, ToolCall, ToolFunction, count_tokens
 )
-
-# Import LitAgent for browser fingerprinting
 from webscout.litagent import LitAgent
 
-# ANSI escape codes for formatting
 BOLD = "\033[1m"
 RED = "\033[91m"
 RESET = "\033[0m"
 
 class Completions(BaseCompletions):
+    """
+    Handles chat completion requests for TextPollinations.
+    """
     def __init__(self, client: 'TextPollinations'):
         self._client = client
 
@@ -41,7 +44,7 @@ class Completions(BaseCompletions):
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
         """
         Creates a model response for the given chat conversation.
-        Mimics openai.chat.completions.create
+        Mimics openai.chat.completions.create.
         """
         payload = {
             "model": model,
@@ -78,9 +81,10 @@ class Completions(BaseCompletions):
         timeout: Optional[int] = None,
         proxies: Optional[Dict[str, str]] = None
     ) -> Generator[ChatCompletionChunk, None, None]:
-        """Implementation for streaming chat completions."""
+        """
+        Implementation for streaming chat completions using SSE.
+        """
         try:
-            # Make the streaming request
             response = self._client.session.post(
                 self._client.api_endpoint,
                 headers=self._client.headers,
@@ -106,12 +110,10 @@ class Completions(BaseCompletions):
                                 if 'delta' in choice:
                                     delta_obj = ChoiceDelta()
 
-                                    # Handle content in delta
                                     if 'content' in choice['delta']:
                                         content = choice['delta']['content']
                                         delta_obj.content = content
 
-                                    # Handle tool calls in delta
                                     if 'tool_calls' in choice['delta']:
                                         tool_calls = []
                                         for tool_call_data in choice['delta']['tool_calls']:
@@ -130,7 +132,6 @@ class Completions(BaseCompletions):
                                         if tool_calls:
                                             delta_obj.tool_calls = tool_calls
 
-                                    # Create and yield a chunk
                                     choice_obj = Choice(index=0, delta=delta_obj, finish_reason=None)
                                     chunk = ChatCompletionChunk(
                                         id=request_id,
@@ -143,7 +144,6 @@ class Completions(BaseCompletions):
                         except json.JSONDecodeError:
                             continue
 
-            # Final chunk with finish_reason
             delta = ChoiceDelta(content=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop")
             chunk = ChatCompletionChunk(
@@ -168,9 +168,10 @@ class Completions(BaseCompletions):
         timeout: Optional[int] = None,
         proxies: Optional[Dict[str, str]] = None
     ) -> ChatCompletion:
-        """Implementation for non-streaming chat completions."""
+        """
+        Implementation for non-streaming chat completions.
+        """
         try:
-            # Make the non-streaming request
             response = self._client.session.post(
                 self._client.api_endpoint,
                 headers=self._client.headers,
@@ -182,22 +183,18 @@ class Completions(BaseCompletions):
             if not response.ok:
                 raise IOError(f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}")
 
-            # Parse the response
             response_json = response.json()
 
-            # Extract the content
+            full_content = ""
+            message = ChatCompletionMessage(role="assistant", content="")
+
             if 'choices' in response_json and len(response_json['choices']) > 0:
                 choice_data = response_json['choices'][0]
                 if 'message' in choice_data:
                     message_data = choice_data['message']
-
-                    # Extract content
                     full_content = message_data.get('content', '')
-
-                    # Create the completion message with potential tool calls
                     message = ChatCompletionMessage(role="assistant", content=full_content)
 
-                    # Handle tool calls if present
                     if 'tool_calls' in message_data:
                         tool_calls = []
                         for tool_call_data in message_data['tool_calls']:
@@ -215,19 +212,13 @@ class Completions(BaseCompletions):
 
                         if tool_calls:
                             message.tool_calls = tool_calls
-                else:
-                    message = ChatCompletionMessage(role="assistant", content="")
-            else:
-                message = ChatCompletionMessage(role="assistant", content="")
 
-            # Create the choice
             choice = Choice(
                 index=0,
                 message=message,
                 finish_reason="stop"
             )
 
-            # Estimate token usage using count_tokens
             prompt_tokens = count_tokens([msg.get("content", "") for msg in payload.get("messages", [])])
             completion_tokens = count_tokens(full_content)
             usage = CompletionUsage(
@@ -236,7 +227,6 @@ class Completions(BaseCompletions):
                 total_tokens=prompt_tokens + completion_tokens
             )
 
-            # Create the completion object
             completion = ChatCompletion(
                 id=request_id,
                 choices=[choice],
@@ -252,21 +242,26 @@ class Completions(BaseCompletions):
             raise IOError(f"TextPollinations request failed: {e}") from e
 
 class Chat(BaseChat):
+    """
+    Standard chat interface for the provider.
+    """
     def __init__(self, client: 'TextPollinations'):
         self.completions = Completions(client)
 
 class TextPollinations(OpenAICompatibleProvider):
     """
     OpenAI-compatible client for TextPollinations API.
+    Provides free access to various models including GPT variants and open-source models.
     """
     required_auth = False
     
-    # We will populate this dynamically
-    AVAILABLE_MODELS = []
+    AVAILABLE_MODELS = ["openai", "mistral", "p1", "unity"]
 
     @classmethod
     def get_models(cls, api_key: str = None) -> List[str]:
-        """Fetch available models from TextPollinations API."""
+        """
+        Fetch available models from TextPollinations API.
+        """
         try:
             response = requests.get(
                 "https://text.pollinations.ai/models",
@@ -279,10 +274,10 @@ class TextPollinations(OpenAICompatibleProvider):
                 if isinstance(data, list):
                     return [model.get("name") for model in data if isinstance(model, dict) and "name" in model]
             
-            return []
+            return cls.AVAILABLE_MODELS
 
         except Exception:
-            return []
+            return cls.AVAILABLE_MODELS
 
     def __init__(
         self,
@@ -296,19 +291,15 @@ class TextPollinations(OpenAICompatibleProvider):
         self.api_endpoint = "https://text.pollinations.ai/openai"
         self.proxies = proxies
 
-        # Update available models from API
         self.update_available_models()
 
-        # Initialize session
         self.session = requests.Session()
         if proxies:
             self.session.proxies.update(proxies)
 
-        # Initialize LitAgent for user agent generation
         agent = LitAgent()
         self.user_agent = agent.random()
 
-        # Set headers
         self.headers = {
             'Accept': '*/*',
             'Accept-Language': 'en-US,en;q=0.9',
@@ -317,26 +308,28 @@ class TextPollinations(OpenAICompatibleProvider):
         }
 
         self.session.headers.update(self.headers)
-
-        # Initialize chat interface
         self.chat = Chat(self)
 
     @classmethod
     def update_available_models(cls, api_key=None):
-        """Update the available models list from TextPollinations API"""
+        """
+        Update the available models list from the API.
+        """
         models = cls.get_models(api_key)
         if models:
             cls.AVAILABLE_MODELS = models
 
     @property
     def models(self):
+        """
+        Standardized model listing interface.
+        """
         class _ModelList:
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
 
 if __name__ == "__main__":
-    # Example usage
     client = TextPollinations()
     if client.models.list():
         print(f"Available models: {client.models.list()}")

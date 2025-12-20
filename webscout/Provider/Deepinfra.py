@@ -99,7 +99,9 @@ class DeepInfra(Provider):
     def _deepinfra_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
         """Extracts content from DeepInfra stream JSON objects."""
         if isinstance(chunk, dict):
-            return chunk.get("choices", [{}])[0].get("delta", {}).get("content")
+            choices = chunk.get("choices")
+            if choices:
+                return choices[0].get("delta", {}).get("content")
         return None
 
     def __init__(
@@ -314,20 +316,24 @@ class DeepInfra(Provider):
                 if raw:
                     return response.text
 
-                response_json = response.json()
-                if isinstance(response_json, dict):
-                    choices = response_json.get("choices", [])
-                    if choices:
-                        message_content = choices[0].get("message", {}).get("content")
-                        content = message_content if message_content is not None else ""
-                    else:
-                        content = ""
-                else:
-                    content = ""
+                # Use sanitize_stream to parse the non-streaming JSON response
+                processed_stream = sanitize_stream(
+                    data=response.text,
+                    to_json=True,
+                    intro_value=None,
+                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
+                    yield_raw_on_error=False,
+                    raw=raw
+                )
+                # Extract the single result
+                content = next(processed_stream, None)
+                if raw:
+                    return content
+                content = content if isinstance(content, str) else ""
 
                 self.last_response = {"text": content}
                 self.conversation.update_chat_history(prompt, content)
-                return self.last_response
+                return self.last_response if not raw else content
 
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e

@@ -122,10 +122,12 @@ class Conversation:
         new_history = self.history_format % dict(user=prompt, llm=response)
         if self.file and self.update_file:
             if os.path.exists(self.file):
-                with open(self.file, "w") as fh:
-                    fh.write(self.intro + "\n" + new_history)
-            else:
+                # Append new history to existing file
                 with open(self.file, "a") as fh:
                     fh.write(new_history)
+            else:
+                # Create new file with intro and new history
+                with open(self.file, "w") as fh:
+                    fh.write(self.intro + "\n" + new_history)
         self.chat_history += new_history
 

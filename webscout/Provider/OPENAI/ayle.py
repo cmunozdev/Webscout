@@ -24,22 +24,16 @@ RESET = "\033[0m"
 
 # Model configurations
 MODEL_CONFIGS = {
-    "exaanswer": {
-        "endpoint": "https://ayle.chat/api/exaanswer",
-        "models": ["exaanswer"],
-    },
-    "gemini": {
-        "endpoint": "https://ayle.chat/api/gemini",
+    "ayle": {
+        "endpoint": "https://ayle.chat/api/chat",
         "models": [
-            "gemini-2.0-flash",
             "gemini-2.5-flash",
-        ],
-    },
-    "cerebras": {
-        "endpoint": "https://ayle.chat/api/cerebras",
-        "models": [
-            "llama3.1-8b",
+            "llama-3.3-70b-versatile", 
             "llama-3.3-70b",
+            "tngtech/deepseek-r1t2-chimera:free",
+            "openai/gpt-oss-120b",
+            "qwen-3-235b-a22b-instruct-2507",
+            "llama3.1-8b",
             "llama-4-scout-17b-16e-instruct",
             "qwen-3-32b"
         ],
@@ -48,7 +42,7 @@ MODEL_CONFIGS = {
 
 
 class Completions(BaseCompletions):
-    def __init__(self, client: 'ExaChat'):
+    def __init__(self, client: 'Ayle'):
         self._client = client
 
     def create(
@@ -68,31 +62,14 @@ class Completions(BaseCompletions):
         Creates a model response for the given chat conversation.
         Mimics openai.chat.completions.create
         """
-        # Format the messages using the format_prompt utility
-        # This creates a conversation in the format: "User: message\nAssistant: response\nUser: message\nAssistant:"
-        question = format_prompt(messages, add_special_tokens=True, do_continue=True)
-        
         # Determine the provider based on the model
         provider = self._client._get_provider_from_model(model)
         
-        # Build the appropriate payload based on the provider
-        if provider == "exaanswer":
-            payload = {
-                "query": question,
-                "messages": []
-            }
-        elif provider in ["gemini", "cerebras"]:
-            payload = {
-                "query": question,
-                "model": model,
-                "messages": []
-            }
-        else:  # openrouter or groq
-            payload = {
-                "query": question + "\n",  # Add newline for openrouter and groq models
-                "model": model,
-                "messages": []
-            }
+        # Build the appropriate payload
+        payload = {
+            "messages": messages,
+            "model": model
+        }
 
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
@@ -126,9 +103,9 @@ class Completions(BaseCompletions):
                     continue
                 
                 try:
-                    data = json.loads(line.decode('utf-8'))
-                    if 'choices' in data and len(data['choices']) > 0:
-                        content = data['choices'][0].get('delta', {}).get('content', '')
+                    line_str = line.decode('utf-8')
+                    if line_str.startswith('0:"'):
+                        content = json.loads(line_str[2:])
                         if content:
                             streaming_text += content
                             completion_tokens += count_tokens(content)
@@ -145,7 +122,7 @@ class Completions(BaseCompletions):
                         )
                         
                         yield chunk
-                except json.JSONDecodeError:
+                except (json.JSONDecodeError, UnicodeDecodeError):
                     continue
 
             # Final chunk with finish_reason
@@ -162,8 +139,8 @@ class Completions(BaseCompletions):
             yield chunk
 
         except requests.exceptions.RequestException as e:
-            print(f"{RED}Error during ExaChat stream request: {e}{RESET}")
-            raise IOError(f"ExaChat request failed: {e}") from e
+            print(f"{RED}Error during Ayle stream request: {e}{RESET}")
+            raise IOError(f"Ayle request failed: {e}") from e
 
     def _create_non_stream(
         self, request_id: str, created_time: int, model: str, provider: str, payload: Dict[str, Any], timeout: Optional[int] = None, proxies: Optional[Dict[str, str]] = None
@@ -183,16 +160,16 @@ class Completions(BaseCompletions):
             for line in response.iter_lines():
                 if line:
                     try:
-                        data = json.loads(line.decode('utf-8'))
-                        if 'choices' in data and len(data['choices']) > 0:
-                            content = data['choices'][0].get('delta', {}).get('content', '')
+                        line_str = line.decode('utf-8')
+                        if line_str.startswith('0:"'):
+                            content = json.loads(line_str[2:])
                             if content:
                                 full_response += content
-                    except json.JSONDecodeError:
+                    except (json.JSONDecodeError, UnicodeDecodeError):
                         continue
 
             # Create usage statistics (estimated)
-            prompt_tokens = count_tokens(payload.get("query", ""))
+            prompt_tokens = count_tokens(str(payload.get("messages", "")))
             completion_tokens = count_tokens(full_response)
             total_tokens = prompt_tokens + completion_tokens
             
@@ -227,34 +204,36 @@ class Completions(BaseCompletions):
             return completion
 
         except Exception as e:
-            print(f"{RED}Error during ExaChat non-stream request: {e}{RESET}")
-            raise IOError(f"ExaChat request failed: {e}") from e
+            print(f"{RED}Error during Ayle non-stream request: {e}{RESET}")
+            raise IOError(f"Ayle request failed: {e}") from e
 
 class Chat(BaseChat):
-    def __init__(self, client: 'ExaChat'):
+    def __init__(self, client: 'Ayle'):
         self.completions = Completions(client)
 
-class ExaChat(OpenAICompatibleProvider):
+class Ayle(OpenAICompatibleProvider):
     """
-    OpenAI-compatible client for ExaChat API.
+    OpenAI-compatible client for Ayle API.
 
     Usage:
-        client = ExaChat()
+        client = Ayle()
         response = client.chat.completions.create(
-            model="exaanswer",
+            model="gemini-2.5-flash",
             messages=[{"role": "user", "content": "Hello!"}]
         )
         print(response.choices[0].message.content)
     """
     required_auth = False
     AVAILABLE_MODELS = [
-        "gemini-2.0-flash",
         "gemini-2.5-flash",
-        "llama3.1-8b",
+        "llama-3.3-70b-versatile", 
         "llama-3.3-70b",
+        "tngtech/deepseek-r1t2-chimera:free",
+        "openai/gpt-oss-120b",
+        "qwen-3-235b-a22b-instruct-2507",
+        "llama3.1-8b",
         "llama-4-scout-17b-16e-instruct",
-        "qwen-3-32b",
-
+        "qwen-3-32b"
     ]
 
     def __init__(
@@ -264,7 +243,7 @@ class ExaChat(OpenAICompatibleProvider):
         top_p: float = 1.0
     ):
         """
-        Initialize the ExaChat client.
+        Initialize the Ayle client.
 
         Args:
             timeout: Request timeout in seconds.
@@ -283,7 +262,7 @@ class ExaChat(OpenAICompatibleProvider):
             "accept-language": "en-US,en;q=0.9",
             "content-type": "application/json",
             "origin": "https://ayle.chat/",
-            "referer": "https://ayle.chat//",
+            "referer": "https://ayle.chat/",
             "user-agent": agent.random(),
         }
         
@@ -311,8 +290,8 @@ class ExaChat(OpenAICompatibleProvider):
                 return provider
         
         # If model not found, use a default model
-        print(f"{BOLD}Warning: Model '{model}' not found, using default model 'exaanswer'{RESET}")
-        return "exaanswer"
+        print(f"{BOLD}Warning: Model '{model}' not found, using default model 'ayle'{RESET}")
+        return "ayle"
 
     def convert_model_name(self, model: str) -> str:
         """
@@ -326,9 +305,9 @@ class ExaChat(OpenAICompatibleProvider):
             if model.lower() in available_model.lower():
                 return available_model
         
-        # Default to exaanswer if no match
-        print(f"{BOLD}Warning: Model '{model}' not found, using default model 'exaanswer'{RESET}")
-        return "exaanswer"
+        # Default to gemini-2.5-flash if no match
+        print(f"{BOLD}Warning: Model '{model}' not found, using default model 'gemini-2.5-flash'{RESET}")
+        return "gemini-2.5-flash"
 
 
 # Simple test if run directly
@@ -339,13 +318,12 @@ if __name__ == "__main__":
 
     # Test a subset of models to avoid excessive API calls
     test_models = [
-        "exaanswer",
-        "gemini-2.0-flash",
+        "gemini-2.5-flash",
     ]
 
     for model in test_models:
         try:
-            client = ExaChat(timeout=60)
+            client = Ayle(timeout=60)
             # Test with a simple conversation to demonstrate format_prompt usage
             response = client.chat.completions.create(
                 model=model,

@@ -1,6 +1,6 @@
 import json
 import random
-from typing import Dict, Optional
+from typing import Dict, Optional, Any, List
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -33,29 +33,9 @@ class Images(BaseImages):
         self.session.mount("http://", adapter)
         self.session.mount("https://", adapter)
 
-    def get_api_key(self) -> str:
-        """Get API key from activation endpoint or cache"""
-        if hasattr(self._client, '_api_key_cache') and self._client._api_key_cache:
-            return self._client._api_key_cache
-
-        try:
-            activation_endpoint = "https://www.codegeneration.ai/activate-v2"
-            response = requests.get(
-                activation_endpoint,
-                headers={"Accept": "application/json"},
-                timeout=30
-            )
-            response.raise_for_status()
-            activation_data = response.json()
-            api_key = activation_data["openAIParams"]["apiKey"]
-            self._client._api_key_cache = api_key
-            return api_key
-        except Exception as e:
-            raise Exception(f"Failed to get activation key: {e}")
-
     def build_headers(self, extra: Optional[Dict[str, str]] = None) -> Dict[str, str]:
         """Build headers with API authorization using consistent fingerprint"""
-        api_key = self.get_api_key()
+        api_key = self._client.api_key
 
         # Reuse or generate fingerprint once for the session
         if not hasattr(self._client, '_fingerprint') or self._client._fingerprint is None:
@@ -65,15 +45,17 @@ class Images(BaseImages):
         headers = {
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
-            "accept": "application/json",
-            "accept-language": fp["accept_language"],
-            "user-agent": fp["user_agent"],
-            "sec-ch-ua": fp["sec_ch_ua"],
-            "sec-ch-ua-mobile": "?0",
-            "sec-ch-ua-platform": '"Windows"',
-            "sec-fetch-dest": "empty",
-            "sec-fetch-mode": "cors",
-            "sec-fetch-site": "cross-site",
+            "Accept": "application/json",
+            "Accept-Language": fp["accept_language"],
+            "User-Agent": fp["user_agent"],
+            "Sec-CH-UA": fp["sec_ch_ua"],
+            "Sec-CH-UA-Mobile": "?0",
+            "Sec-CH-UA-Platform": f'"{fp["platform"]}"',
+            "Origin": "https://api.together.xyz",
+            "Referer": "https://api.together.xyz/",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "cross-site",
         }
         if extra:
             headers.update(extra)
@@ -82,9 +64,6 @@ class Images(BaseImages):
     def _generate_consistent_fingerprint(self) -> Dict[str, str]:
         """
         Generate a consistent browser fingerprint using the client's LitAgent.
-
-        This ensures the same IP addresses and user agent are used across
-        multiple image generation requests, preventing 404 errors.
         """
         from webscout.litagent.constants import BROWSERS, FINGERPRINTS
 
@@ -136,22 +115,14 @@ class Images(BaseImages):
     ) -> ImageResponse:
         """
         Create images using Together.xyz image models
-
-        Args:
-            model: Image model to use (defaults to first available)
-            prompt: Text description of the image to generate
-            n: Number of images to generate (1-4)
-            size: Image size in format "WIDTHxHEIGHT"
-            response_format: "url" or "b64_json"
-            timeout: Request timeout in seconds
-            steps: Number of inference steps (1-50)
-            seed: Random seed for reproducible results
-            **kwargs: Additional model-specific parameters
         """
         if not prompt:
             raise ValueError(
                 "Describe the image you want to create (use the 'prompt' property)."
             )
+
+        if not self._client.api_key:
+            raise ValueError("API key is required for TogetherImage. Please provide it in __init__.")
 
         # Use provided model or default to first available
         if not model:
@@ -221,7 +192,6 @@ class Images(BaseImages):
         except requests.exceptions.Timeout:
             raise RuntimeError(f"Request timed out after {timeout} seconds. Try reducing image size or steps.")
         except requests.exceptions.RequestException as e:
-            # Print the response content for debugging if available
             if hasattr(e, 'response') and e.response is not None:
                 try:
                     print("[Together.xyz API error details]", e.response.text)
@@ -237,23 +207,20 @@ class Images(BaseImages):
 class TogetherImage(TTICompatibleProvider):
     """
     Together.xyz Text-to-Image provider
-    Updated: 2025-08-01 10:42:41 UTC by OEvortex
-    Supports FLUX and other image generation models
+    Updated: 2025-12-19 12:10:00 UTC
+    Supports FLUX and other image generation models via Together.xyz API
     """
+
+    # Provider status
+    required_auth: bool = True  # Now requires user-provided API key
+    working: bool = True  # Working as of 2025-12-19
 
     # Image models from Together.xyz API (filtered for image type only)
     AVAILABLE_MODELS = []
 
     @classmethod
     def get_models(cls, api_key: str = None):
-        """Fetch available image models from Together API.
-
-        Args:
-            api_key (str, optional): Together API key. If not provided, returns default models.
-
-        Returns:
-            list: List of available image model IDs
-        """
+        """Fetch available image models from Together API."""
         if not api_key:
             # Return default models if no API key is provided
             return [
@@ -273,13 +240,8 @@ class TogetherImage(TTICompatibleProvider):
             ]
 
         try:
-            # Get API key from activation endpoint or use provided key
-            # Since TogetherImage uses a different API key acquisition method, we'll use the cached key
-            temp_images = Images(None)
-            current_api_key = temp_images.get_api_key() if api_key is None else api_key
-
             headers = {
-                "Authorization": f"Bearer {current_api_key}",
+                "Authorization": f"Bearer {api_key}",
                 "Accept": "application/json"
             }
 
@@ -290,73 +252,24 @@ class TogetherImage(TTICompatibleProvider):
             )
 
             if response.status_code != 200:
-                # Return default models if API call fails
-                return [
-                    "black-forest-labs/FLUX.1-canny",
-                    "black-forest-labs/FLUX.1-depth",
-                    "black-forest-labs/FLUX.1-dev",
-                    "black-forest-labs/FLUX.1-dev-lora",
-                    "black-forest-labs/FLUX.1-kontext-dev",
-                    "black-forest-labs/FLUX.1-kontext-max",
-                    "black-forest-labs/FLUX.1-kontext-pro",
-                    "black-forest-labs/FLUX.1-krea-dev",
-                    "black-forest-labs/FLUX.1-pro",
-                    "black-forest-labs/FLUX.1-redux",
-                    "black-forest-labs/FLUX.1-schnell",
-                    "black-forest-labs/FLUX.1-schnell-Free",
-                    "black-forest-labs/FLUX.1.1-pro"
-                ]
+                return cls.get_models(None)
 
             models_data = response.json()
 
             # Filter image models
             image_models = []
-            if isinstance(models_data, dict) and "data" in models_data:
-                for model in models_data["data"]:
-                    if isinstance(model, dict) and model.get("type", "").lower() == "image":
-                        image_models.append(model["id"])
-            elif isinstance(models_data, list):
+            if isinstance(models_data, list):
                 for model in models_data:
                     if isinstance(model, dict) and model.get("type", "").lower() == "image":
                         image_models.append(model["id"])
-
+            
             if image_models:
                 return sorted(image_models)
             else:
-                # Return default models if no image models found
-                return [
-                    "black-forest-labs/FLUX.1-canny",
-                    "black-forest-labs/FLUX.1-depth",
-                    "black-forest-labs/FLUX.1-dev",
-                    "black-forest-labs/FLUX.1-dev-lora",
-                    "black-forest-labs/FLUX.1-kontext-dev",
-                    "black-forest-labs/FLUX.1-kontext-max",
-                    "black-forest-labs/FLUX.1-kontext-pro",
-                    "black-forest-labs/FLUX.1-krea-dev",
-                    "black-forest-labs/FLUX.1-pro",
-                    "black-forest-labs/FLUX.1-redux",
-                    "black-forest-labs/FLUX.1-schnell",
-                    "black-forest-labs/FLUX.1-schnell-Free",
-                    "black-forest-labs/FLUX.1.1-pro"
-                ]
+                return cls.get_models(None)
 
         except Exception:
-            # Return default models list if fetching fails
-            return [
-                "black-forest-labs/FLUX.1-canny",
-                "black-forest-labs/FLUX.1-depth",
-                "black-forest-labs/FLUX.1-dev",
-                "black-forest-labs/FLUX.1-dev-lora",
-                "black-forest-labs/FLUX.1-kontext-dev",
-                "black-forest-labs/FLUX.1-kontext-max",
-                "black-forest-labs/FLUX.1-kontext-pro",
-                "black-forest-labs/FLUX.1-krea-dev",
-                "black-forest-labs/FLUX.1-pro",
-                "black-forest-labs/FLUX.1-redux",
-                "black-forest-labs/FLUX.1-schnell",
-                "black-forest-labs/FLUX.1-schnell-Free",
-                "black-forest-labs/FLUX.1.1-pro"
-            ]
+            return cls.get_models(None)
 
     @classmethod
     def update_available_models(cls, api_key=None):
@@ -366,29 +279,23 @@ class TogetherImage(TTICompatibleProvider):
             if models and len(models) > 0:
                 cls.AVAILABLE_MODELS = models
         except Exception:
-            # Fallback to default models list if fetching fails
-            cls.AVAILABLE_MODELS = [
-                "black-forest-labs/FLUX.1-canny",
-                "black-forest-labs/FLUX.1-depth",
-                "black-forest-labs/FLUX.1-dev",
-                "black-forest-labs/FLUX.1-dev-lora",
-                "black-forest-labs/FLUX.1-kontext-dev",
-                "black-forest-labs/FLUX.1-kontext-max",
-                "black-forest-labs/FLUX.1-kontext-pro",
-                "black-forest-labs/FLUX.1-krea-dev",
-                "black-forest-labs/FLUX.1-pro",
-                "black-forest-labs/FLUX.1-redux",
-                "black-forest-labs/FLUX.1-schnell",
-                "black-forest-labs/FLUX.1-schnell-Free",
-                "black-forest-labs/FLUX.1.1-pro"
-            ]
+            cls.AVAILABLE_MODELS = cls.get_models(None)
 
-    def __init__(self):
-        # Update available models from API
-        self.update_available_models()
+    def __init__(self, api_key: str = None):
+        """
+        Initialize the TogetherImage client.
+        
+        Args:
+            api_key (str, optional): Together.xyz API key. 
+        """
+        self.api_key = api_key
+        # Update available models if API key is provided
+        if api_key:
+            self.update_available_models(api_key)
+        else:
+            self.AVAILABLE_MODELS = self.get_models(None)
 
         self.images = Images(self)
-        self._api_key_cache = None
         # Initialize LitAgent for consistent fingerprints across image generation requests
         self._agent = LitAgent()
         self._fingerprint = None
@@ -409,38 +316,10 @@ class TogetherImage(TTICompatibleProvider):
         # Default to first available model
         return self.AVAILABLE_MODELS[0]
 
-    # def fetch_available_models(self) -> List[str]:
-    #     """Fetch current image models from Together.xyz API"""
-    #     try:
-    #         api_key = self.images.get_api_key()
-    #         headers = {
-    #             "Authorization": f"Bearer {api_key}",
-    #             "Accept": "application/json"
-    #         }
-
-    #         response = requests.get(
-    #             "https://api.together.xyz/v1/models",
-    #             headers=headers,
-    #             timeout=30
-    #         )
-    #         response.raise_for_status()
-    #         models_data = response.json()
-
-    #         # Filter image models
-    #         image_models = []
-    #         for model in models_data:
-    #             if isinstance(model, dict) and model.get("type", "").lower() == "image":
-    #                 image_models.append(model["id"])
-
-    #         return sorted(image_models)
-
-    #     except Exception as e:
-    #         return self.AVAILABLE_MODELS
-
 
 if __name__ == "__main__":
     from rich import print
-    client = TogetherImage()
+    client = TogetherImage(api_key="YOUR_API_KEY")
 
     # Test with a sample prompt
     response = client.images.create(

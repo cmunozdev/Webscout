@@ -9,8 +9,9 @@ from typing import Any, Dict, List, Optional, Union
 class NavigableString(str):
     """
     A string that knows its place in the document tree.
-    Mimics BeautifulSoup's NavigableString for better compatibility.
+    Mimics BS4's NavigableString for better compatibility.
     """
+
     def __new__(cls, text: str):
         """
         Create a new NavigableString instance.
@@ -57,11 +58,13 @@ class NavigableString(str):
         """
         return NavigableString(super().strip(chars))
 
+
 class Tag:
     """
     Represents an HTML tag with advanced traversal and manipulation capabilities.
-    Enhanced to closely mimic BeautifulSoup's Tag class.
+    Enhanced to closely mimic BS4's Tag class.
     """
+
     def __init__(self, name: str, attrs: Dict[str, str] = None):
         """
         Initialize a Tag with name and attributes.
@@ -87,7 +90,7 @@ class Tag:
     def __call__(self, *args, **kwargs):
         """
         Allows calling find_all directly on the tag.
-        Mimics BeautifulSoup's behavior.
+        Mimics BS4's behavior.
         """
         return self.find_all(*args, **kwargs)
 
@@ -136,11 +139,7 @@ class Tag:
         """
         if not isinstance(other, Tag):
             return False
-        return (
-            self.name == other.name and
-            self.attrs == other.attrs and
-            str(self) == str(other)
-        )
+        return self.name == other.name and self.attrs == other.attrs and str(self) == str(other)
 
     def __hash__(self):
         """
@@ -151,7 +150,9 @@ class Tag:
         """
         return hash((self.name, frozenset(self.attrs.items()), str(self)))
 
-    def find(self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs) -> Optional['Tag']:
+    def find(
+        self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs
+    ) -> Optional["Tag"]:
         """
         Find the first matching child element.
         Enhanced with more flexible matching.
@@ -168,26 +169,34 @@ class Tag:
         # Merge class_ with attrs['class'] if both are present
         attrs = dict(attrs) if attrs else {}
         if class_ is not None:
-            if 'class' in attrs:
+            if "class" in attrs:
                 # Merge both
-                if isinstance(attrs['class'], list):
-                    class_list = attrs['class']
+                if isinstance(attrs["class"], list):
+                    class_list = attrs["class"]
                 else:
-                    class_list = [cls.strip() for cls in re.split(r'[ ,]+', str(attrs['class'])) if cls.strip()]
+                    class_list = [
+                        cls.strip()
+                        for cls in re.split(r"[ ,]+", str(attrs["class"]))
+                        if cls.strip()
+                    ]
                 if isinstance(class_, list):
                     class_list += class_
                 else:
-                    class_list += [cls.strip() for cls in re.split(r'[ ,]+', str(class_)) if cls.strip()]
-                attrs['class'] = class_list
+                    class_list += [
+                        cls.strip() for cls in re.split(r"[ ,]+", str(class_)) if cls.strip()
+                    ]
+                attrs["class"] = class_list
             else:
-                attrs['class'] = class_
+                attrs["class"] = class_
         results = self.find_all(name, attrs, recursive, text, limit=1, **kwargs)
         return results[0] if results else None
 
-    def find_all(self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs) -> List['Tag']:
+    def find_all(
+        self, name=None, attrs={}, recursive=True, text=None, limit=None, class_=None, **kwargs
+    ) -> List["Tag"]:
         """
         Find all matching child elements.
-        Enhanced with more flexible matching and BeautifulSoup-like features.
+        Enhanced with more flexible matching and BS4-like features.
 
         Args:
             name (str, optional): Tag name to search for
@@ -205,34 +214,53 @@ class Tag:
             # Check tag name with case-insensitive and regex support
             if name:
                 if isinstance(name, str):
-                    if tag.name.lower() != name.lower():
+                    if name != "*" and tag.name.lower() != name.lower():
                         return False
                 elif isinstance(name, re.Pattern):
                     if not name.search(tag.name):
                         return False
+                elif isinstance(name, (list, tuple)):
+                    if tag.name.lower() not in [n.lower() for n in name]:
+                        return False
 
             # Check attributes with more flexible matching
-            for k, v in attrs.items():
-                if k == 'class':
-                    tag_classes = tag.get('class', [])
-                    # Support multiple classes separated by space or comma
+            # Handle class_ parameter if provided
+            search_attrs = dict(attrs)
+            if class_ is not None:
+                search_attrs["class"] = class_
+
+            for k, v in search_attrs.items():
+                tag_attr = tag.attrs.get(k)
+
+                if k == "class":
+                    # Support multiple classes and whole-word matching
+                    tag_classes = tag_attr
+                    if isinstance(tag_classes, str):
+                        tag_classes = [
+                            c.strip() for c in re.split(r"[ ,]+", tag_classes) if c.strip()
+                        ]
+                    elif not isinstance(tag_classes, list):
+                        tag_classes = []
+
                     if isinstance(v, str):
-                        v_classes = [cls.strip() for cls in re.split(r'[ ,]+', v) if cls.strip()]
+                        v_classes = [c.strip() for c in re.split(r"[ ,]+", v) if c.strip()]
                         if not all(cls in tag_classes for cls in v_classes):
                             return False
                     elif isinstance(v, list):
                         if not all(cls in tag_classes for cls in v):
                             return False
+                    elif isinstance(v, re.Pattern):
+                        if not any(v.search(cls) for cls in tag_classes):
+                            return False
                     else:
-                        return False
-                elif k == 'id':
-                    if tag.get('id') != v:
                         return False
                 else:
                     # Regex or exact match for other attributes
-                    tag_attr = tag.attrs.get(k)
                     if v is True:
                         if tag_attr is None:
+                            return False
+                    elif v is False:
+                        if tag_attr is not None:
                             return False
                     elif isinstance(v, re.Pattern):
                         if tag_attr is None or not v.search(str(tag_attr)):
@@ -243,10 +271,12 @@ class Tag:
             # Check text content
             if text:
                 tag_text = tag.get_text(strip=True)
-                if isinstance(text, str) and text.lower() not in tag_text.lower():
-                    return False
-                elif isinstance(text, re.Pattern) and not text.search(tag_text):
-                    return False
+                if isinstance(text, str):
+                    if text not in tag_text:
+                        return False
+                elif isinstance(text, re.Pattern):
+                    if not text.search(tag_text):
+                        return False
 
             return True
 
@@ -264,7 +294,7 @@ class Tag:
         _search(self)
         return results
 
-    def select(self, selector: str) -> List['Tag']:
+    def select(self, selector: str) -> List["Tag"]:
         """
         Select elements using CSS selector.
         Enhanced to support more complex selectors including:
@@ -282,66 +312,60 @@ class Tag:
         Returns:
             List[Tag]: List of matching elements
         """
-        results = []
-        
+
         def _parse_simple_selector(simple_sel: str) -> dict:
             """Parse a simple selector like 'p.class#id[attr=value]' into components."""
-            components = {
-                'tag': None,
-                'id': None,
-                'classes': [],
-                'attrs': {}
-            }
-            
+            components = {"tag": None, "id": None, "classes": [], "attrs": {}}
+
             # Extract tag name (at the start)
-            tag_match = re.match(r'^([a-zA-Z][\w-]*)', simple_sel)
+            tag_match = re.match(r"^([a-zA-Z][\w-]*)", simple_sel)
             if tag_match:
-                components['tag'] = tag_match.group(1)
-                simple_sel = simple_sel[len(tag_match.group(1)):]
-            
+                components["tag"] = tag_match.group(1)
+                simple_sel = simple_sel[len(tag_match.group(1)) :]
+
             # Extract ID
-            id_matches = re.findall(r'#([\w-]+)', simple_sel)
+            id_matches = re.findall(r"#([\w-]+)", simple_sel)
             if id_matches:
-                components['id'] = id_matches[0]
-            
+                components["id"] = id_matches[0]
+
             # Extract classes
-            class_matches = re.findall(r'\.([\w-]+)', simple_sel)
-            components['classes'] = class_matches
-            
+            class_matches = re.findall(r"\.([\w-]+)", simple_sel)
+            components["classes"] = class_matches
+
             # Extract attributes
-            attr_matches = re.findall(r'\[([^\]]+)\]', simple_sel)
+            attr_matches = re.findall(r"\[([^\]]+)\]", simple_sel)
             for attr_expr in attr_matches:
-                if '=' in attr_expr:
-                    attr_name, attr_value = attr_expr.split('=', 1)
-                    components['attrs'][attr_name.strip()] = attr_value.strip('\'"')
+                if "=" in attr_expr:
+                    attr_name, attr_value = attr_expr.split("=", 1)
+                    components["attrs"][attr_name.strip()] = attr_value.strip("'\"")
                 else:
-                    components['attrs'][attr_expr.strip()] = None
-            
+                    components["attrs"][attr_expr.strip()] = None
+
             return components
-        
-        def _match_simple_selector(tag: 'Tag', components: dict) -> bool:
+
+        def _match_simple_selector(tag: "Tag", components: dict) -> bool:
             """Check if a tag matches the parsed selector components."""
             # Check tag name
-            if components['tag'] and tag.name != components['tag']:
+            if components["tag"] and tag.name != components["tag"]:
                 return False
-            
+
             # Check ID
-            if components['id'] and tag.get('id') != components['id']:
+            if components["id"] and tag.get("id") != components["id"]:
                 return False
-            
+
             # Check classes
-            tag_classes = tag.get('class', '')
+            tag_classes = tag.get("class", "")
             if isinstance(tag_classes, str):
                 tag_classes = tag_classes.split()
             elif not isinstance(tag_classes, list):
                 tag_classes = [str(tag_classes)] if tag_classes else []
-            
-            for cls in components['classes']:
+
+            for cls in components["classes"]:
                 if cls not in tag_classes:
                     return False
-            
+
             # Check attributes
-            for attr_name, attr_value in components['attrs'].items():
+            for attr_name, attr_value in components["attrs"].items():
                 if attr_value is None:
                     # Just check attribute exists
                     if attr_name not in tag.attrs:
@@ -350,30 +374,30 @@ class Tag:
                     # Check attribute value
                     if tag.get(attr_name) != attr_value:
                         return False
-            
+
             return True
-        
-        def _find_all_matching(element: 'Tag', components: dict) -> List['Tag']:
+
+        def _find_all_matching(element: "Tag", components: dict) -> List["Tag"]:
             """Recursively find all elements matching the selector components."""
             matches = []
-            
+
             # Check current element
             if _match_simple_selector(element, components):
                 matches.append(element)
-            
+
             # Check children recursively
             for child in element.contents:
                 if isinstance(child, Tag):
                     matches.extend(_find_all_matching(child, components))
-            
+
             return matches
-        
+
         # Handle combinators (descendant ' ' and child '>')
-        if ' > ' in selector:
+        if " > " in selector:
             # Child combinator
-            parts = [p.strip() for p in selector.split(' > ')]
+            parts = [p.strip() for p in selector.split(" > ")]
             return self._select_with_child_combinator(parts)
-        elif ' ' in selector.strip():
+        elif " " in selector.strip():
             # Descendant combinator
             parts = [p.strip() for p in selector.split()]
             return self._select_with_descendant_combinator(parts)
@@ -381,42 +405,42 @@ class Tag:
             # Simple selector
             components = _parse_simple_selector(selector)
             return _find_all_matching(self, components)
-    
-    def _select_with_descendant_combinator(self, parts: List[str]) -> List['Tag']:
+
+    def _select_with_descendant_combinator(self, parts: List[str]) -> List["Tag"]:
         """Handle descendant combinator (space)."""
         if not parts:
             return []
-        
+
         if len(parts) == 1:
             components = self._parse_selector_components(parts[0])
             return self._find_all_matching_in_tree(self, components)
-        
+
         # Find elements matching the first part
         first_components = self._parse_selector_components(parts[0])
         first_matches = self._find_all_matching_in_tree(self, first_components)
-        
+
         # For each match, find descendants matching remaining parts
         results = []
-        remaining_selector = ' '.join(parts[1:])
+        remaining_selector = " ".join(parts[1:])
         for match in first_matches:
             descendants = match.select(remaining_selector)
             results.extend(descendants)
-        
+
         return results
-    
-    def _select_with_child_combinator(self, parts: List[str]) -> List['Tag']:
+
+    def _select_with_child_combinator(self, parts: List[str]) -> List["Tag"]:
         """Handle child combinator (>)."""
         if not parts:
             return []
-        
+
         if len(parts) == 1:
             components = self._parse_selector_components(parts[0])
             return self._find_all_matching_in_tree(self, components)
-        
+
         # Find elements matching the first part
         first_components = self._parse_selector_components(parts[0])
         first_matches = self._find_all_matching_in_tree(self, first_components)
-        
+
         # For each match, find direct children matching the next part
         if len(parts) == 2:
             # Last part, just check direct children
@@ -424,7 +448,9 @@ class Tag:
             results = []
             for match in first_matches:
                 for child in match.contents:
-                    if isinstance(child, Tag) and self._match_selector_components(child, next_components):
+                    if isinstance(child, Tag) and self._match_selector_components(
+                        child, next_components
+                    ):
                         results.append(child)
             return results
         else:
@@ -434,71 +460,68 @@ class Tag:
             remaining_parts = parts[2:]
             for match in first_matches:
                 for child in match.contents:
-                    if isinstance(child, Tag) and self._match_selector_components(child, next_components):
+                    if isinstance(child, Tag) and self._match_selector_components(
+                        child, next_components
+                    ):
                         # Continue with remaining parts
-                        remaining_selector = ' > '.join(remaining_parts)
+                        remaining_selector = " > ".join(remaining_parts)
                         descendants = child.select(remaining_selector)
                         results.extend(descendants)
             return results
-    
+
     def _parse_selector_components(self, simple_sel: str) -> dict:
         """Parse a simple selector like 'p.class#id[attr=value]' into components."""
-        components = {
-            'tag': None,
-            'id': None,
-            'classes': [],
-            'attrs': {}
-        }
-        
+        components = {"tag": None, "id": None, "classes": [], "attrs": {}}
+
         # Extract tag name (at the start)
-        tag_match = re.match(r'^([a-zA-Z][\w-]*)', simple_sel)
+        tag_match = re.match(r"^([a-zA-Z][\w-]*)", simple_sel)
         if tag_match:
-            components['tag'] = tag_match.group(1)
-            simple_sel = simple_sel[len(tag_match.group(1)):]
-        
+            components["tag"] = tag_match.group(1)
+            simple_sel = simple_sel[len(tag_match.group(1)) :]
+
         # Extract ID
-        id_matches = re.findall(r'#([\w-]+)', simple_sel)
+        id_matches = re.findall(r"#([\w-]+)", simple_sel)
         if id_matches:
-            components['id'] = id_matches[0]
-        
+            components["id"] = id_matches[0]
+
         # Extract classes
-        class_matches = re.findall(r'\.([\w-]+)', simple_sel)
-        components['classes'] = class_matches
-        
+        class_matches = re.findall(r"\.([\w-]+)", simple_sel)
+        components["classes"] = class_matches
+
         # Extract attributes
-        attr_matches = re.findall(r'\[([^\]]+)\]', simple_sel)
+        attr_matches = re.findall(r"\[([^\]]+)\]", simple_sel)
         for attr_expr in attr_matches:
-            if '=' in attr_expr:
-                attr_name, attr_value = attr_expr.split('=', 1)
-                components['attrs'][attr_name.strip()] = attr_value.strip('\'"')
+            if "=" in attr_expr:
+                attr_name, attr_value = attr_expr.split("=", 1)
+                components["attrs"][attr_name.strip()] = attr_value.strip("'\"")
             else:
-                components['attrs'][attr_expr.strip()] = None
-        
+                components["attrs"][attr_expr.strip()] = None
+
         return components
-    
-    def _match_selector_components(self, tag: 'Tag', components: dict) -> bool:
+
+    def _match_selector_components(self, tag: "Tag", components: dict) -> bool:
         """Check if a tag matches the parsed selector components."""
         # Check tag name
-        if components['tag'] and tag.name != components['tag']:
+        if components["tag"] and tag.name != components["tag"]:
             return False
-        
+
         # Check ID
-        if components['id'] and tag.get('id') != components['id']:
+        if components["id"] and tag.get("id") != components["id"]:
             return False
-        
+
         # Check classes
-        tag_classes = tag.get('class', '')
+        tag_classes = tag.get("class", "")
         if isinstance(tag_classes, str):
             tag_classes = tag_classes.split()
         elif not isinstance(tag_classes, list):
             tag_classes = [str(tag_classes)] if tag_classes else []
-        
-        for cls in components['classes']:
+
+        for cls in components["classes"]:
             if cls not in tag_classes:
                 return False
-        
+
         # Check attributes
-        for attr_name, attr_value in components['attrs'].items():
+        for attr_name, attr_value in components["attrs"].items():
             if attr_value is None:
                 # Just check attribute exists
                 if attr_name not in tag.attrs:
@@ -507,25 +530,25 @@ class Tag:
                 # Check attribute value
                 if tag.get(attr_name) != attr_value:
                     return False
-        
+
         return True
-    
-    def _find_all_matching_in_tree(self, element: 'Tag', components: dict) -> List['Tag']:
+
+    def _find_all_matching_in_tree(self, element: "Tag", components: dict) -> List["Tag"]:
         """Recursively find all elements matching the selector components."""
         matches = []
-        
+
         # Check current element
         if self._match_selector_components(element, components):
             matches.append(element)
-        
+
         # Check children recursively
         for child in element.contents:
             if isinstance(child, Tag):
                 matches.extend(self._find_all_matching_in_tree(child, components))
-        
+
         return matches
 
-    def select_one(self, selector: str) -> Optional['Tag']:
+    def select_one(self, selector: str) -> Optional["Tag"]:
         """
         Select the first element matching the CSS selector.
 
@@ -538,7 +561,7 @@ class Tag:
         results = self.select(selector)
         return results[0] if results else None
 
-    def get_text(self, separator=' ', strip=False, types=None) -> str:
+    def get_text(self, separator=" ", strip=False, types=None) -> str:
         """
         Extract text from the tag and its descendants.
         Enhanced to support more flexible text extraction.
@@ -561,7 +584,7 @@ class Tag:
                     texts.append(content.get_text(separator, strip))
 
         text = separator.join(texts)
-        text = re.sub(r'\n\n+', '\n', text) # Replace multiple newlines with single newlines
+        text = re.sub(r"\n\n+", "\n", text)  # Replace multiple newlines with single newlines
         return text.strip() if strip else text
 
     def find_text(self, pattern: Union[str, re.Pattern], **kwargs) -> Optional[str]:
@@ -620,7 +643,7 @@ class Tag:
         if self.parent:
             self.parent.contents.remove(self)
 
-    def extract(self) -> 'Tag':
+    def extract(self) -> "Tag":
         """
         Remove the tag from the document and return it.
 
@@ -642,6 +665,11 @@ class Tag:
         """
         return self.get_text()
 
+    @property
+    def text(self):
+        """BS4 compatible text property."""
+        return self.get_text()
+
     @string.setter
     def string(self, value):
         """
@@ -655,28 +683,28 @@ class Tag:
         if value is not None:
             self.append(value)
 
-    def append(self, new_child: Union['Tag', NavigableString, str]) -> None:
+    def append(self, new_child: Union["Tag", NavigableString, str]) -> None:
         """Append a new child to this tag with error handling."""
         if isinstance(new_child, str):
             new_child = NavigableString(new_child)
-        if hasattr(new_child, 'parent'):
+        if hasattr(new_child, "parent"):
             new_child.parent = self
         self.contents.append(new_child)
 
-    def extend(self, new_children: List[Union['Tag', NavigableString, str]]) -> None:
+    def extend(self, new_children: List[Union["Tag", NavigableString, str]]) -> None:
         """Extend the contents of this tag with a list of new children."""
         for child in new_children:
             self.append(child)
 
-    def insert(self, index: int, new_child: Union['Tag', NavigableString, str]) -> None:
+    def insert(self, index: int, new_child: Union["Tag", NavigableString, str]) -> None:
         """Insert a new child at the given index with error handling."""
         if isinstance(new_child, str):
             new_child = NavigableString(new_child)
-        if hasattr(new_child, 'parent'):
+        if hasattr(new_child, "parent"):
             new_child.parent = self
         self.contents.insert(index, new_child)
 
-    def replace_with(self, new_tag: 'Tag') -> None:
+    def replace_with(self, new_tag: "Tag") -> None:
         """Replace this tag with another tag with error handling."""
         if self.parent:
             try:
@@ -686,7 +714,7 @@ class Tag:
             except ValueError:
                 pass
 
-    def wrap(self, wrapper_tag: 'Tag') -> 'Tag':
+    def wrap(self, wrapper_tag: "Tag") -> "Tag":
         """Wrap this tag in another tag."""
         if self.parent:
             idx = self.parent.contents.index(self)
@@ -709,14 +737,14 @@ class Tag:
             self.parent = None
             self.contents = []
 
-    def insert_before(self, new_element: 'Tag') -> None:
+    def insert_before(self, new_element: "Tag") -> None:
         """Insert a tag or string immediately before this tag."""
         if self.parent:
             idx = self.parent.contents.index(self)
             new_element.parent = self.parent
             self.parent.contents.insert(idx, new_element)
 
-    def insert_after(self, new_element: 'Tag') -> None:
+    def insert_after(self, new_element: "Tag") -> None:
         """Insert a tag or string immediately after this tag."""
         if self.parent:
             idx = self.parent.contents.index(self)
@@ -765,7 +793,7 @@ class Tag:
             return prev
         return self.parent
 
-    def decode_contents(self, eventual_encoding='utf-8') -> str:
+    def decode_contents(self, eventual_encoding="utf-8") -> str:
         """
         Decode the contents of the tag to a string.
 
@@ -775,9 +803,9 @@ class Tag:
         Returns:
             str: Decoded contents
         """
-        return ''.join(str(content) for content in self.contents)
+        return "".join(str(content) for content in self.contents)
 
-    def prettify(self, formatter='minimal') -> str:
+    def prettify(self, formatter="minimal") -> str:
         """
         Return a nicely formatted representation of the tag.
 
@@ -787,19 +815,49 @@ class Tag:
         Returns:
             str: Prettified tag representation
         """
+
         def _prettify(tag, indent=0):
-            result = ' ' * indent + f'<{tag.name}'
+            result = " " * indent + f"<{tag.name}"
             for k, v in tag.attrs.items():
+                if isinstance(v, list):
+                    v = " ".join(v)
                 result += f' {k}="{v}"'
-            result += '>\n'
+
+            # Implementation of self-closing tags
+            self_closing = {
+                "br",
+                "img",
+                "input",
+                "hr",
+                "meta",
+                "link",
+                "base",
+                "area",
+                "col",
+                "embed",
+                "keygen",
+                "source",
+                "track",
+                "wbr",
+            }
+
+            if tag.name.lower() in self_closing and not tag.contents:
+                result += " />\n"
+                return result
+
+            result += ">\n"
 
             for content in tag.contents:
                 if isinstance(content, Tag):
                     result += _prettify(content, indent + 2)
+                elif isinstance(content, NavigableString):
+                    if content.strip():
+                        result += " " * (indent + 2) + str(content) + "\n"
                 else:
-                    result += ' ' * (indent + 2) + str(content) + '\n'
+                    if str(content).strip():
+                        result += " " * (indent + 2) + str(content) + "\n"
 
-            result += ' ' * indent + f'</{tag.name}>\n'
+            result += " " * indent + f"</{tag.name}>\n"
             return result
 
         return _prettify(self)

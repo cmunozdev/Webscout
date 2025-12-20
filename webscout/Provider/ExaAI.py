@@ -6,7 +6,7 @@ import re
 
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
+from webscout.AIutel import AwesomePrompts, sanitize_stream
 from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent
@@ -168,23 +168,32 @@ class ExaAI(Provider):
                 )
             
             streaming_response = ""
-            for line in response.iter_lines(decode_unicode=True):
-                if line:
-                    match = re.search(r'0:"(.*?)"', line)
-                    if match:
-                        content = match.group(1)
-                        streaming_response += content
-                        yield content if raw else dict(text=content)
-            
-            self.last_response.update(dict(text=streaming_response))
-            self.conversation.update_chat_history(
-                prompt, self.get_message(self.last_response)
+            # Use sanitize_stream with extract_regexes for Exa AI format
+            processed_stream = sanitize_stream(
+                data=response.iter_lines(decode_unicode=True),
+                intro_value=None,
+                to_json=False,
+                extract_regexes=[r'0:"(.*?)"'],
+                yield_raw_on_error=False,
+                raw=raw
             )
+            
+            for content in processed_stream:
+                if content:
+                    if raw:
+                        yield content
+                    else:
+                        if isinstance(content, str):
+                            streaming_response += content
+                            yield dict(text=content)
+            
+            self.last_response = {"text": streaming_response}
+            self.conversation.update_chat_history(prompt, streaming_response)
 
         def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response
+            return self.last_response if not raw else json.dumps(self.last_response)
 
         return for_stream() if stream else for_non_stream()
 
@@ -194,6 +203,7 @@ class ExaAI(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
+        raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the ExaAI API.
@@ -203,6 +213,7 @@ class ExaAI(Provider):
             stream (bool): Whether to stream the response.
             optimizer (str): Optimizer to use for the prompt.
             conversationally (bool): Whether to generate the prompt conversationally.
+            raw (bool): Return raw response chunks.
 
         Returns:
             Union[str, Generator[str, None, None]]: The API response as a string or a generator of string chunks.
@@ -216,19 +227,24 @@ class ExaAI(Provider):
 
         def for_stream():
             for response in self.ask(
-                prompt, True, optimizer=optimizer, conversationally=conversationally
+                prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally
             ):
-                yield self.get_message(response)
+                if raw:
+                    yield response
+                else:
+                    yield self.get_message(response)
 
         def for_non_stream():
-            return self.get_message(
-                self.ask(
-                    prompt,
-                    False,
-                    optimizer=optimizer,
-                    conversationally=conversationally,
-                )
+            result = self.ask(
+                prompt,
+                False,
+                raw=raw,
+                optimizer=optimizer,
+                conversationally=conversationally,
             )
+            if raw:
+                return result
+            return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

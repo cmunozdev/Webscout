@@ -101,7 +101,10 @@ class Completions(BaseCompletions):
                             break
                         try:
                             data = json.loads(json_str)
-                            choice_data = data.get('choices', [{}])[0]
+                            choices = data.get('choices')
+                            if not choices and choices is not None:
+                                continue
+                            choice_data = choices[0] if choices else {}
                             delta_data = choice_data.get('delta', {})
                             finish_reason = choice_data.get('finish_reason')
 
@@ -244,7 +247,10 @@ class oivscode(OpenAICompatibleProvider):
         self.headers["userid"] = self.userid
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
-        self.AVAILABLE_MODELS = list(set(m for models in self.fetch_available_models().values() for m in models if m))
+        self.AVAILABLE_MODELS = ["gpt-4o-mini", "gpt-4o", "claude-3-5-sonnet", "gemini-1.5-flash"]
+        fetched = self.fetch_available_models()
+        if fetched:
+             self.AVAILABLE_MODELS = list(set(self.AVAILABLE_MODELS + [m for models in fetched.values() for m in models if m]))
 
     def fetch_available_models(self):
         endpoints = self.api_endpoints.copy()

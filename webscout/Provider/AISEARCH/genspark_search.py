@@ -4,10 +4,12 @@ import json
 from typing import TypedDict, List, Iterator, cast, Dict, Optional, Union, Any
 import requests
 import sys
+import re
 
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
 from webscout.litagent import LitAgent
+from webscout.sanitize import sanitize_stream
 
 
 class SourceDict(TypedDict, total=False):
@@ -40,8 +42,7 @@ class Genspark(AISearch):
     """
     Strongly typed Genspark AI search API client.
     
-    Updated to filter output to strictly return the AI's textual response, 
-    filtering out status updates and metadata events unless raw=True.
+    Updated to handle Unicode more gracefully and support more result fields.
     """
 
     session: cloudscraper.CloudScraper
@@ -52,7 +53,7 @@ class Genspark(AISearch):
     log_raw_events: bool
     headers: Dict[str, str]
     cookies: Dict[str, str]
-    last_SearchResponse: Union[SearchResponse, Dict[str, Any], List[Any], None] # type: ignore[assignment]
+    last_response: Union[SearchResponse, str, List[Any], None] # type: ignore[assignment]
     search_query_details: Dict[str, Any]
     status_updates: List[StatusUpdateDict]
     final_search_results: Optional[List[Any]]
@@ -88,9 +89,9 @@ class Genspark(AISearch):
             "Sec-CH-UA": '"Chromium";v="128", "Not;A=Brand";v="24", "Microsoft Edge";v="128"',
             "Sec-CH-UA-Mobile": "?0",
             "Sec-CH-UA-Platform": '"Windows"',
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
+            "sec-fetch-dest": "empty",
+            "sec-fetch-mode": "cors",
+            "sec-fetch-site": "same-origin",
             "User-Agent": LitAgent().random(),
         }
         self.cookies = {
@@ -100,7 +101,7 @@ class Genspark(AISearch):
         }
         self.session.headers.update(self.headers)
         self.session.proxies = proxies or {}
-        self.last_SearchResponse = None
+        self.last_response = None
         self._reset_search_data()
 
     def _reset_search_data(self) -> None:
@@ -154,83 +155,79 @@ class Genspark(AISearch):
                         raise exceptions.APIConnectionError(
                             f"Failed to generate SearchResponse - ({resp.status_code}, {resp.reason}) - {resp.text}"
                         )
-                    for line in resp.iter_lines(decode_unicode=True):
-                        if not line or not line.startswith("data: "):
-                            continue
-                        try:
-                            data = json.loads(line[6:])
-                            if self.log_raw_events:
-                                self.raw_events_log.append(data)
-                            
-                            event_type = data.get("type")
-                            field_name = data.get("field_name")
-                            result_id = data.get("result_id")
-                            
-                            # ---------------------------------------------------------
-                            # Internal State Population (Sources, Status, PAA)
-                            # ---------------------------------------------------------
-                            if event_type == "result_start":
-                                self.result_summary[result_id] = cast(ResultSummaryDict, {
-                                    "source": data.get("result_source"),
-                                    "rel_score": data.get("result_rel_score"),
-                                    "score": data.get("result_score"),
-                                    "llm_id": data.get("llm_id"),
-                                    "cogen_name": data.get("cogen", {}).get("name"),
-                                })
-                            elif event_type == "classify_query_result":
-                                self.search_query_details["classification"] = data.get("classify_query_result")
-                            elif event_type == "result_field":
-                                field_value = data.get("field_value")
-                                if field_name == "search_query":
-                                    self.search_query_details["query_string"] = field_value
-                                elif field_name == "thinking":
-                                    self.status_updates.append({"type": "thinking", "message": field_value})
-                                elif field_name == "search_status_top_bar_data":
-                                    self.status_updates.append({"type": "status_top_bar", "data": field_value})
-                                    if isinstance(field_value, dict) and field_value.get("status") == "finished":
-                                        self.final_search_results = field_value.get("search_results")
-                                        if field_value.get("search_plan"):
-                                            self.search_query_details["search_plan"] = field_value.get("search_plan")
-                                elif field_name == "search_source_top_bar_data":
-                                    if isinstance(field_value, list):
-                                        for source in field_value:
-                                            if isinstance(source, dict) and source.get("url") and source.get("url") not in self._seen_source_urls:
-                                                self.sources_used.append(cast(SourceDict, source))
-                                                self._seen_source_urls.add(source.get("url"))
-                            elif event_type == "result_end":
-                                if result_id in self.result_summary:
-                                    self.result_summary[result_id]["ended"] = True
-                                search_result_data = data.get("search_result")
-                                if search_result_data and isinstance(search_result_data, dict):
-                                    if search_result_data.get("source") == "people_also_ask" and "people_also_ask" in search_result_data:
-                                        paa_list = search_result_data["people_also_ask"]
-                                        if isinstance(paa_list, list):
-                                            for paa_item in paa_list:
-                                                if isinstance(paa_item, dict) and paa_item.get("question") not in self._seen_paa_questions:
-                                                    self.people_also_ask.append(cast(PeopleAlsoAskDict, paa_item))
-                                                    self._seen_paa_questions.add(paa_item.get("question"))
-                                    elif search_result_data.get("source") == "agents_guide" and "agents_guide" in search_result_data:
-                                        self.agents_guide = search_result_data["agents_guide"]
+                def _extract_genspark_content(data: dict) -> Optional[str]:
+                    event_type = data.get("type")
+                    field_name = data.get("field_name")
+                    result_id = data.get("result_id")
+                    
+                    # Internal State Updates
+                    if event_type == "result_start":
+                        self.result_summary[result_id] = cast(ResultSummaryDict, {
+                            "source": data.get("result_source"),
+                            "rel_score": data.get("result_rel_score"),
+                            "score": data.get("result_score"),
+                            "llm_id": data.get("llm_id"),
+                            "cogen_name": data.get("cogen", {}).get("name"),
+                        })
+                    elif event_type == "classify_query_result":
+                        self.search_query_details["classification"] = data.get("classify_query_result")
+                    elif event_type == "result_field":
+                        field_value = data.get("field_value")
+                        if field_name == "search_query":
+                            self.search_query_details["query_string"] = field_value
+                        elif field_name == "thinking":
+                            self.status_updates.append({"type": "thinking", "message": field_value})
+                        elif field_name == "search_status_top_bar_data":
+                            self.status_updates.append({"type": "status_top_bar", "data": field_value})
+                            if isinstance(field_value, dict) and field_value.get("status") == "finished":
+                                self.final_search_results = field_value.get("search_results")
+                                if field_value.get("search_plan"):
+                                    self.search_query_details["search_plan"] = field_value.get("search_plan")
+                        elif field_name == "search_source_top_bar_data":
+                            if isinstance(field_value, list):
+                                for source in field_value:
+                                    if isinstance(source, dict) and source.get("url") and source.get("url") not in self._seen_source_urls:
+                                        self.sources_used.append(cast(SourceDict, source))
+                                        self._seen_source_urls.add(source.get("url") )
+                    elif event_type == "result_end":
+                        if result_id in self.result_summary:
+                            self.result_summary[result_id]["ended"] = True
+                        search_result_data = data.get("search_result")
+                        if search_result_data and isinstance(search_result_data, dict):
+                            if search_result_data.get("source") == "people_also_ask" and "people_also_ask" in search_result_data:
+                                paa_list = search_result_data["people_also_ask"]
+                                if isinstance(paa_list, list):
+                                    for paa_item in paa_list:
+                                        if isinstance(paa_item, dict) and paa_item.get("question") not in self._seen_paa_questions:
+                                            self.people_also_ask.append(cast(PeopleAlsoAskDict, paa_item))
+                                            self._seen_paa_questions.add(paa_item.get("question") )
+                            elif search_result_data.get("source") == "agents_guide" and "agents_guide" in search_result_data:
+                                self.agents_guide = search_result_data["agents_guide"]
 
-                            # ---------------------------------------------------------
-                            # Output Logic
-                            # ---------------------------------------------------------
-                            if raw:
-                                yield data
-                            else:
+                    # Content extraction
+                    if event_type == "result_field_delta" and field_name:
+                        if (
+                            field_name.startswith("streaming_detail_answer") or 
+                            field_name.startswith("streaming_simple_answer") or
+                            field_name == "answer" or
+                            field_name == "content"
+                        ):
+                            return data.get("delta", "")
+                    return None
 
-                                if event_type == "result_field_delta" and field_name and (
-                                    field_name.startswith("streaming_detail_answer") or 
-                                    field_name.startswith("streaming_simple_answer")
-                                ):
-                                    delta_text = data.get("delta", "")
-                                    # Optional: Remove citation markers like [1], [2] if preferred
-                                    # delta_text = re.sub(r"\[.*?\]\(.*?\)", "", delta_text)
-                                    if delta_text:
-                                        yield SearchResponse(delta_text)
-
-                        except json.JSONDecodeError:
-                            continue
+                processed_stream = sanitize_stream(
+                    data=resp.iter_content(chunk_size=self.stream_chunk_size),
+                    to_json=True,
+                    extract_regexes=[r"data:\s*({.*})"],
+                    content_extractor=lambda chunk: _extract_genspark_content(chunk),
+                    yield_raw_on_error=False,
+                    line_delimiter="\n",
+                    raw=raw,
+                    output_formatter=None if raw else lambda x: SearchResponse(x) if isinstance(x, str) else x,
+                )
+                
+                for item in processed_stream:
+                    yield item
             except CloudflareException as e:
                 raise exceptions.APIConnectionError(f"Request failed due to Cloudscraper issue: {e}")
             except RequestException as e:
@@ -251,26 +248,32 @@ class Genspark(AISearch):
                         full_SearchResponse_text += str(item)
             
             if raw:
-                self.last_SearchResponse = {"raw_events": all_raw_events_for_this_search}
-                return all_raw_events_for_this_search
+                full_raw = "".join(str(item) for item in all_raw_events_for_this_search)
+                self.last_response = full_raw
+                return full_raw
             else:
-                final_text_SearchResponse = SearchResponse(full_SearchResponse_text)
-                self.last_SearchResponse = final_text_SearchResponse
-                return final_text_SearchResponse
+                # Basic Unicode sanitization for the final response
+                final_text_response = SearchResponse(full_SearchResponse_text)
+                self.last_response = final_text_response
+                return final_text_response
 
 if __name__ == "__main__":
     ai = Genspark()
     try:
-
         search_result_stream = ai.search("liger-kernal details", stream=True, raw=False)
         
         for chunk in search_result_stream:
             try:
-                print(chunk, end="", flush=True)
+                # Use a more robust way to print Unicode characters on Windows
+                text = str(chunk)
+                sys.stdout.write(text)
+                sys.stdout.flush()
             except UnicodeEncodeError:
-                # Fallback for Windows consoles
-                safe_chunk = str(chunk).encode(sys.stdout.encoding or 'utf-8', errors='replace').decode(sys.stdout.encoding or 'utf-8')
-                print(safe_chunk, end="", flush=True)
+                # Fallback for Windows consoles that don't support UTF-8
+                safe_chunk = str(chunk).encode('ascii', errors='replace').decode('ascii')
+                sys.stdout.write(safe_chunk)
+                sys.stdout.flush()
+        print()
 
     except KeyboardInterrupt:
         print("\nSearch interrupted by user.")

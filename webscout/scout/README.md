@@ -5,7 +5,7 @@
 
 ## 📋 Overview
 
-Scout is an ultra-powerful, enterprise-grade HTML parsing and web crawling library designed for the AI era. Built with LLM data collection in mind, Scout provides unparalleled capabilities for extracting, analyzing, and processing web content at scale. With its BeautifulSoup-compatible API enhanced with modern features, Scout is the go-to solution for serious web scraping projects.
+Scout is an ultra-powerful, enterprise-grade HTML parsing and web crawling library designed for the AI era. Built with LLM data collection in mind, Scout provides unparalleled capabilities for extracting, analyzing, and processing web content at scale. With its BS4-compatible API enhanced with modern features, Scout is the go-to solution for serious web scraping projects.
 
 <details open>
 <summary><b>🌟 Why Scout is the Ultimate Choice</b></summary>
@@ -18,7 +18,7 @@ Scout is an ultra-powerful, enterprise-grade HTML parsing and web crawling libra
 - **🛡️ Enterprise-Ready**: Robust error handling, retry mechanisms, and respect for robots.txt
 - **📊 Rich Data Extraction**: Captures metadata, structured data, semantic content, and more
 - **🔄 Format Flexibility**: Export to JSON, Markdown, CSV, or custom formats
-- **🎨 BeautifulSoup++ API**: Familiar interface with 10x more features
+- **🎨 BS4++ API**: Familiar interface with 10x more features
 
 </details>
 

@@ -1,118 +1,255 @@
 import importlib.metadata
+import os
+import sys
+import time
+import tempfile
+from pathlib import Path
 from typing import Optional, Dict, Any, Literal
 import requests
 from packaging import version
 
+# Try to import rich for better UI
+try:
+    from rich.console import Console
+    from rich.panel import Panel
+    from rich.text import Text
+    HAS_RICH = True
+except ImportError:
+    HAS_RICH = False
+
 # Constants
 PYPI_URL = "https://pypi.org/pypi/webscout/json"
 YOUTUBE_URL = "https://youtube.com/@OEvortex"
+GITHUB_URL = "https://github.com/OEvortex/Webscout"
+CACHE_FILE = Path(tempfile.gettempdir()) / "webscout_update_check.cache"
 
 # Create a session for HTTP requests
 session = requests.Session()
 
-# Version comparison result type
-VersionCompareResult = Literal[-1, 0, 1]
-
-def get_package_version(package_name: str) -> Optional[str]:
-    """Get the installed version of a package by name."""
+def get_installed_version() -> str:
+    """Get the currently installed version of webscout."""
+    # 1. Try to get version from the package itself (handles local dev)
     try:
-        return importlib.metadata.version(package_name)
+        # If we are being imported as 'webscout.update_checker'
+        from .version import __version__
+        return __version__
+    except (ImportError, ValueError):
+        try:
+            # If we are running as a script inside webscout/
+            import version
+            if hasattr(version, '__version__'):
+                return version.__version__
+        except (ImportError, AttributeError):
+            pass
+
+    # 2. Try to import as a top-level package
+    try:
+        import webscout.version
+        return webscout.version.__version__
+    except (ImportError, AttributeError):
+        pass
+
+    # 3. Fallback to metadata (metadata often lags in dev environments)
+    try:
+        return importlib.metadata.version('webscout')
     except importlib.metadata.PackageNotFoundError:
-        return None
+        return "0.0.0"
 
-def get_installed_version() -> Optional[str]:
-    """Get the currently installed version of webscout.
-
-    Returns:
-        Optional[str]: The installed version string or None if not found
-
-    Examples:
-        >>> version = get_installed_version()
-        >>> print(version)
-        '1.2.3'
-    """
-    return get_package_version('webscout')
-
-def get_pypi_version() -> Optional[str]:
-    """Get the latest version available on PyPI.
-
-    Returns:
-        Optional[str]: The latest version string or None if retrieval failed
-
-    Examples:
-        >>> latest = get_pypi_version()
-        >>> print(latest)
-        '2.0.0'
-    """
+def get_pypi_versions() -> Dict[str, Optional[str]]:
+    """Get stable and latest versions from PyPI."""
     try:
-        response = session.get(PYPI_URL, timeout=10)
+        response = session.get(PYPI_URL, timeout=3) # Faster timeout
         response.raise_for_status()
-        data: Dict[str, Any] = response.json()
-        return data.get('info', {}).get('version')
-    except (requests.RequestException, KeyError, ValueError):
+        data = response.json()
+        
+        stable = data.get('info', {}).get('version')
+        
+        releases = data.get('releases', {}).keys()
+        parsed_versions = []
+        for v in releases:
+            try:
+                parsed_versions.append(version.parse(v))
+            except:
+                continue
+        
+        all_versions = sorted(parsed_versions)
+        latest = str(all_versions[-1]) if all_versions else stable
+        
+        return {"stable": stable, "latest": latest}
+    except Exception:
+        return {"stable": None, "latest": None}
+
+def should_check(force: bool = False) -> bool:
+    """Check if we should perform an update check based on cache."""
+    if os.environ.get("WEBSCOUT_NO_UPDATE"):
+        return False
+    
+    if force:
+        return True
+    
+    try:
+        if not CACHE_FILE.exists():
+            return True
+        
+        last_check = float(CACHE_FILE.read_text().strip())
+        # Check every 12 hours
+        if time.time() - last_check > 43200:
+            return True
+    except:
+        return True
+    return False
+
+def mark_checked():
+    """Mark the current time as the last update check."""
+    try:
+        CACHE_FILE.write_text(str(time.time()))
+    except:
+        pass
+
+def is_venv() -> bool:
+    """Check if we are running inside a virtual environment."""
+    return (
+        hasattr(sys, 'real_prefix') or
+        (hasattr(sys, 'base_prefix') and sys.base_prefix != sys.prefix)
+    )
+
+def get_env_name() -> str:
+    """Get the name of the current environment."""
+    if is_venv():
+        return os.path.basename(sys.prefix)
+    return "Global"
+
+def format_update_message(current: str, new: str, utype: str) -> str:
+    """Format the update message with colors and style."""
+    cmd = "pip install -U webscout"
+    if utype == "Pre-release" or version.parse(new).is_prerelease:
+        cmd = "pip install -U --pre webscout"
+        
+    if HAS_RICH:
+        from io import StringIO
+        capture = StringIO()
+        console = Console(file=capture, force_terminal=True, width=80)
+        
+        content = Text.assemble(
+            ("A new ", "white"),
+            (f"{utype} ", "bold yellow" if utype == "Pre-release" else "bold green"),
+            ("version of Webscout is available!\n\n", "white"),
+            ("Current:     ", "white"), (f"{current}", "bold red"), ("\n", ""),
+            ("Latest:      ", "white"), (f"{new}", "bold green"), ("\n\n", ""),
+            ("To update, run: ", "white"), (f"{cmd}", "bold cyan"), ("\n\n", ""),
+            (f"Subscribe to my YouTube: ", "dim"), (f"{YOUTUBE_URL}", "dim cyan"), ("\n", ""),
+            (f"Star on GitHub: ", "dim"), (f"{GITHUB_URL}", "dim cyan")
+        )
+        
+        panel = Panel(
+            content,
+            title=f"[bold magenta]Update Available[/bold magenta]",
+            border_style="bright_blue",
+            expand=False,
+            padding=(1, 2)
+        )
+        console.print(panel)
+        return capture.getvalue()
+    else:
+        return (
+            f"\n\033[1;36m[ Webscout Update ]\033[0m\n"
+            f"New {utype} version available: \033[1;32m{new}\033[0m (Current: \033[1;31m{current}\033[0m)\n"
+            f"Run: \033[1;33m{cmd}\033[0m to update.\n"
+            f"\033[1;32mYouTube: {YOUTUBE_URL}\033[0m\n"
+        )
+
+def format_dev_message(current: str, latest: str) -> str:
+    """Format the message for development versions."""
+    if HAS_RICH:
+        from io import StringIO
+        capture = StringIO()
+        console = Console(file=capture, force_terminal=True, width=80)
+        
+        content = Text.assemble(
+            ("You are running a ", "white"),
+            ("Development Version", "bold yellow"),
+            ("\n\nLocal Version: ", "white"), (f"{current}", "bold cyan"), ("\n", ""),
+            ("Latest PyPI:   ", "white"), (f"{latest}", "bold green"), ("\n\n", ""),
+            (f"YouTube: ", "dim"), (f"{YOUTUBE_URL}", "dim cyan")
+        )
+        
+        panel = Panel(
+            content,
+            title="[bold blue]Webscout Dev Mode[/bold blue]",
+            border_style="yellow",
+            expand=False,
+            padding=(1, 2)
+        )
+        console.print(panel)
+        return capture.getvalue()
+    else:
+        return (
+            f"\n\033[1;33m[ Webscout Info ]\033[0m\n"
+            f"You're running a development version (\033[1;36m{current}\033[0m)\n"
+            f"Latest stable release: \033[1;32m{latest}\033[0m\n"
+            f"\033[1;32mYouTube: {YOUTUBE_URL}\033[0m\n"
+        )
+
+def check_for_updates(force: bool = False) -> Optional[str]:
+    """
+    Check if a newer version of Webscout is available.
+    
+    Args:
+        force (bool): If True, ignore cache and force check.
+        
+    Returns:
+        Optional[str]: Formatted update message or None.
+    """
+    # Don't check if not in a terminal (unless forced)
+    if not sys.stdout.isatty() and not force:
         return None
 
-def version_compare(v1: str, v2: str) -> VersionCompareResult:
-    """Compare two version strings.
+    if not should_check(force):
+        return None
 
-    Returns:
-        -1 if v1 < v2, 1 if v1 > v2, 0 if equal or invalid
-
-    Examples:
-        >>> version_compare('1.0.0', '2.0.0')
-        -1
-    """
     try:
-        version1 = version.parse(v1)
-        version2 = version.parse(v2)
-        if version1 < version2:
-            return -1
-        if version1 > version2:
-            return 1
-        return 0
+        installed_str = get_installed_version()
+        installed_v = version.parse(installed_str)
+        
+        pypi = get_pypi_versions()
+        mark_checked() # Mark even if it fails or no update, to avoid constant hitting
+        
+        if not pypi['stable']:
+            return None
+            
+        latest_stable_str = pypi['stable']
+        latest_stable_v = version.parse(latest_stable_str)
+        
+        latest_any_str = pypi['latest']
+        latest_any_v = version.parse(latest_any_str)
+        
+        # Decide what to recommend
+        is_prerelease = installed_v.is_prerelease
+        
+        if is_prerelease:
+            # User is on pre-release, they should know about ANY newer version
+            if installed_v < latest_any_v:
+                utype = "Pre-release" if latest_any_v.is_prerelease else "Stable"
+                return format_update_message(installed_str, latest_any_str, utype)
+            elif installed_v > latest_any_v:
+                # User is on a newer pre-release than what's on PyPI
+                return format_dev_message(installed_str, latest_any_str)
+        else:
+            # User is on stable
+            if installed_v < latest_stable_v:
+                return format_update_message(installed_str, latest_stable_str, "Stable")
+            elif installed_v > latest_stable_v:
+                # User is on a newer version (maybe a local build or unreleased stable)
+                return format_dev_message(installed_str, latest_stable_str)
+
     except Exception:
-        return 0
-
-def get_update_message(installed: str, latest: str) -> str:
-    """Generate appropriate update message based on version comparison."""
-    comparison_result = version_compare(installed, latest)
-    youtube_msg = f'\033[1;32mSubscribe to my YouTube Channel: {YOUTUBE_URL}\033[0m'
-    if comparison_result < 0:
-        # Bold red for update available
-        return (
-            f"\033[1;31mNew Webscout version available: {latest} "
-            f"- Update with: pip install --upgrade webscout\033[0m\n{youtube_msg}"
-        )
-    elif comparison_result > 0:
-        # Bold yellow for dev version
-        return (
-            f"\033[1;33mYou're running a development version ({installed}) "
-            f"ahead of latest release ({latest})\033[0m\n{youtube_msg}"
-        )
-    # Bold green for up-to-date
-
-def check_for_updates() -> Optional[str]:
-    """Check if a newer version of Webscout is available.
-
-    Returns:
-        Optional[str]: Update message if newer version exists, None otherwise
-    """
-    installed_version = get_installed_version()
-    if not installed_version:
-        return "\033[1;31mWebscout is not installed.\033[0m"
-
-    latest_version = get_pypi_version()
-    if not latest_version:
-        return "\033[1;31mCould not retrieve latest version from PyPI.\033[0m"
-
-    return get_update_message(installed_version, latest_version)
+        pass # Be silent on errors during auto-check
+        
+    return None
 
 if __name__ == "__main__":
-    try:
-        update_message = check_for_updates()
-        if update_message:
-            print(update_message)
-    except KeyboardInterrupt:
-        print("\nUpdate check canceled by user.")
-    except Exception as e:
-        print(f"\033[1;31mUpdate check failed: {str(e)}\033[0m")
+    msg = check_for_updates(force=True)
+    if msg:
+        print(msg)
+    else:
+        print("Webscout is up to date!")

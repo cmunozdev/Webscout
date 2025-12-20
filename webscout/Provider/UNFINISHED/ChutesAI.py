@@ -139,7 +139,10 @@ class Completions(BaseCompletions):
                             break
                         try:
                             data = json.loads(json_str)
-                            choice_data = data.get('choices', [{}])[0]
+                            choices = data.get('choices')
+                            if not choices and choices is not None:
+                                continue
+                            choice_data = choices[0] if choices else {}
                             delta_data = choice_data.get('delta', {})
                             finish_reason = choice_data.get('finish_reason')
 

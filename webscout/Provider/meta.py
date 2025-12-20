@@ -12,11 +12,14 @@ from webscout.scout import Scout
 from webscout.AIutel import Optimizers
 from webscout.AIutel import Conversation
 from webscout.AIutel import AwesomePrompts
+from webscout.AIutel import retry
 from webscout.AIbase import Provider
 from webscout import exceptions
 from webscout.litagent import LitAgent as Lit
 from litprinter import ic
 MAX_RETRIES = 3
+HTTP2_STREAM_ERRORS = [92, 18, 7, 35, 36]  # Common curl HTTP/2 stream errors
+
 
 def generate_offline_threading_id() -> str:
     """
@@ -60,10 +63,16 @@ def extract_value(text: str, start_str: str, end_str: str) -> str:
         end_str (str): The ending key.
 
     Returns:
-        str: The extracted value.
+        str: The extracted value or empty string if not found.
     """
-    start = text.find(start_str) + len(start_str)
+    start_idx = text.find(start_str)
+    if start_idx == -1:
+        return ""
+    start = start_idx + len(start_str)
     end = text.find(end_str, start)
+    if end == -1:
+        # If end not found, return rest of string (but caller should validate)
+        return text[start:]
     return text[start:end]
 
 
@@ -314,6 +323,7 @@ class Meta(Provider):
         proxies: dict = {},
         history_offset: int = 10250,
         act: str = None,
+        skip_init: bool = False,
     ):
         """
         Initializes the Meta AI API with given parameters.
@@ -338,6 +348,34 @@ class Meta(Provider):
                 "user-agent": Lit().random(),
             }
         )
+        
+        # Configure session for better HTTP/2 handling
+        self.session.timeout = timeout
+        self.session.curl_options.update({
+            # Increase connection timeout for slow networks
+            155: 60,  # CURLOPT_CONNECTTIMEOUT
+            # Increase total timeout
+            13: max(30, timeout * 2),  # CURLOPT_TIMEOUT
+            # Enable TCP keep-alive to maintain connections
+            213: 60,  # CURLOPT_TCP_KEEPALIVE
+            214: 30,  # CURLOPT_TCP_KEEPIDLE
+            215: 10,  # CURLOPT_TCP_KEEPINTVL
+            # Disable SSL verification issues
+            64: 0,   # CURLOPT_SSL_VERIFYPEER
+            81: 0,   # CURLOPT_SSL_VERIFYHOST
+        })
+        
+        # Create a backup session for fallback
+        self.backup_session = Session()
+        self.backup_session.headers.update({"user-agent": Lit().random()})
+        self.backup_session.curl_options.update(self.session.curl_options)
+        
+        # Add HTTP/2 error tracking
+        self.http2_error_count = 0
+        self.max_http2_errors = 3
+        self.last_successful_request = time.time()
+        self.retry_count = 0
+        
         self.access_token = None
         self.fb_email = fb_email
         self.fb_password = fb_password
@@ -351,7 +389,9 @@ class Meta(Provider):
         self.timeout = timeout
         self.last_response = {}
         self.is_authed = fb_password is not None and fb_email is not None
-        self.cookies = self.get_cookies()
+        # For testing or offline environments, allow skipping the initial cookie fetch
+        self.skip_init = skip_init
+        self.cookies = {} if skip_init else self.get_cookies()
         self.external_conversation_id = None
         self.offline_threading_id = None
 
@@ -372,6 +412,11 @@ class Meta(Provider):
         )
         self.conversation.history_offset = history_offset
         self.session.proxies = proxies
+        # If skip_init was True we won't have cookies yet — some methods will fetch them lazily
+        if self.skip_init:
+            ic.configureOutput(prefix='WARNING| ');
+            ic('Meta initialized in skip_init mode: cookies not fetched. Some operations will fail until cookies are obtained.')
+
 
     def check_proxy(self, test_url: str = "https://api.ipify.org/?format=json") -> bool:
         """
@@ -392,9 +437,11 @@ class Meta(Provider):
         except CurlError:
             return False
 
+    @retry(retries=3, delay=2.0)
     def get_access_token(self) -> str:
         """
         Retrieves an access token using Meta's authentication API.
+        Handles HTTP/2 errors with fallback strategies.
 
         Returns:
             str: A valid access token.
@@ -416,15 +463,46 @@ class Meta(Provider):
             "doc_id": "7604648749596940",
         }
         payload = urllib.parse.urlencode(payload)  # noqa
+        # Build cookie header safely - avoid inserting None values
+        cookie_parts = []
+        if self.cookies.get("_js_datr"):
+            cookie_parts.append(f"_js_datr={self.cookies.get('_js_datr')}")
+        if self.cookies.get("abra_csrf"):
+            cookie_parts.append(f"abra_csrf={self.cookies.get('abra_csrf')}")
+        if self.cookies.get("datr"):
+            cookie_parts.append(f"datr={self.cookies.get('datr')}")
+
         headers = {
             "content-type": "application/x-www-form-urlencoded",
-            "cookie": f'_js_datr={self.cookies["_js_datr"]}; '
-            f'abra_csrf={self.cookies["abra_csrf"]}; datr={self.cookies["datr"]};',
+            "cookie": "; ".join(cookie_parts),
             "sec-fetch-site": "same-origin",
             "x-fb-friendly-name": "useAbraAcceptTOSForTempUserMutation",
         }
 
-        response = self.session.post(url, headers=headers, data=payload)
+        # Try once with the normal session
+        try:
+            response = self.session.post(url, headers=headers, data=payload, timeout=self.timeout)
+        except Exception as e:
+            # Some Curl errors are wrapped in requests.HTTPError from curl_cffi; inspect message
+            err_str = str(e)
+            if 'HTTP/2 stream' in err_str or 'stream' in err_str:
+                ic.configureOutput(prefix='WARNING| ');
+                ic(f"Detected HTTP/2 stream issue when getting access token: {err_str}. Attempting HTTP/1.1 fallback via requests")
+                try:
+                    import requests
+                    resp = requests.post(url, headers=headers, data=payload, timeout=self.timeout, verify=False)
+                    response = type('Resp', (), {})()
+                    response.status_code = resp.status_code
+                    response.text = resp.text
+                    response.json = resp.json
+                except Exception as e2:
+                    raise exceptions.FailedToGenerateResponseError(
+                        f"Failed to get access token after HTTP/1.1 fallback: {e2}"
+                    )
+            else:
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Failed to get access token: {e}"
+                )
 
         try:
             auth_json = response.json()
@@ -444,6 +522,7 @@ class Meta(Provider):
 
         return access_token
 
+    @retry(retries=3, delay=2.0)
     def ask(
         self,
         prompt: str,
@@ -476,11 +555,16 @@ class Meta(Provider):
                 )
 
         if not self.is_authed:
+            # Lazily obtain access token/cookies if skip_init was used
+            if not self.cookies:
+                self.cookies = self.get_cookies()
             self.access_token = self.get_access_token()
             auth_payload = {"access_token": self.access_token}
             url = "https://graph.meta.ai/graphql?locale=user"
 
         else:
+            if not self.cookies:
+                self.cookies = self.get_cookies()
             auth_payload = {"fb_dtsg": self.cookies["fb_dtsg"]}
             url = "https://www.meta.ai/api/graphql/"
 
@@ -523,40 +607,108 @@ class Meta(Provider):
         if stream:
 
             def for_stream():
-                response = self.session.post(
-                    url, headers=headers, data=payload, stream=True, timeout=self.timeout
-                )
-                if not response.ok:
-                    raise exceptions.FailedToGenerateResponseError(
-                        f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
-                    )
+                try:
+                    try:
+                        response = self.session.post(
+                            url, headers=headers, data=payload, stream=True, timeout=self.timeout
+                        )
+                    except CurlError as e:
+                        # Try HTTP/1.1 fallback once
+                        if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
+                            ic.configureOutput(prefix='WARNING| ');
+                            ic("HTTP/2 stream error on streaming request, attempting HTTP/1.1 fallback")
+                            try:
+                                self.session.curl_options.update({84: 1})  # force HTTP/1.1
+                                response = self.session.post(url, headers=headers, data=payload, stream=True, timeout=self.timeout)
+                            except Exception:
+                                raise
+                        else:
+                            raise
 
-                lines = response.iter_lines()
-                is_error = json.loads(next(lines))
-                if len(is_error.get("errors", [])) > 0:
+                    if not response.ok:
+                        raise exceptions.FailedToGenerateResponseError(
+                            f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
+                        )
+
+                    lines = response.iter_lines()
+                    is_error = json.loads(next(lines))
+                    if len(is_error.get("errors", [])) > 0:
+                        raise exceptions.FailedToGenerateResponseError(
+                            f"Failed to generate response - {response.text}"
+                        )
+                    final_message = None
+                    try:
+                        for line in lines:
+                            if line:
+                                try:
+                                    json_line = json.loads(line)
+                                    extracted_data = self.extract_data(json_line)
+                                    if not extracted_data.get("message"):
+                                        continue
+                                    self.last_response.update(extracted_data)
+                                    final_message = extracted_data  # Always keep the latest
+                                    yield final_message if not raw else json.dumps(final_message)
+                                except json.JSONDecodeError:
+                                    # Skip malformed JSON lines
+                                    continue
+                                except CurlError as e:
+                                    # Handle HTTP/2 stream closure during iteration
+                                    if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
+                                        ic.configureOutput(prefix='WARNING| '); 
+                                        ic(f"HTTP/2 stream closed during iteration (errno: {e.errno})")
+                                        if final_message:
+                                            # Yield the last complete message before the stream closed
+                                            yield final_message if not raw else json.dumps(final_message)
+                                        break
+                                    else:
+                                        raise
+                    except (ConnectionError, TimeoutError) as e:
+                        ic.configureOutput(prefix='WARNING| '); 
+                        ic(f"Connection error during streaming: {e}")
+                        if final_message:
+                            # Yield the last complete message before the connection was lost
+                            yield final_message if not raw else json.dumps(final_message)
+                            self.conversation.update_chat_history(
+                                prompt, self.get_message(self.last_response)
+                            )
+                        return
+                    
+                    if final_message:
+                        self.conversation.update_chat_history(
+                            prompt, self.get_message(self.last_response)
+                        )
+                        
+                except CurlError as e:
+                    if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
+                        raise exceptions.FailedToGenerateResponseError(
+                            f"HTTP/2 stream error in stream mode: {e}"
+                        )
+                    else:
+                        raise
+                except Exception as e:
                     raise exceptions.FailedToGenerateResponseError(
-                        f"Failed to generate response - {response.text}"
-                    )
-                final_message = None
-                for line in lines:
-                    if line:
-                        json_line = json.loads(line)
-                        extracted_data = self.extract_data(json_line)
-                        if not extracted_data.get("message"):
-                            continue
-                        self.last_response.update(extracted_data)
-                        final_message = extracted_data  # Always keep the latest
-                if final_message:
-                    yield final_message if not raw else json.dumps(final_message)
-                    self.conversation.update_chat_history(
-                        prompt, self.get_message(self.last_response)
+                        f"Unexpected error in stream mode: {e}"
                     )
 
             return for_stream()
         else:
-            response = self.session.post(
-                url, headers=headers, data=payload, timeout=self.timeout
-            )
+            try:
+                response = self.session.post(url, headers=headers, data=payload, timeout=self.timeout)
+            except CurlError as e:
+                # Try HTTP/1.1 fallback for non-stream requests
+                if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
+                    ic.configureOutput(prefix='WARNING| ');
+                    ic("HTTP/2 error on non-stream request, attempting HTTP/1.1 fallback")
+                    try:
+                        self.session.curl_options.update({84: 1})  # force HTTP/1.1
+                        response = self.session.post(url, headers=headers, data=payload, timeout=self.timeout)
+                    except Exception as e2:
+                        raise exceptions.FailedToGenerateResponseError(
+                            f"Failed to generate response after HTTP/1.1 fallback: {e2}"
+                        )
+                else:
+                    raise
+
             if not response.ok:
                 raise exceptions.FailedToGenerateResponseError(
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
@@ -708,11 +860,27 @@ class Meta(Provider):
             fb_session = get_fb_session(self.fb_email, self.fb_password, self.proxy)
             headers = {"cookie": f"abra_sess={fb_session['abra_sess']}"}
 
-        response = self.session.get(
-            url="https://www.meta.ai/",
-            headers=headers,
-            proxies=self.proxy,
-        )
+        # Try fetching the page with a few retries in case of transient errors
+        last_response = None
+        for attempt in range(3):
+            try:
+                response = self.session.get(
+                    url="https://www.meta.ai/",
+                    headers=headers,
+                    proxies=self.proxy,
+                    timeout=self.timeout,
+                )
+                last_response = response
+                break
+            except Exception as e:
+                ic.configureOutput(prefix='WARNING| ');
+                ic(f"Attempt {attempt+1} to fetch meta.ai failed: {e}. Retrying...")
+                time.sleep(1 * (2 ** attempt))
+        if last_response is None:
+            raise exceptions.FailedToGenerateResponseError(
+                "Failed to fetch https://www.meta.ai/ after multiple attempts"
+            )
+        response = last_response
 
         cookies = {
             "_js_datr": extract_value(
@@ -728,13 +896,27 @@ class Meta(Provider):
                 response.text, start_str='DTSGInitData",[],{"token":"', end_str='"'
             ),
         }
-
+        # Also check cookie jar for values
+        jar = response.cookies.get_dict()
+        for key in ["_js_datr", "datr", "lsd", "fb_dtsg"]:
+            if not cookies.get(key) and jar.get(key):
+                cookies[key] = jar.get(key)
         if len(headers) > 0:
             cookies["abra_sess"] = fb_session["abra_sess"]
         else:
             cookies["abra_csrf"] = extract_value(
                 response.text, start_str='abra_csrf":{"value":"', end_str='",'
             )
+
+        # Validate extracted cookies - ensure essential ones are present
+        essential = ["_js_datr", "datr", "lsd"]
+        missing = [k for k in essential if not cookies.get(k)]
+        if missing:
+            snippet = (response.text[:500] + '...') if response and hasattr(response, 'text') else ''
+            raise exceptions.FailedToGenerateResponseError(
+                f"Unable to extract necessary cookies from meta.ai page - missing: {missing}. Response may be blocked or returning an error page. Snippet: {snippet}"
+            )
+
         return cookies
 
     def fetch_sources(self, fetch_id: str) -> List[Dict]:
@@ -795,7 +977,16 @@ class Meta(Provider):
         return response["message"]
 
 if __name__ == "__main__":
-    Meta = Meta()
-    ai = Meta.chat("hi")
-    for chunk in ai:
-        print(chunk, end="", flush=True)
+    try:
+        Meta = Meta()
+        ai = Meta.chat("hi")
+        for chunk in ai:
+            print(chunk, end="", flush=True)
+    except exceptions.FailedToGenerateResponseError as e:
+        ic.configureOutput(prefix='ERROR| ');
+        ic(f"Meta provider failed to initialize or run: {e}")
+        ic("Possible causes: network connectivity issues, region blocking, or site returning error pages.")
+        ic("For offline testing, re-run with: Meta(skip_init=True)")
+    except Exception as e:
+        ic.configureOutput(prefix='ERROR| ');
+        ic(f"Unexpected error running meta provider: {e}")

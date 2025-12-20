@@ -146,7 +146,9 @@ def argument(
     type: Any = str,
     required: bool = True,
     help: str = None,
-    default: Any = None
+    default: Any = None,
+    validation: Optional[Dict[str, Any]] = None,
+    mutually_exclusive: Optional[List[str]] = None
 ) -> Callable:
     """
     Decorator to add a command argument.
@@ -159,11 +161,13 @@ def argument(
         required: Whether argument is required
         help: Help text
         default: Default value if not required
+        validation: Dictionary of validation rules (min_length, max_length, pattern, choices, etc.)
+        mutually_exclusive: List of argument names that are mutually exclusive with this argument
         
     Example:
         @command()
-        @argument("name")
-        @argument("count", type=int, default=1)
+        @argument("name", validation={{'min_length': 2, 'max_length': 50}})
+        @argument("count", type=int, default=1, validation={{'min': 1, 'max': 100}})
         def greet(name: str, count: int):
             '''Greet someone multiple times'''
             for _ in range(count):
@@ -178,7 +182,9 @@ def argument(
             'type': type,
             'required': required,
             'help': help,
-            'default': default
+            'default': default,
+            'validation': validation,
+            'mutually_exclusive': mutually_exclusive
         })
         return f
     return decorator

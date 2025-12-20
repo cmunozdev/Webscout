@@ -207,40 +207,34 @@ class K2Think(Provider):
 
         def for_non_stream():
             try:
-                # For non-streaming, we still need to handle the stream format
+                # For non-streaming, we can get the full response
                 response = self.session.post(
                     self.url,
                     data=json.dumps(payload),
-                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"
                 )
                 response.raise_for_status()
 
-                streaming_text = ""
+                data = response.json()
+                # The response is usually a standard OpenAI-like JSON or just has content
+                content = ""
+                if isinstance(data, dict):
+                    if "choices" in data:
+                        content = data["choices"][0].get("message", {}).get("content", "")
+                    else:
+                        content = data.get("content", "")
                 
-                # Use sanitize_stream with extract_regexes
+                # Extract using regex if needed (for reasoning models)
                 import re
-                answer_pattern = r'<answer>([\s\S]*?)<\/answer>'
-                
-                def content_extractor(data):
-                    """Extract 'content' field from JSON object"""
-                    if isinstance(data, dict):
-                        return data.get('content', '')
-                    return None
-                
-                for chunk in sanitize_stream(
-                    response.iter_lines(),
-                    intro_value="data:",
-                    to_json=True,
-                    skip_markers=["[DONE]"],
-                    content_extractor=content_extractor,
-                    extract_regexes=[answer_pattern],
-                    raw=False
-                ):
-                    if chunk:
-                        text = chunk if isinstance(chunk, str) else chunk.get('text', str(chunk))
-                        streaming_text += text
+                answer_match = re.search(r'<answer>([\s\S]*?)<\/answer>', content)
+                if answer_match:
+                    streaming_text = answer_match.group(1)
+                else:
+                    # Strip think tag if present
+                    streaming_text = re.sub(r'<think>[\s\S]*?<\/think>', '', content).strip()
+                    if not streaming_text:
+                        streaming_text = content
 
                 self.last_response = {"text": streaming_text}
                 self.conversation.update_chat_history(prompt, streaming_text)

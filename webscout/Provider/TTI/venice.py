@@ -177,47 +177,31 @@ class Images(BaseImages):
             if seed is None:
                 seed = random.randint(0, 2**32 - 1)
 
-            # Prepare the request payload based on the provided example
+            # Prepare the request payload based on the recent reverse engineering
             payload = {
                 "aspectRatio": aspect_ratio,
-                "cfgScale": cfg_scale,
-                "customSeed": "",
                 "embedExifMetadata": True,
-                "enhanceCreativity": 0.35,
-                "favoriteImageStyles": [],
+                "enableWebSearch": False,
                 "format": "webp",
                 "height": height,
                 "hideWatermark": False,
                 "imageToImageCfgScale": 15,
                 "imageToImageStrength": 33,
-                "isConstrained": True,
-                "isCustomSeed": seed is not None,
-                "isDefault": True,
                 "loraStrength": 75,
                 "matureFilter": True,
-                "negativePrompt": kwargs.get("negative_prompt", ""),
-                "recentImageStyles": [],
-                "replication": 0.35,
-                "steps": steps,
-                "stylePreset": "",
-                "stylesTab": 0,
-                "upscaleEnhance": True,
-                "upscaleScale": 2,
-                "variants": 1,
-                "width": width,
-                "safeVenice": True,
-                "requestId": request_id,
-                "type": "image",
-                "modelId": model,
-                "modelName": self._client.MODEL_NAMES.get(model, "Venice AI"),
-                "modelType": "image",
-                "prompt": prompt,
-                "seed": seed,
                 "messageId": message_id,
-                "userId": user_id,
-                "simpleMode": False,
+                "modelId": model,
+                "negativePrompt": kwargs.get("negative_prompt", ""),
                 "parentMessageId": None,
-                "clientProcessingTime": random.randint(5, 15)
+                "prompt": prompt,
+                "requestId": request_id,
+                "seed": seed,
+                "steps": steps,
+                "stylePreset": "None",
+                "type": "image",
+                "userId": user_id,
+                "variants": 1,
+                "width": width
             }
 
             try:
@@ -279,25 +263,33 @@ class Images(BaseImages):
 class VeniceAI(TTICompatibleProvider):
     """
     Venice AI provider for text-to-image generation.
-    
+
     This provider interfaces with the Venice AI API at outerface.venice.ai
     to generate images from text prompts using various Stable Diffusion models.
     """
-    
+
+    # Provider status
+    required_auth: bool = False  # No authentication required
+    working: bool = True  # Working as of 2025-12-19
+
     AVAILABLE_MODELS = [
+        "z-image-turbo",
         "stable-diffusion-3.5-rev2",
-        "hidream",
+        "stable-diffusion-3.5-large",
         "flux.1-dev-akash",
         "flux.1-dev-uncensored-akash",
-        "pony-realism-akash"
+        "pony-realism-akash",
+        "hidream",
     ]
     
     MODEL_NAMES = {
+        "z-image-turbo": "Z-Image Turbo",
         "stable-diffusion-3.5-rev2": "Venice SD35",
-        "hidream": "HiDream",
+        "stable-diffusion-3.5-large": "SD 3.5 Large",
         "flux.1-dev-akash": "FLUX Standard",
         "flux.1-dev-uncensored-akash": "FLUX Custom",
-        "pony-realism-akash": "Pony Realism"
+        "pony-realism-akash": "Pony Realism",
+        "hidream": "HiDream",
     }
 
     def __init__(self):
@@ -312,12 +304,12 @@ class VeniceAI(TTICompatibleProvider):
         self.headers = {
             "accept": "*/*",
             "accept-encoding": "gzip, deflate, br, zstd",
-            "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
+            "accept-language": "en-US,en;q=0.9",
             "content-type": "application/json",
             "dnt": "1",
             "origin": "https://venice.ai",
             "referer": "https://venice.ai/",
-            "sec-ch-ua": '"Not)A;Brand";v="8", "Chromium";v="138", "Microsoft Edge";v="138"',
+            "sec-ch-ua": '"Not)A;Brand";v="8", "Chromium";v="143", "Google Chrome";v="143"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
@@ -326,7 +318,7 @@ class VeniceAI(TTICompatibleProvider):
             "sec-gpc": "1",
             "user-agent": self.user_agent,
             "x-venice-timestamp": time.strftime("%Y-%m-%dT%H:%M:%S%z"),
-            "x-venice-version": "interface@20250726.112947+c7924af"
+            "x-venice-version": "interface@20251219.114735+e0ef642"
         }
         
         self.session.headers.update(self.headers)

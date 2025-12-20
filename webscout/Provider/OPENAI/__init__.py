@@ -33,6 +33,7 @@ from webscout.Provider.OPENAI.utils import (
 
 # Provider implementations
 from webscout.Provider.OPENAI.DeepAI import DeepAI
+from webscout.Provider.OPENAI.hadadxyz import HadadXYZ
 from webscout.Provider.OPENAI.K2Think import K2Think
 from webscout.Provider.OPENAI.PI import PiAI
 from webscout.Provider.OPENAI.TogetherAI import TogetherAI
@@ -42,20 +43,22 @@ from webscout.Provider.OPENAI.akashgpt import AkashGPT
 from webscout.Provider.OPENAI.algion import Algion
 from webscout.Provider.OPENAI.cerebras import Cerebras
 from webscout.Provider.OPENAI.chatgpt import ChatGPT, ChatGPTReversed
-from webscout.Provider.OPENAI.chatgptclone import ChatGPTClone
 from webscout.Provider.OPENAI.chatsandbox import ChatSandbox
 from webscout.Provider.OPENAI.deepinfra import DeepInfra
 from webscout.Provider.OPENAI.e2b import E2B
 from webscout.Provider.OPENAI.elmo import Elmo
 from webscout.Provider.OPENAI.exaai import ExaAI
-from webscout.Provider.OPENAI.exachat import ExaChat
+from webscout.Provider.OPENAI.freeassist import FreeAssist
+from webscout.Provider.OPENAI.ayle import Ayle
+from webscout.Provider.OPENAI.huggingface import HuggingFace
 from webscout.Provider.OPENAI.groq import Groq
 from webscout.Provider.OPENAI.heckai import HeckAI
 from webscout.Provider.OPENAI.ibm import IBM
+from webscout.Provider.OPENAI.llmchat import LLMChat
 from webscout.Provider.OPENAI.llmchatco import LLMChatCo
 from webscout.Provider.OPENAI.netwrck import Netwrck
+from webscout.Provider.OPENAI.nvidia import Nvidia
 from webscout.Provider.OPENAI.oivscode import oivscode
-from webscout.Provider.OPENAI.scirachat import SciraChat
 from webscout.Provider.OPENAI.sonus import SonusAI
 from webscout.Provider.OPENAI.textpollinations import TextPollinations
 from webscout.Provider.OPENAI.toolbaz import Toolbaz
@@ -100,6 +103,7 @@ __all__ = [
     "count_tokens",
     # Provider implementations
     "DeepAI",
+    "HadadXYZ",
     "K2Think",
     "PiAI",
     "TogetherAI",
@@ -110,20 +114,22 @@ __all__ = [
     "Cerebras",
     "ChatGPT",
     "ChatGPTReversed",
-    "ChatGPTClone",
     "ChatSandbox",
     "DeepInfra",
     "E2B",
     "Elmo",
     "ExaAI",
-    "ExaChat",
+    "FreeAssist",
+    "Ayle",
+    "HuggingFace",
     "Groq",
     "HeckAI",
     "IBM",
+    "LLMChat",
     "LLMChatCo",
     "Netwrck",
+    "Nvidia",
     "oivscode",
-    "SciraChat",
     "SonusAI",
     "TextPollinations",
     "Toolbaz",

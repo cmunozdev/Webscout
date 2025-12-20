@@ -64,6 +64,8 @@ class CLI:
         
         self.commands: Dict[str, Dict[str, Any]] = {}
         self.groups: Dict[str, 'Group'] = {}  # type: ignore
+        self.command_aliases: Dict[str, str] = {}
+        self.command_chain: bool = False
         self.plugin_manager = PluginManager()
         
         # Initialize plugin manager with this CLI instance
@@ -147,6 +149,34 @@ class CLI:
             return group
         return decorator
     
+    def alias(self, command_name: str, alias_name: str) -> None:
+        """
+        Add a command alias.
+        
+        Args:
+            command_name: Original command name
+            alias_name: Alias name
+            
+        Example:
+            app.alias("list", "ls")
+        """
+        if command_name in self.commands:
+            self.command_aliases[alias_name] = command_name
+        else:
+            raise UsageError(f"Command {command_name} not found")
+    
+    def enable_chaining(self, enabled: bool = True) -> None:
+        """
+        Enable or disable command chaining.
+        
+        Args:
+            enabled: Whether to enable chaining
+            
+        Example:
+            app.enable_chaining(True)
+        """
+        self.command_chain = enabled
+    
     def run(self, args: Optional[List[str]] = None) -> int:
         """
         Run the CLI application.
@@ -172,6 +202,10 @@ class CLI:
             
             command_name = args[0]
             command_args = args[1:]
+            
+            # Check if it's a command alias
+            if command_name in self.command_aliases:
+                command_name = self.command_aliases[command_name]
             
             # Check if it's a group command
             if command_name in self.groups:
@@ -234,15 +268,119 @@ class CLI:
             format_error(str(e))
             return 1
     
+    def generate_completion_script(self, shell: str = 'bash') -> str:
+        """
+        Generate shell completion script.
+        
+        Args:
+            shell: Shell type (bash, zsh, fish)
+            
+        Returns:
+            Completion script as string
+            
+        Example:
+            script = app.generate_completion_script('bash')
+            print(script)
+        """
+        if shell == 'bash':
+            return self._generate_bash_completion()
+        elif shell == 'zsh':
+            return self._generate_zsh_completion()
+        elif shell == 'fish':
+            return self._generate_fish_completion()
+        else:
+            raise UsageError(f"Unsupported shell: {shell}")
+    
+    def _generate_bash_completion(self) -> str:
+        """Generate bash completion script."""
+        commands = []
+        for cmd_name, cmd in self.commands.items():
+            if not cmd.get('hidden', False):
+                commands.append(cmd_name)
+                if 'aliases' in cmd:
+                    commands.extend(cmd['aliases'])
+        
+        for group_name in self.groups:
+            commands.append(group_name)
+        
+        script = f"""#!/bin/bash
+# Bash completion for {self.name}
+
+_{self.name}_completion() {{
+    local cur prev words cword
+    _init_completion || return
+
+    # Generate completion options
+    COMPREPLY=($(compgen -W "{' '.join(commands)}" -- "$cur"))
+}}
+
+complete -F _{self.name}_completion {self.name}
+"""
+        return script
+    
+    def _generate_zsh_completion(self) -> str:
+        """Generate zsh completion script."""
+        commands = []
+        for cmd_name, cmd in self.commands.items():
+            if not cmd.get('hidden', False):
+                commands.append(cmd_name)
+                if 'aliases' in cmd:
+                    commands.extend(cmd['aliases'])
+        
+        for group_name in self.groups:
+            commands.append(group_name)
+        
+        script = f"""#compdef {self.name}
+
+local -a commands
+commands=({ ' '.join(commands) })
+
+_arguments \
+    '1: :->cmds' \
+    '*::arg:->args'
+
+case $state in
+  cmds)
+    _describe 'command' commands
+    ;;
+  args)
+    # Add argument completion here if needed
+    ;;
+esac
+"""
+        return script
+    
+    def _generate_fish_completion(self) -> str:
+        """Generate fish completion script."""
+        commands = []
+        for cmd_name, cmd in self.commands.items():
+            if not cmd.get('hidden', False):
+                commands.append(cmd_name)
+                if 'aliases' in cmd:
+                    commands.extend(cmd['aliases'])
+        
+        for group_name in self.groups:
+            commands.append(group_name)
+        
+        script = f"""# Fish completion for {self.name}
+
+complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
+"""
+        return script
+    
     def _parse_args(self, command: Dict[str, Any], args: List[str]) -> Dict[str, Any]:
         """Parse command arguments."""
         from ..utils.parsing import (
             parse_args, validate_required, convert_type,
-            validate_choice, get_env_var
+            validate_choice, get_env_var, validate_argument,
+            check_mutually_exclusive
         )
         
         params = {}
         func = command['func']
+        
+        # Collect mutually exclusive groups
+        exclusive_groups = []
         
         # Parse command-line arguments
         parsed_args = parse_args(args)
@@ -316,10 +454,23 @@ class CLI:
                                 name,
                                 opt.get('case_sensitive', True)
                             )
+                        
+                        # Apply validation rules
+                        if opt.get('validation'):
+                            value_to_convert = validate_argument(
+                                str(value_to_convert), 
+                                opt['validation'], 
+                                name
+                            )
+                        
                         params[name] = value_to_convert
                     # Apply callback if provided
                     if opt.get('callback') and callable(opt.get('callback')):
                         params[name] = opt.get('callback')(params[name])
+                    
+                    # Collect mutually exclusive groups
+                    if opt.get('mutually_exclusive'):
+                        exclusive_groups.append(opt['mutually_exclusive'])
                 elif opt.get('required', False):
                     raise UsageError(f"Missing required option: {name}")
                 elif 'default' in opt:
@@ -333,11 +484,24 @@ class CLI:
                     value = parsed_args[f'arg{i}']
                     if 'type' in arg:
                         value = convert_type(value, arg['type'], name)
+                    
+                    # Apply validation rules
+                    if arg.get('validation'):
+                        value = validate_argument(value, arg['validation'], name)
+                    
                     params[name] = value
+                    
+                    # Collect mutually exclusive groups
+                    if arg.get('mutually_exclusive'):
+                        exclusive_groups.append(arg['mutually_exclusive'])
                 elif arg.get('required', True):
                     raise UsageError(f"Missing required argument: {name}")
                 elif 'default' in arg:
                     params[name] = arg['default']
+        
+        # Check mutually exclusive options
+        if exclusive_groups:
+            check_mutually_exclusive(params, exclusive_groups)
         
         # Handle environment variables
         if hasattr(func, '_envvars'):

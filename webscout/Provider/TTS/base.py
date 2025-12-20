@@ -14,6 +14,7 @@ class BaseTTSProvider(TTSProvider):
     This class implements common methods and follows OpenAI TTS API patterns
     for speech generation, streaming, and audio handling.
     """
+    required_auth = False
     
     # Supported models (can be overridden by subclasses)
     SUPPORTED_MODELS = [
@@ -135,7 +136,7 @@ class BaseTTSProvider(TTSProvider):
         shutil.copy2(source_path, destination)
         
         if verbose:
-            print(f"[debug] Audio saved to {destination}")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Audio saved to {destination}")
             
         return destination
     
@@ -247,6 +248,7 @@ class AsyncBaseTTSProvider:
     This class implements common async methods following OpenAI TTS API patterns
     for speech generation, streaming, and audio handling.
     """
+    required_auth = False
     
     # Supported models (can be overridden by subclasses)
     SUPPORTED_MODELS = [
@@ -369,7 +371,7 @@ class AsyncBaseTTSProvider:
         await asyncio.to_thread(shutil.copy2, source_path, destination)
         
         if verbose:
-            print(f"[debug] Audio saved to {destination}")
+            ic.configureOutput(prefix='DEBUG| '); ic(f"Audio saved to {destination}")
             
         return destination
     

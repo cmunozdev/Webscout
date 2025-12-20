@@ -1,11 +1,12 @@
 import requests
 import json
 import re
-from typing import Dict, Optional, Generator, Union, Any
+from typing import Dict, Optional, Generator, Union, Any, List
 
 from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
 from webscout.litagent import LitAgent
+from webscout.sanitize import sanitize_stream
 
 
 class webpilotai(AISearch):
@@ -49,15 +50,11 @@ class webpilotai(AISearch):
         Args:
             timeout (int, optional): Request timeout in seconds. Defaults to 90.
             proxies (dict, optional): Proxy configuration for requests. Defaults to None.
-        
-        Example:
-            >>> ai = webpilotai(timeout=120)  # Longer timeout
-            >>> ai = webpilotai(proxies={'http': 'http://proxy.com:8080'})  # With proxy
         """
         self.session = requests.Session()
         self.api_endpoint = "https://api.webpilotai.com/rupee/v1/search"
         self.timeout = timeout
-        self.last_SearchResponse = {}
+        self.last_response = {}
         
         # The 'Bearer null' is part of the API's expected headers
         self.headers = {
@@ -77,7 +74,7 @@ class webpilotai(AISearch):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None]]:
+    ) -> Union[SearchResponse, Generator[Union[Dict[str, str], SearchResponse], None, None], List[Any]]:
         """Search using the webpilotai API and get AI-generated SearchResponses.
         
         This method sends a search query to webpilotai and returns the AI-generated SearchResponse.
@@ -98,24 +95,6 @@ class webpilotai(AISearch):
         
         Raises:
             APIConnectionError: If the API request fails
-        
-        Examples:
-            Basic search:
-            >>> ai = webpilotai()
-            >>> response = ai.search("What is Python?")
-            >>> print(response)
-            Python is a programming language...
-            
-            Streaming SearchResponse:
-            >>> for chunk in ai.search("Tell me about AI", stream=True):
-            ...     print(chunk, end="")
-            Artificial Intelligence...
-            
-            Raw SearchResponse format:
-            >>> for chunk in ai.search("Hello", stream=True, raw=True):
-            ...     print(chunk)
-            {'text': 'Hello'}
-            {'text': ' there!'}
         """
         payload = {
             "q": prompt,
@@ -124,8 +103,6 @@ class webpilotai(AISearch):
         
         def for_stream():
             full_SearchResponse_content = ""
-            current_event_name = None
-            current_data_buffer = []
             
             try:
                 with self.session.post(
@@ -140,64 +117,27 @@ class webpilotai(AISearch):
                             f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                         )
                     
-                    # Process the stream line by line
-                    for line in response.iter_lines(decode_unicode=True):
-                        if not line:  # Empty line indicates end of an event
-                            if current_data_buffer:
-                                # Process the completed event
-                                full_data = "\n".join(current_data_buffer)
-                                if current_event_name == "message":
-                                    try:
-                                        data_payload = json.loads(full_data)
-                                        # Check structure based on the API SearchResponse
-                                        if data_payload.get('type') == 'data':
-                                            content_chunk = data_payload.get('data', {}).get('content', "")
-                                            if content_chunk:
-                                                full_SearchResponse_content += content_chunk
-                                                
-                                                # Yield the new content chunk
-                                                if raw:
-                                                    yield {"text": content_chunk}
-                                                else:
-                                                    yield SearchResponse(content_chunk)
-                                    except json.JSONDecodeError:
-                                        pass
-                                    except Exception as e:
-                                        # Handle exceptions gracefully in stream processing
-                                        pass
-                                
-                                # Reset for the next event
-                                current_event_name = None
-                                current_data_buffer = []
-                            continue
-                        
-                        # Parse SSE fields
-                        if line.startswith('event:'):
-                            current_event_name = line[len('event:'):].strip()
-                        elif line.startswith('data:'):
-                            data_part = line[len('data:'):]
-                            # Remove leading space if present (common in SSE)
-                            if data_part.startswith(' '):
-                                data_part = data_part[1:]
-                            current_data_buffer.append(data_part)
-                    
-                    # Process any remaining data in buffer if stream ended without blank line
-                    if current_data_buffer and current_event_name == "message":
-                        try:
-                            full_data = "\n".join(current_data_buffer)
-                            data_payload = json.loads(full_data)
-                            if data_payload.get('type') == 'data':
-                                content_chunk = data_payload.get('data', {}).get('content', "")
-                                if content_chunk and len(content_chunk) > len(full_SearchResponse_content):
-                                    delta = content_chunk[len(full_SearchResponse_content):]
-                                    full_SearchResponse_content += delta
-                                    
-                                    if raw:
-                                        yield {"text": delta}
-                                    else:
-                                        yield SearchResponse(delta)
-                        except (json.JSONDecodeError, Exception):
-                            pass
+                    def extract_webpilot_content(data):
+                        if isinstance(data, dict):
+                            if data.get('type') == 'data':
+                                return data.get('data', {}).get('content', "")
+                        return None
+
+                    processed_chunks = sanitize_stream(
+                        data=response.iter_content(chunk_size=1024),
+                        to_json=True,
+                        extract_regexes=[r"(\{.*\})"],
+                        content_extractor=lambda chunk: extract_webpilot_content(chunk),
+                        yield_raw_on_error=False,
+                        encoding='utf-8',
+                        encoding_errors='replace',
+                        line_delimiter="\n",
+                        raw=raw,
+                        output_formatter=None if raw else lambda x: SearchResponse(x) if isinstance(x, str) else x,
+                    )
+
+                    for chunk in processed_chunks:
+                        yield chunk
                 
             except requests.exceptions.Timeout:
                 raise exceptions.APIConnectionError("Request timed out")
@@ -205,20 +145,24 @@ class webpilotai(AISearch):
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
 
         def for_non_stream():
-            full_SearchResponse = ""
+            full_content = ""
             for chunk in for_stream():
                 if raw:
-                    yield chunk
+                    full_content += str(chunk)
                 else:
-                    full_SearchResponse += str(chunk)
+                    full_content += str(chunk)
             
-            if not raw:
-                # Format the SearchResponse for better readability
-                formatted_SearchResponse = self.format_SearchResponse(full_SearchResponse)
-                self.last_response = SearchResponse(formatted_SearchResponse)
-                return self.last_SearchResponse
+            if raw:
+                return full_content
+            else:
+                formatted_response = self.format_SearchResponse(full_content)
+                self.last_response = SearchResponse(formatted_response)
+                return self.last_response
 
-        return for_stream() if stream else for_non_stream()
+        if stream:
+            return for_stream()
+        else:
+            return for_non_stream()
     
     @staticmethod
     def format_SearchResponse(text: str) -> str:
@@ -250,6 +194,6 @@ if __name__ == "__main__":
     from rich import print
     
     ai = webpilotai()
-    r = ai.search(input(">>> "), stream=True, raw=False)
+    r = ai.search("What is Python?", stream=True, raw=False)
     for chunk in r:
         print(chunk, end="", flush=True)

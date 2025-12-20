@@ -1,10 +1,11 @@
 """Utility functions for parsing and validating command-line arguments."""
 
 import os
+import re
 import json
 import yaml
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Union, Type
+from typing import Any, Dict, List, Optional, Union, Type, Pattern
 
 from ..exceptions import BadParameter, UsageError
 
@@ -149,6 +150,75 @@ def validate_choice(
             f"Invalid choice for {param_name}: {value} "
             f"(choose from {', '.join(str(c) for c in choices)})"
         )
+
+def validate_argument(
+    value: str,
+    validation_rules: Dict[str, Any],
+    param_name: str
+) -> str:
+    """
+    Validate argument against validation rules.
+    
+    Args:
+        value: Argument value to validate
+        validation_rules: Dictionary of validation rules
+        param_name: Parameter name for error messages
+        
+    Returns:
+        Validated value
+        
+    Raises:
+        BadParameter: If validation fails
+    """
+    if not value and validation_rules.get('required', True):
+        raise BadParameter(f"Required argument {param_name} is empty")
+    
+    if 'min_length' in validation_rules and len(value) < validation_rules['min_length']:
+        raise BadParameter(
+            f"Argument {param_name} too short (min {validation_rules['min_length']} characters)"
+        )
+    
+    if 'max_length' in validation_rules and len(value) > validation_rules['max_length']:
+        raise BadParameter(
+            f"Argument {param_name} too long (max {validation_rules['max_length']} characters)"
+        )
+    
+    if 'pattern' in validation_rules:
+        pattern = validation_rules['pattern']
+        if isinstance(pattern, str):
+            pattern = re.compile(pattern)
+        if not pattern.match(value):
+            raise BadParameter(
+                f"Argument {param_name} doesn't match pattern: {validation_rules.get('pattern', pattern.pattern)}"
+            )
+    
+    if 'choices' in validation_rules:
+        validate_choice(value, validation_rules['choices'], param_name, 
+                      validation_rules.get('case_sensitive', True))
+    
+    return value
+
+def check_mutually_exclusive(
+    params: Dict[str, Any],
+    exclusive_groups: List[List[str]]
+) -> None:
+    """
+    Check that mutually exclusive options are not used together.
+    
+    Args:
+        params: Dictionary of parsed parameters
+        exclusive_groups: List of option groups that are mutually exclusive
+        
+    Raises:
+        UsageError: If mutually exclusive options are used together
+    """
+    for group in exclusive_groups:
+        provided_options = [opt for opt in group if opt in params and params[opt] is not None]
+        if len(provided_options) > 1:
+            raise UsageError(
+                f"Options {', '.join(provided_options)} are mutually exclusive "
+                f"and cannot be used together"
+            )
 
 def load_config_file(
     path: Union[str, Path],

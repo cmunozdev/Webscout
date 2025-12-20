@@ -3,6 +3,123 @@
 All notable changes to this project will be documented in this file.
 
 
+## [2025.12.20] - 2025-12-20
+
+### 📝 Documentation Updates
+- **docs**: litprinter.md - Completely rewrote documentation to be comprehensive and consistent with other Webscout docs. Added detailed sections for IceCream debugging, Rich Console, Panels & Layouts, Traceback Enhancement, Themes & Styling, Advanced Usage, Integration with Webscout, API Reference, Dependencies, and Supported Python Versions. Enhanced with professional formatting, extensive code examples, and parameter tables.
+
+---
+
+## [2025.12.20] - 2025-12-20
+
+### ✨ Added
+
+- **feat**: webscout/Provider/Nvidia.py - New standalone Nvidia NIM provider with dynamic model fetching and advanced stream sanitization.
+- **feat**: webscout/Provider/OPENAI/nvidia.py - New OpenAI-compatible Nvidia NIM provider with manual stream parsing.
+- **feat**: webscout/Provider/HuggingFace.py - New standalone Hugging Face provider with dynamic model fetching and advanced stream sanitization.
+- **feat**: webscout/Provider/OPENAI/huggingface.py - New OpenAI-compatible Hugging Face provider using HF Router with manual stream parsing.
+- **feat**: webscout/Provider/ChatSandbox.py - Major update to ChatSandbox provider after reverse engineering. Expanded `AVAILABLE_MODELS` to include `deepseek-r1-full`, `gemini-thinking`, `llama`, and others.
+- **feat**: webscout/Provider/OPENAI/chatsandbox.py - Updated OpenAI-compatible ChatSandbox provider with new model list and improved response extraction for reasoning and content.
+- **feat**: Enhanced SwiftCLI with advanced argument and option validation including min/max length, regex patterns, and choices
+- **feat**: Added JSON and YAML output formatters (`json_output`, `yaml_output`) for structured data output
+- **feat**: Implemented command aliases system with `app.alias()` method for creating command shortcuts
+- **feat**: Added command chaining support with `app.enable_chaining()` for complex workflows
+- **feat**: Implemented shell completion script generation for bash, zsh, and fish shells via `generate_completion_script()`
+- **feat**: Added mutually exclusive options support to prevent conflicting option combinations
+- **feat**: Enhanced argument decorator with validation and mutually exclusive support
+- **feat**: Added comprehensive validation functions in `utils/parsing.py` including `validate_argument` and `check_mutually_exclusive`
+- **feat**: Updated CLI core to handle command aliases and validation in argument parsing
+- **feat**: Added example script demonstrating all new features in `examples/advanced_features.py`
+- **feat**: Updated documentation with new features and usage examples
+- **feat**: Enhanced error handling with detailed validation error messages
+- **feat**: Improved type safety with better runtime validation
+- **feat**: webscout/Provider/TTI/venice.py - Major update to Venice AI TTI provider with new headers and payload structure from recent reverse engineering. Added support for `z-image-turbo` and `stable-diffusion-3.5-large`.
+- **feat**: webscout/Provider/TTI/together.py - Refactored TogetherImage provider to require a user-provided API key, removing the brittle auto-authentication logic. This aligns it with the TogetherAI chat providers.
+
+### 🔧 Maintenance
+- **chore**: Simplified optimizers module to include only the core coder optimizer, removing unused specialized optimizers to reduce complexity and maintenance overhead
+- **chore**: Enhanced coder optimizer with improved system context and more detailed instructions for better code generation quality
+- **feat**: webscout/Provider/TTI/pollinations.py - Expanded supported models list to include `flux-pro`, `flux-realism`, `flux-anime`, and `any-dark`.
+- **feat**: `webscout/update_checker.py` - Major overhaul of the update system:
+  - **Virtual Environment Awareness**: Intelligent detection of active `venv` and prioritized local package versioning.
+  - **Pre-release Support**: Added capability to detect and recommend pre-release (beta/alpha) updates when running on a pre-release version.
+  - **Development Version Detection**: Recognizes when the local version is ahead of PyPI (dev mode).
+  - **Rich UI**: Integrated with `rich` for beautiful, high-fidelity update panels with vibrant colors and clear call-to-actions.
+  - **Performance Optimization**: Implemented result caching (12 hours) and faster connection timeouts (3s) to ensure zero impact on script startup speed.
+  - **Silent Mode**: Automatically disables check in non-TTY environments and respects `WEBSCOUT_NO_UPDATE` environment variable.
+- **refactor**: `webscout/litagent/` - Major overhaul of the LitAgent module:
+  - **Modernized Constants**: Updated browser and OS version ranges to reflect 2024/2025 standards (Chrome 131, Firefox 132, macOS 15.0, etc.).
+  - **Enhanced Logic**: Improved user agent generation for diverse device types including Smart TVs, Gaming Consoles, and Wearables.
+  - **Robust State Management**: Added internal pools for agents and IPs, with automatic background refresh capabilities.
+  - **Thread Safety**: Implemented `RLock` support for multi-threaded environments.
+  - **Fingerprinting**: Added support for `sec-ch-ua` headers and realistic browser fingerprints.
+  - **Documentation**: Moved module documentation to `docs/litagent.md` and integrated it into the central hub.
+
+### 🛠️ Improved
+- **refactor**: webscout/Provider/TTI/ - Cleaned up the TTI module by removing 8 non-functional or login-required providers (`AIArta`, `BingImageAI`, `GPT1Image`, `ImagenAI`, `InfipAI`, `MonoChatAI`, `PiclumenAI`, `PixelMuse`).
+- **refactor**: webscout/client.py - Updated unified client to support authenticated TTI providers in auto-failover mode when an API key is provided.
+- **docs**: webscout/Provider/TTI/README.md - Updated documentation to reflect the current set of 5 functional TTI providers.
+- **refactor**: `webscout/Provider/AISEARCH/` - Standardized `raw` parameter handling across all providers (Perplexity, Genspark, IAsk, Monica, PERPLEXED, webpilotai). Raw mode now returns/yields unprocessed strings/lines.
+- **refactor**: `webscout/Provider/AISEARCH/` - Replaced manual SSE parsing with `sanitize_stream` using `extract_regexes` for robust JSON payload extraction in Perplexity, Genspark, and webpilotai.
+- **refactor**: `webscout/Provider/AISEARCH/` - Standardized internal state tracking by renaming `last_SearchResponse` to `last_response` across all providers for better consistency.
+- **fix**: `webscout/Provider/AISEARCH/webpilotai_search.py` - Fixed critical issue where search results were empty due to incorrect content accumulation logic; now correctly handles delta-based streaming.
+- **fix**: `webscout/Provider/AISEARCH/iask_search.py` - Improved raw mode output to yield raw strings instead of dictionaries for better consistency with other providers.
+- **refactor**: `webscout/Provider/AISEARCH/` - Enhanced `sanitize_stream` configuration with explicit encoding, buffer handling, and custom `content_extractor` functions to maintain provider-specific metadata (sources, status updates) during streaming.
+
+### 🛠️ Improved
+- **docs**: docs/cli.md - Updated CLI documentation to reflect all available commands, options, and examples based on actual implementation in webscout/cli.py.
+- **docs**: README.md - Enhanced CLI section with comprehensive command examples and search provider information.
+- **docs**: docs/openai-api-server.md - Updated documentation to reflect actual server implementation with Docker, configuration, and API endpoint details.
+- **docs**: docs/client.md - Updated to emphasize client as Python-based API using models in OpenAI format, with relationship to server API clarified.
+
+### ✨ Added
+- **feat**: webscout/Provider/TTS/sherpa.py - New SherpaTTS provider using Next-gen Kaldi (Sherpa-ONNX) HF Space API, supporting 50+ languages and multiple ONNX models.
+- **feat**: webscout/Provider/TTS/qwen.py - New Qwen3-TTS provider reverse engineered from Hugging Face Space demo, supporting 40+ high-quality voices and automatic language detection.
+- **feat**: webscout/Provider/TTS/deepgram.py - Updated to support Aura-2 next-gen voices and latest API endpoint.
+- **feat**: webscout/Provider/TTS/elevenlabs.py - Added support for ElevenLabs API keys.
+- **feat**: webscout/Provider/TTI/miragic.py - New MiragicAI TTI provider reverse engineered from Hugging Face Space, supporting 'flux', 'turbo', and 'gptimage' models with streaming support.
+- **feat**: webscout/server/routes.py - Added `/monitor/health` endpoint for Docker health checks, returning service status and version information.
+
+### 🛠️ Improved
+- **fix**: webscout/Provider/TTS/freetts.py - Fixed 404 error by updating to the latest synthesis API and polling mechanism.
+- **fix**: webscout/Provider/TTS/parler.py - Switched to manual Gradio polling for improved reliability and timeout handling.
+- **removed**: webscout/Provider/TTS/gesserit.py - Removed dead TikTok TTS provider.
+- **refactor**: webscout/Provider/TTS/__init__.py - Added QwenTTS and SherpaTTS to the exported TTS providers.
+- **refactor**: webscout/Provider/OPENAI/__init__.py - Added LLMChat to the list of exported OpenAI-compatible providers.
+- **refactor**: webscout/Provider/OPENAI/e2b.py - Removed all unwanted `print` statements and ANSI escape codes to make the provider fully silent.
+- **refactor**: webscout/Provider/TTS/ - Updated all TTS providers to use `ic` from litprinter instead of `print` for debugging, following the pattern established in deepgram.py:
+  - Updated `murfai.py`, `openai_fm.py`, `parler.py`, `qwen.py`, `sherpa.py`, `streamElements.py`, `base.py`, `freetts.py`, `speechma.py`
+  - All debug statements now use `ic.configureOutput(prefix='DEBUG| '); ic(f"Debug message")` pattern
+- **refactor**: Docker configuration files for better dynamic configuration support:
+  - Updated `.dockerignore` to properly exclude documentation while keeping essential files
+  - Enhanced `docker-compose.yml` with accurate environment variable documentation
+  - Improved `docker-compose.no-auth.yml` to reflect actual server capabilities
+  - Updated `Dockerfile` with proper health check endpoint and dynamic configuration defaults
+  - Improved `docs/DOCKER.md` documentation with accurate environment variable information
+
+### 🚮 Removed
+- **removed**: `gradio_client` dependency from pyproject.toml as it's no longer needed.
+- **removed**: `gemini-2.0-flash` from Ayle provider model lists (`webscout/Provider/Ayle.py`, `webscout/Provider/OPENAI/ayle.py`).
+- **removed**: webscout/Provider/AISEARCH/stellar_search.py - Removed dead Stellar AI search provider that was causing import errors and service unavailability.
+
+### 🐛 Fixed
+- **fix**: webscout/Provider/meta.py - Fixed HTTP/2 stream closure errors (curl error 92) by implementing robust retry mechanism with exponential backoff using AIutel retry decorator
+- **fix**: webscout/Provider/meta.py - Added HTTP/1.1 fallback via requests library when HTTP/2 streams fail, ensuring compatibility with problematic networks
+- **fix**: webscout/Provider/meta.py - Improved cookie extraction with retry logic, fallback to browser cookies, and better error handling for region-blocked sites
+- **fix**: webscout/Provider/meta.py - Added `skip_init` parameter for offline testing and development without requiring live cookie fetching
+- **fix**: webscout/Provider/meta.py - Enhanced streaming error recovery to gracefully handle connection interruptions during response iteration
+- **fix**: webscout/Provider/meta.py - Improved main module error handling with helpful guidance for network issues and testing modes
+- **test**: Added comprehensive unit tests in `tests/test_meta_http2.py` for HTTP/2 fallback functionality and retry mechanisms
+- **fix**: webscout/Provider/oivscode.py - Fixed type annotation bugs by updating optional parameters to use `Optional[str]` type hints, correcting method calls, and adding proper string handling in `get_message()` method
+- **fix**: webscout/Provider/oivscode.py - Removed unwanted print statements from `fetch_available_models()` method and updated its docstring to reflect that it no longer prints models
+- **fix**: webscout/sanitize.py - Fixed import organization issues using `ruff check --fix` to properly sort and format imports according to project standards
+- **fix**: webscout/scout - Fixed multiple critical bugs, removed direct BeautifulSoup references and updated BS4-compatible messaging across the scout component. (Applied ruff checks and whitespace fixes)
+- **fix**: webscout/scout/core/scout.py - Resolved `TypeError` in `extract_metadata` and standardized `find` return types.
+- **fix**: webscout/scout/core/crawler.py - Improved domain validation security, fixed overly aggressive URL normalization, and corrected parser selection logic.
+- **fix**: webscout/scout/element.py - Fixed class matching logic and self-closing tag rendering in `prettify`.
+- **fix**: webscout/scout/parsers/lxml_parser.py - Implemented XML namespace stripping for cleaner tag names.
+- **fix**: webscout/Provider/QwenLM.py - Fixed multiple critical bugs including syntax errors, indentation issues, and formatting problems. Applied ruff check fixes to resolve blank lines with whitespace, trailing whitespace, and proper docstring formatting.
+
 ## [2025.12.19] - 2025-12-19
 
 ### ✨ Added
@@ -467,12 +584,6 @@ All notable changes to this project will be documented in this file.
 ---
 
 For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
+---
 
 For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
-
-
-
-For more details, see the [documentation](docs/) or [GitHub repository](https://github.com/pyscout/Webscout).
-
-
-

@@ -1,11 +1,11 @@
 from os import path
 from json import dumps
 import warnings
-from typing import Dict
+from typing import Dict, Union, Generator
 
 
 # Import internal modules and dependencies
-from ..AIutel import Optimizers, Conversation
+from ..AIutel import Optimizers, Conversation, sanitize_stream
 from ..AIbase import Provider
 from ..Bard import Chatbot, Model
 
@@ -108,12 +108,15 @@ class GEMINI(Provider):
             response = self.session.ask(prompt)
             self.last_response.update(response)
             self.conversation.update_chat_history(prompt, self.get_message(self.last_response))
-            yield dumps(response) if raw else response
+            if raw:
+                yield dumps(response)
+            else:
+                yield response
 
         def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response
+            return self.last_response if not raw else dumps(self.last_response)
 
         return for_stream() if stream else for_non_stream()
 
@@ -123,7 +126,8 @@ class GEMINI(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-    ) -> str:
+        raw: bool = False,
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response text.
 
         Args:
@@ -131,16 +135,23 @@ class GEMINI(Provider):
             stream (bool, optional): Flag for streaming response. Defaults to False.
             optimizer (str, optional): Prompt optimizer name. Defaults to None.
             conversationally (bool, optional): Chat conversationally when using optimizer. Defaults to False.
+            raw (bool, optional): Return raw response. Defaults to False.
 
         Returns:
             str: Response generated.
         """
         def for_stream():
-            for response in self.ask(prompt, True, optimizer=optimizer, conversationally=conversationally):
-                yield self.get_message(response)
+            for response in self.ask(prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally):
+                if raw:
+                    yield response
+                else:
+                    yield self.get_message(response)
 
         def for_non_stream():
-            return self.get_message(self.ask(prompt, False, optimizer=optimizer, conversationally=conversationally))
+            result = self.ask(prompt, False, raw=raw, optimizer=optimizer, conversationally=conversationally)
+            if raw:
+                return result
+            return self.get_message(result)
 
         return for_stream() if stream else for_non_stream()
 

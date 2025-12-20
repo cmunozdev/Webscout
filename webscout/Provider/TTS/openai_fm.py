@@ -23,6 +23,7 @@ class OpenAIFMTTS(BaseTTSProvider):
     - Multiple output formats
     - Streaming support
     """
+    required_auth = False
     
     # Request headers
     headers = {
@@ -165,23 +166,23 @@ class OpenAIFMTTS(BaseTTSProvider):
                 f.write(response.content)
                 
             if verbose:
-                print(f"[debug] Speech generated successfully")
-                print(f"[debug] Model: {model}")
-                print(f"[debug] Voice: {voice}")
-                print(f"[debug] Format: {response_format}")
-                print(f"[debug] Audio saved to {filename}")
+                ic.configureOutput(prefix='DEBUG| '); ic("Speech generated successfully")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Model: {model}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Voice: {voice}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Format: {response_format}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Audio saved to {filename}")
                 
             return filename.as_posix()
             
         except requests.exceptions.RequestException as e:
             if verbose:
-                print(f"[debug] Failed to generate speech: {e}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Failed to generate speech: {e}")
             raise exceptions.FailedToGenerateResponseError(
                 f"Failed to generate speech: {e}"
             )
         except Exception as e:
             if verbose:
-                print(f"[debug] Unexpected error: {e}")
+                ic.configureOutput(prefix='DEBUG| '); ic(f"Unexpected error: {e}")
             raise exceptions.FailedToGenerateResponseError(
                 f"Unexpected error during speech generation: {e}"
             )
@@ -322,7 +323,7 @@ if __name__ == "__main__":
     
     try:
         # Basic usage
-        print("Testing basic speech generation...")
+        ic.configureOutput(prefix='DEBUG| '); ic("Testing basic speech generation...")
         audio_file = tts_provider.create_speech(
             input="Today is a wonderful day to build something people love!",
             model="gpt-4o-mini-tts",
@@ -332,16 +333,16 @@ if __name__ == "__main__":
         print(f"Audio file generated: {audio_file}")
         
         # Streaming usage
-        print("\nTesting streaming response...")
+        ic.configureOutput(prefix='DEBUG| '); ic("Testing streaming response...")
         with tts_provider.with_streaming_response().create(
             input="This is a streaming test.",
             voice="alloy",
             response_format="wav"
         ) as response:
             response.stream_to_file("streaming_test.wav")
-            print("Streaming audio saved to streaming_test.wav")
+            ic.configureOutput(prefix='INFO| '); ic("Streaming audio saved to streaming_test.wav")
             
     except exceptions.FailedToGenerateResponseError as e:
-        print(f"Error: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")
     except Exception as e:
-        print(f"Unexpected error: {e}")
+        ic.configureOutput(prefix='ERROR| '); ic(f"Unexpected error: {e}")

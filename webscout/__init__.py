@@ -12,6 +12,7 @@ from .Extra import *
 from .optimizers import *
 from .swiftcli import *
 from .litagent import LitAgent
+from .client import Client
 from .scout import *
 from .zeroart import *
 from .AIutel import *
