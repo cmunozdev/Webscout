@@ -3,7 +3,8 @@ Scout Text Analyzer Module
 """
 import re
 from collections import Counter
-from typing import List, Dict, Set
+from typing import Dict, List, Set
+
 
 class ScoutTextAnalyzer:
     """
@@ -13,44 +14,44 @@ class ScoutTextAnalyzer:
     def tokenize(text: str, lowercase=True, remove_punctuation=True) -> List[str]:
         """
         Tokenize text into words.
-        
+
         Args:
             text (str): Input text
             lowercase (bool, optional): Convert to lowercase
             remove_punctuation (bool, optional): Remove punctuation
-        
+
         Returns:
             List[str]: List of tokens
         """
         if lowercase:
             text = text.lower()
-        
+
         if remove_punctuation:
             text = re.sub(r'[^\w\s]', '', text)
-        
+
         return text.split()
-    
+
     @staticmethod
     def count_words(text: str) -> Dict[str, int]:
         """
         Count word frequencies.
-        
+
         Args:
             text (str): Input text
-        
+
         Returns:
             Dict[str, int]: Word frequency dictionary
         """
         return dict(Counter(ScoutTextAnalyzer.tokenize(text)))
-    
+
     @staticmethod
     def extract_entities(text: str) -> Dict[str, Set[str]]:
         """
         Extract named entities from text.
-        
+
         Args:
             text (str): Input text
-        
+
         Returns:
             Dict[str, Set[str]]: Extracted entities
         """

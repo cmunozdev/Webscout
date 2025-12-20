@@ -3,20 +3,19 @@ Scout Crawler Module - Ultra Advanced Web Crawling System
 """
 
 import concurrent.futures
-import urllib.parse
-import time
 import hashlib
-import re
-from urllib import robotparser
-from datetime import datetime
-from typing import Dict, List, Optional, Union, Set, Any
+import time
+import urllib.parse
 from dataclasses import dataclass
+from datetime import datetime
+from typing import Any, Dict, List, Optional, Set, Union
+from urllib import robotparser
 
 try:
     from webscout.litagent import LitAgent
 except ImportError:
     LitAgent = None
-    
+
 try:
     from curl_cffi.requests import Session
 except ImportError:
@@ -42,7 +41,7 @@ class CrawlConfig:
     extract_metadata: bool = True
     extract_structured_data: bool = True
     extract_semantic_content: bool = True
-    
+
 
 @dataclass
 class PageData:
@@ -65,7 +64,7 @@ class PageData:
     timestamp: str
     depth: int
     word_count: int
-    
+
 
 class ScoutCrawler:
     """
@@ -96,17 +95,17 @@ class ScoutCrawler:
         self.delay = delay
         self.obey_robots = obey_robots
         self.features = "lxml" if "lxml" in ParserRegistry.list_parsers() else "html.parser"
-        
+
         # Secure domain handling
         parsed_base = urllib.parse.urlparse(base_url)
         self.base_netloc = parsed_base.netloc
         base_domain_parts = self.base_netloc.split('.')
         self.base_domain = '.'.join(base_domain_parts[-2:]) if len(base_domain_parts) > 1 else self.base_netloc
-        
+
         self.allowed_domains = allowed_domains or [self.base_netloc]
         self.last_request_time = 0
         self.url_hashes = set()
-        
+
         if obey_robots:
             self.robots = robotparser.RobotFileParser()
             robots_url = urllib.parse.urljoin(base_url, '/robots.txt')
@@ -135,7 +134,7 @@ class ScoutCrawler:
             parsed_url = urllib.parse.urlparse(url)
             if parsed_url.scheme not in ["http", "https"]:
                 return False
-                
+
             # Secure domain check
             target_netloc = parsed_url.netloc.lower()
             is_allowed = False
@@ -143,7 +142,7 @@ class ScoutCrawler:
                 if target_netloc == allowed.lower() or target_netloc.endswith('.' + allowed.lower()):
                     is_allowed = True
                     break
-            
+
             if not is_allowed:
                 return False
 
@@ -206,14 +205,14 @@ class ScoutCrawler:
             scout = Scout(response.content, features=self.features)
             title_result = scout.find("title")
             title = title_result[0].get_text() if title_result else ""
-            
+
             # Remove only script and style tags before extracting text
             for tag_name in self.tags_to_remove:
                 for tag in scout._soup.find_all(tag_name):
                     tag.decompose()
-                    
+
             visible_text = self._extract_main_text(scout._soup)
-            
+
             # Extract links from header, footer, nav, etc.
             essential_links = []
             for essential_tag in ['header', 'nav', 'footer']:
@@ -274,7 +273,7 @@ class ScoutCrawler:
 
                     if page_info:
                         yield page_info
-                        
+
                         if self.max_pages is not None and len(self.visited_urls) >= self.max_pages:
                             return
 
@@ -293,4 +292,4 @@ class ScoutCrawler:
                                     )
                                 )
                     else:
-                        print(f"No page info retrieved from crawling")
+                        print("No page info retrieved from crawling")

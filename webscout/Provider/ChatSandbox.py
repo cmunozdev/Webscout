@@ -77,7 +77,7 @@ class ChatSandbox(Provider):
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
 
         # Initialize curl_cffi Session with impersonation
-        self.session = Session(impersonate="chrome124")
+        self.session = Session(impersonate="chrome120")
         self.model = model
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
@@ -91,7 +91,7 @@ class ChatSandbox(Provider):
             'accept-language': 'en-US,en;q=0.9',
             'content-type': 'application/json',
             'origin': 'https://chatsandbox.com',
-            'referer': 'https://chatsandbox.com/chat/openai',
+            'referer': f'https://chatsandbox.com/chat/{self.model}',
         }
         
         # Update curl_cffi session headers and proxies
@@ -302,9 +302,9 @@ if __name__ == "__main__":
     print(f"{ 'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
 
-    for model in ["openai-gpt-4o"]:
+    for model in ChatSandbox.AVAILABLE_MODELS:
         try:
-            test_ai = ChatSandbox(model=model, timeout=60, is_conversation=False)
+            test_ai = ChatSandbox(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word")
             response_text = response
             
