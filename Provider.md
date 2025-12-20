@@ -40,27 +40,28 @@ These providers have both standard and OpenAI-compatible implementations, giving
 | 13 | **IBM** | `webscout/Provider/IBM.py` | `webscout/Provider/OPENAI/ibm.py` |
 | 14 | **K2Think** | `webscout/Provider/K2Think.py` | `webscout/Provider/OPENAI/K2Think.py` |
 | 15 | **LLMChatCo** | `webscout/Provider/llmchatco.py` | `webscout/Provider/OPENAI/llmchatco.py` |
-| 16 | **Netwrck** | `webscout/Provider/Netwrck.py` | `webscout/Provider/OPENAI/netwrck.py` |
-| 17 | **OIVSCode** | `webscout/Provider/oivscode.py` | `webscout/Provider/OPENAI/oivscode.py` |
-| 18 | **PI** | `webscout/Provider/PI.py` | `webscout/Provider/OPENAI/PI.py` |
-| 19 | **Sonus** | `webscout/Provider/sonus.py` | `webscout/Provider/OPENAI/sonus.py` |
-| 20 | **TextPollinationsAI** | `webscout/Provider/TextPollinationsAI.py` | `webscout/Provider/OPENAI/textpollinations.py` |
-| 21 | **TogetherAI** | `webscout/Provider/TogetherAI.py` | `webscout/Provider/OPENAI/TogetherAI.py` |
-| 22 | **Toolbaz** | `webscout/Provider/toolbaz.py` | `webscout/Provider/OPENAI/toolbaz.py` |
-| 23 | **TwoAI** | `webscout/Provider/TwoAI.py` | `webscout/Provider/OPENAI/TwoAI.py` |
-| 24 | **Typefully** | `webscout/Provider/typefully.py` | `webscout/Provider/OPENAI/typefully.py` |
-| 25 | **Venice** | `webscout/Provider/Venice.py` | `webscout/Provider/OPENAI/venice.py` |
-| 26 | **WiseCat** | `webscout/Provider/WiseCat.py` | `webscout/Provider/OPENAI/wisecat.py` |
-| 27 | **X0GPT** | `webscout/Provider/x0gpt.py` | `webscout/Provider/OPENAI/x0gpt.py` |
-| 28 | **Yep** | `webscout/Provider/yep.py` | `webscout/Provider/OPENAI/yep.py` |
-| 29 | **Gradient** | `webscout/Provider/Gradient.py` | `webscout/Provider/OPENAI/gradient.py` |
-| 30 | **Sambanova** | `webscout/Provider/Sambanova.py` | `webscout/Provider/OPENAI/sambanova.py` |
-| 31 | **Meta** | `webscout/Provider/meta.py` | `webscout/Provider/OPENAI/meta.py` |
-| 32 | **TypliAI** | `webscout/Provider/TypliAI.py` | `webscout/Provider/OPENAI/typliai.py` |
-| 33 | **LLMChat** | `webscout/Provider/llmchat.py` | `webscout/Provider/OPENAI/llmchat.py` |
-| 34 | **HadadXYZ** | `webscout/Provider/HadadXYZ.py` | `webscout/Provider/OPENAI/hadadxyz.py` |
+| 17 | **Netwrck** | `webscout/Provider/Netwrck.py` | `webscout/Provider/OPENAI/netwrck.py` |
+| 18 | **Nvidia** | `webscout/Provider/Nvidia.py` | `webscout/Provider/OPENAI/nvidia.py` |
+| 19 | **OIVSCode** | `webscout/Provider/oivscode.py` | `webscout/Provider/OPENAI/oivscode.py` |
+| 20 | **PI** | `webscout/Provider/PI.py` | `webscout/Provider/OPENAI/PI.py` |
+| 21 | **Sonus** | `webscout/Provider/sonus.py` | `webscout/Provider/OPENAI/sonus.py` |
+| 22 | **TextPollinationsAI** | `webscout/Provider/TextPollinationsAI.py` | `webscout/Provider/OPENAI/textpollinations.py` |
+| 23 | **TogetherAI** | `webscout/Provider/TogetherAI.py` | `webscout/Provider/OPENAI/TogetherAI.py` |
+| 24 | **Toolbaz** | `webscout/Provider/toolbaz.py` | `webscout/Provider/OPENAI/toolbaz.py` |
+| 25 | **TwoAI** | `webscout/Provider/TwoAI.py" | `webscout/Provider/OPENAI/TwoAI.py` |
+| 26 | **Typefully** | `webscout/Provider/typefully.py` | `webscout/Provider/OPENAI/typefully.py` |
+| 27 | **Venice** | `webscout/Provider/Venice.py` | `webscout/Provider/OPENAI/venice.py` |
+| 28 | **WiseCat** | `webscout/Provider/WiseCat.py` | `webscout/Provider/OPENAI/wisecat.py` |
+| 29 | **X0GPT** | `webscout/Provider/x0gpt.py` | `webscout/Provider/OPENAI/x0gpt.py` |
+| 30 | **Yep** | `webscout/Provider/yep.py` | `webscout/Provider/OPENAI/yep.py` |
+| 31 | **Gradient** | `webscout/Provider/Gradient.py` | `webscout/Provider/OPENAI/gradient.py` |
+| 32 | **Sambanova** | `webscout/Provider/Sambanova.py` | `webscout/Provider/OPENAI/sambanova.py` |
+| 33 | **Meta** | `webscout/Provider/meta.py` | `webscout/Provider/OPENAI/meta.py` |
+| 34 | **TypliAI** | `webscout/Provider/TypliAI.py` | `webscout/Provider/OPENAI/typliai.py` |
+| 35 | **LLMChat** | `webscout/Provider/llmchat.py` | `webscout/Provider/OPENAI/llmchat.py` |
+| 36 | **HadadXYZ** | `webscout/Provider/HadadXYZ.py` | `webscout/Provider/OPENAI/hadadxyz.py` |
 
-**Total: 34 providers with dual implementations**
+**Total: 36 providers with dual implementations**
 
 ---
 
@@ -119,19 +120,19 @@ These providers are only available in the OpenAI-compatible format and have no s
 ┌─────────────────────────────────────────┬───────┐
 │ Category                                │ Count │
 ├─────────────────────────────────────────┼───────┤
-│ Both Normal & OpenAI-Compatible         │  34   │
+│ Both Normal & OpenAI-Compatible         │  36   │
 │ Only Normal Version                     │  20   │
 │ Only OpenAI-Compatible Version          │   5   │
 ├─────────────────────────────────────────┼───────┤
-│ TOTAL UNIQUE PROVIDERS                  │  59   │
+│ TOTAL UNIQUE PROVIDERS                  │  61   │
 └─────────────────────────────────────────┴───────┘
 ```
 
 ### Implementation Coverage
 
-- **Total Normal Implementations**: 54 (34 hybrid + 20 normal-only)
-- **Total OpenAI Implementations**: 39 (34 hybrid + 5 OpenAI-only)
-- **Providers with Multiple Options**: 34 (57% of all providers)
+- **Total Normal Implementations**: 56 (36 hybrid + 20 normal-only)
+- **Total OpenAI Implementations**: 41 (36 hybrid + 5 OpenAI-only)
+- **Providers with Multiple Options**: 36 (59% of all providers)
 
 ---
 

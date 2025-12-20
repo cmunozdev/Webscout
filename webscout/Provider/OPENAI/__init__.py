@@ -57,6 +57,7 @@ from webscout.Provider.OPENAI.ibm import IBM
 from webscout.Provider.OPENAI.llmchat import LLMChat
 from webscout.Provider.OPENAI.llmchatco import LLMChatCo
 from webscout.Provider.OPENAI.netwrck import Netwrck
+from webscout.Provider.OPENAI.nvidia import Nvidia
 from webscout.Provider.OPENAI.oivscode import oivscode
 from webscout.Provider.OPENAI.sonus import SonusAI
 from webscout.Provider.OPENAI.textpollinations import TextPollinations
@@ -127,6 +128,7 @@ __all__ = [
     "LLMChat",
     "LLMChatCo",
     "Netwrck",
+    "Nvidia",
     "oivscode",
     "SonusAI",
     "TextPollinations",

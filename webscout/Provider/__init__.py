@@ -35,6 +35,7 @@ from webscout.Provider.llmchat import LLMChat
 from webscout.Provider.llmchatco import LLMChatCo
 from webscout.Provider.meta import Meta
 from webscout.Provider.Netwrck import Netwrck
+from webscout.Provider.Nvidia import Nvidia
 from webscout.Provider.oivscode import oivscode
 from .Openai import OPENAI
 from webscout.Provider.PI import PiAI
@@ -94,6 +95,7 @@ __all__ = [
     "LLMChatCo",
     "Meta",
     "Netwrck",
+    "Nvidia",
     "oivscode",
     "PiAI",
     "QwenLM",

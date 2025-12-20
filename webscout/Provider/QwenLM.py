@@ -1,13 +1,13 @@
 import json
-from typing import Union, Any, Dict, Generator, Optional
 import uuid
-import time
+from typing import Any, Dict, Generator, Optional, Union
 
 from curl_cffi import Session
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+
 
 class QwenLM(Provider):
     """
@@ -229,7 +229,6 @@ class QwenLM(Provider):
                     f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                 )
 
-
             # Use sanitize_stream to parse the non-streaming JSON response
             processed_stream = sanitize_stream(
                 data=response.text,
@@ -239,7 +238,7 @@ class QwenLM(Provider):
                 yield_raw_on_error=False,
                 raw=raw
             )
-                        if raw:
+            if raw:
                 return response.text
 
             # Extract the single result
@@ -263,30 +262,30 @@ class QwenLM(Provider):
     ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a chat response from the QwenLM API.
-        
+
         Args:
             prompt: The prompt to send to the API
             stream: Whether to stream the response
             optimizer: Optional prompt optimizer name
-            raw: If True, returns unprocessed response chunks without any 
+            raw: If True, returns unprocessed response chunks without any
                 processing or sanitization. Useful for debugging or custom
                 processing pipelines. Defaults to False.
             conversationally: Whether to use conversation context
-            
+
         Returns:
             When raw=False: Extracted message string or Generator yielding strings
             When raw=True: Raw response or Generator yielding raw chunks
-                
+
         Examples:
             >>> ai = QwenLM(cookies_path="cookies.json")
             >>> # Get processed response
             >>> response = ai.chat("Hello")
             >>> print(response)
-            
+
             >>> # Get raw response
             >>> raw_response = ai.chat("Hello", raw=True)
             >>> print(raw_response)
-            
+
             >>> # Stream raw chunks
             >>> for chunk in ai.chat("Hello", stream=True, raw=True):
             ...     print(chunk, end='', flush=True)

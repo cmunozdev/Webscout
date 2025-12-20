@@ -5,8 +5,17 @@ All notable changes to this project will be documented in this file.
 
 ## [2025.12.20] - 2025-12-20
 
+### 📝 Documentation Updates
+- **docs**: litprinter.md - Completely rewrote documentation to be comprehensive and consistent with other Webscout docs. Added detailed sections for IceCream debugging, Rich Console, Panels & Layouts, Traceback Enhancement, Themes & Styling, Advanced Usage, Integration with Webscout, API Reference, Dependencies, and Supported Python Versions. Enhanced with professional formatting, extensive code examples, and parameter tables.
+
+---
+
+## [2025.12.20] - 2025-12-20
+
 ### ✨ Added
 
+- **feat**: webscout/Provider/Nvidia.py - New standalone Nvidia NIM provider with dynamic model fetching and advanced stream sanitization.
+- **feat**: webscout/Provider/OPENAI/nvidia.py - New OpenAI-compatible Nvidia NIM provider with manual stream parsing.
 - **feat**: webscout/Provider/HuggingFace.py - New standalone Hugging Face provider with dynamic model fetching and advanced stream sanitization.
 - **feat**: webscout/Provider/OPENAI/huggingface.py - New OpenAI-compatible Hugging Face provider using HF Router with manual stream parsing.
 - **feat**: webscout/Provider/ChatSandbox.py - Major update to ChatSandbox provider after reverse engineering. Expanded `AVAILABLE_MODELS` to include `deepseek-r1-full`, `gemini-thinking`, `llama`, and others.
@@ -109,6 +118,7 @@ All notable changes to this project will be documented in this file.
 - **fix**: webscout/scout/core/crawler.py - Improved domain validation security, fixed overly aggressive URL normalization, and corrected parser selection logic.
 - **fix**: webscout/scout/element.py - Fixed class matching logic and self-closing tag rendering in `prettify`.
 - **fix**: webscout/scout/parsers/lxml_parser.py - Implemented XML namespace stripping for cleaner tag names.
+- **fix**: webscout/Provider/QwenLM.py - Fixed multiple critical bugs including syntax errors, indentation issues, and formatting problems. Applied ruff check fixes to resolve blank lines with whitespace, trailing whitespace, and proper docstring formatting.
 
 ## [2025.12.19] - 2025-12-19
 
