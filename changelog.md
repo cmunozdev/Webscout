@@ -92,6 +92,7 @@ All notable changes to this project will be documented in this file.
 - **removed**: webscout/Provider/AISEARCH/stellar_search.py - Removed dead Stellar AI search provider that was causing import errors and service unavailability.
 
 ### 🐛 Fixed
+- **fix**: `webscout/Provider/typefully.py` - Fixed critical bug where TypefullyAI provider was returning empty responses due to incorrect streaming parser expecting wrong format `0:"..."` instead of actual Typefully AI SSE format `data: {"type":"text-delta","delta":"Hello"}`. Implemented proper content extractor method and updated streaming logic to use `sanitize_stream` with `intro_value="data:"` and `content_extractor=self._typefully_extractor` for robust Server-Sent Events parsing.
 - **fix**: webscout/Provider/oivscode.py - Fixed type annotation bugs by updating optional parameters to use `Optional[str]` type hints, correcting method calls, and adding proper string handling in `get_message()` method
 - **fix**: webscout/Provider/oivscode.py - Removed unwanted print statements from `fetch_available_models()` method and updated its docstring to reflect that it no longer prints models
 - **fix**: webscout/sanitize.py - Fixed import organization issues using `ruff check --fix` to properly sort and format imports according to project standards

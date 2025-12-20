@@ -9,10 +9,15 @@ from webscout.litagent import LitAgent
 from curl_cffi.requests import Session
 from curl_cffi import CurlError
 
+
 class TypefullyAI(Provider):
     required_auth = False
-    AVAILABLE_MODELS = ["openai:gpt-4o-mini", "openai:gpt-4o", "anthropic:claude-haiku-4-5-20251001"
-, "groq:llama-3.3-70b-versatile"]
+    AVAILABLE_MODELS = [
+        "openai:gpt-4o-mini",
+        "openai:gpt-4o",
+        "anthropic:claude-haiku-4-5-20251001",
+        "groq:llama-3.3-70b-versatile",
+    ]
 
     def __init__(
         self,
@@ -50,7 +55,7 @@ class TypefullyAI(Provider):
             "sec-ch-ua": '"Microsoft Edge";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
-            "user-agent": self.agent.random()
+            "user-agent": self.agent.random(),
         }
         self.__available_optimizers = (
             method
@@ -60,9 +65,7 @@ class TypefullyAI(Provider):
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
         Conversation.intro = (
-            AwesomePrompts().get_act(
-                act, raise_not_found=True, default=None, case_insensitive=True
-            )
+            AwesomePrompts().get_act(act, raise_not_found=True, default=None, case_insensitive=True)
             if act
             else intro or Conversation.intro
         )
@@ -71,6 +74,46 @@ class TypefullyAI(Provider):
         )
         self.conversation.history_offset = history_offset
 
+    @staticmethod
+    def _typefully_extractor(chunk) -> str:
+        """Extracts content from Typefully AI SSE format."""
+        import re
+        import json
+
+        # Handle parsed JSON objects (when to_json=True)
+        if isinstance(chunk, dict):
+            data = chunk
+        elif isinstance(chunk, str):
+            # Handle raw strings (when to_json=False or direct strings)
+            line = chunk.strip()
+            if line.startswith("data: "):
+                line = line[6:]  # Remove 'data: ' prefix
+
+                try:
+                    # Parse JSON content
+                    data = json.loads(line)
+                except json.JSONDecodeError:
+                    # If JSON parsing fails, return empty for non-JSON content
+                    return ""
+            else:
+                # For non-SSE lines, return empty
+                return ""
+        else:
+            # For other types (bytes, etc.), return empty
+            return ""
+
+        # Extract delta content for text chunks
+        if data.get("type") == "text-delta" and "delta" in data:
+            return data["delta"]
+        elif data.get("type") == "text-start":
+            # Return empty for text-start to avoid duplication
+            return ""
+        elif data.get("type") == "text-end":
+            # Return empty for text-end to avoid duplication
+            return ""
+        else:
+            # Return empty for other event types
+            return ""
 
     def ask(
         self,
@@ -87,24 +130,23 @@ class TypefullyAI(Provider):
                     conversation_prompt if conversationally else prompt
                 )
             else:
-                raise Exception(
-                    f"Optimizer is not one of {self.__available_optimizers}"
-                )
+                raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
         payload = {
             "prompt": conversation_prompt,
             "systemPrompt": self.system_prompt,
             "modelIdentifier": self.model,
-            "outputLength": self.output_length
+            "outputLength": self.output_length,
         }
+
         def for_stream():
             try:
                 response = self.session.post(
-                    self.api_endpoint, 
-                    headers=self.headers, 
-                    json=payload, 
-                    stream=True, 
+                    self.api_endpoint,
+                    headers=self.headers,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
-                    impersonate="chrome120"
+                    impersonate="chrome120",
                 )
                 if not response.ok:
                     raise exceptions.FailedToGenerateResponseError(
@@ -113,14 +155,14 @@ class TypefullyAI(Provider):
                 streaming_text = ""
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None),
-                    intro_value=None,
-                    to_json=False,
-                    extract_regexes=[r'0:"(.*?)"'],
-                    raw=raw
+                    intro_value="data:",
+                    to_json=True,
+                    content_extractor=self._typefully_extractor,
+                    raw=raw,
                 )
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
-                        content_chunk = content_chunk.decode('utf-8', errors='ignore')
+                        content_chunk = content_chunk.decode("utf-8", errors="ignore")
                     if content_chunk is None:
                         continue
                     if raw:
@@ -130,17 +172,19 @@ class TypefullyAI(Provider):
                             streaming_text += content_chunk
                             yield dict(text=content_chunk)
                 self.last_response.update(dict(text=streaming_text))
-                self.conversation.update_chat_history(
-                    prompt, self.get_message(self.last_response)
-                )
+                self.conversation.update_chat_history(prompt, self.get_message(self.last_response))
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}")
             except Exception as e:
-                raise exceptions.FailedToGenerateResponseError(f"An unexpected error occurred ({type(e).__name__}): {e}")
+                raise exceptions.FailedToGenerateResponseError(
+                    f"An unexpected error occurred ({type(e).__name__}): {e}"
+                )
+
         def for_non_stream():
             for _ in for_stream():
                 pass
-            return self.last_response 
+            return self.last_response
+
         return for_stream() if stream else for_non_stream()
 
     def chat(
@@ -149,7 +193,7 @@ class TypefullyAI(Provider):
         stream: bool = False,
         optimizer: str = None,
         conversationally: bool = False,
-        raw: bool = False,  # Added raw parameter
+        raw: bool = False,
     ) -> str:
         def for_stream():
             for response in self.ask(
@@ -159,6 +203,7 @@ class TypefullyAI(Provider):
                     yield response
                 else:
                     yield self.get_message(response)
+
         def for_non_stream():
             result = self.ask(
                 prompt,
@@ -171,16 +216,18 @@ class TypefullyAI(Provider):
                 return result
             else:
                 return self.get_message(result)
+
         return for_stream() if stream else for_non_stream()
 
     def get_message(self, response: dict) -> str:
         assert isinstance(response, dict), "Response should be of dict data-type only"
         text = response.get("text", "")
         try:
-            formatted_text = text.replace('\\n', '\n').replace('\\n\\n', '\n\n')
+            formatted_text = text.replace("\\n", "\n").replace("\\n\\n", "\n\n")
             return formatted_text
         except Exception:
-             return text
+            return text
+
 
 if __name__ == "__main__":
     print("-" * 80)

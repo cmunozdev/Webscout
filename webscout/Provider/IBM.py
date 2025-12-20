@@ -18,9 +18,9 @@ class IBM(Provider):
     required_auth = False
     AVAILABLE_MODELS = [
         "granite-chat",
-        # "granite-thinking",
+        "granite-thinking",
         "granite-search",
-        # "granite-research",
+        "granite-research",
     ]
 
     @staticmethod
@@ -31,6 +31,23 @@ class IBM(Provider):
                 part = chunk.get("part", {})
                 return part.get("content")
         return None
+
+    def get_token(self) -> str:
+        """Fetches a fresh dynamic Bearer token from the IBM UI auth endpoint."""
+        auth_url = "https://www.ibm.com/granite/playground/api/v1/ui/auth"
+        try:
+            # Use the existing session to benefit from cookies/headers
+            response = self.session.get(auth_url, timeout=self.timeout, impersonate="chrome110")
+            if response.ok:
+                data = response.json()
+                token = data.get("token")
+                if token:
+                    self.headers["Authorization"] = f"Bearer {token}"
+                    self.session.headers.update(self.headers)
+                    return token
+            raise exceptions.FailedToGenerateResponseError(f"Failed to fetch auth token: {response.status_code}")
+        except Exception as e:
+            raise exceptions.FailedToGenerateResponseError(f"Error fetching auth token: {str(e)}")
 
     def __init__(
         self,
@@ -59,7 +76,7 @@ class IBM(Provider):
         self.headers = {
             "Accept": "text/event-stream",
             "Accept-Language": self.fingerprint.get("accept_language", "en-US,en;q=0.9"),
-            "Authorization": "Bearer 2c8c80d2-f589-46ff-9549-853e56cbb825",
+            "Authorization": "", # Will be filled by get_token
             "Content-Type": "application/json",
             "Cache-Control": "no-cache",
             "Origin": "https://www.ibm.com",
@@ -78,6 +95,9 @@ class IBM(Provider):
         self.session = Session()
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
+
+        # Fetch initial token
+        self.get_token()
 
         self.system_prompt = system_prompt
         self.is_conversation = is_conversation
@@ -177,6 +197,18 @@ class IBM(Provider):
                     timeout=self.timeout,
                     impersonate="chrome110" # Use a common impersonation profile
                 )
+                
+                if response.status_code in [401, 403]:
+                    # Token expired, refresh and retry once
+                    self.get_token()
+                    response = self.session.post(
+                        self.url,
+                        data=json.dumps(payload),
+                        stream=True,
+                        timeout=self.timeout,
+                        impersonate="chrome110"
+                    )
+                
                 response.raise_for_status() # Check for HTTP errors
 
                 # Use sanitize_stream
@@ -223,12 +255,15 @@ class IBM(Provider):
                                 final_content += chunk_data["text"]
                         elif isinstance(chunk_data, str):
                             final_content += chunk_data
+                
+                if not final_content:
+                    raise exceptions.FailedToGenerateResponseError("Empty response from provider")
+                    
                 self.last_response = {"text": final_content}
                 return self.last_response if not raw else final_content
 
             except Exception as e:
-                if not final_content:
-                    raise exceptions.FailedToGenerateResponseError(f"Failed to get non-stream response: {str(e)}") from e
+                raise exceptions.FailedToGenerateResponseError(f"Failed to get non-stream response: {str(e)}") from e
 
 
         return for_stream() if stream else for_non_stream()

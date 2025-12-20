@@ -102,6 +102,17 @@ class Completions(BaseCompletions):
                 impersonate="chrome110"
             )
             
+            if response.status_code in [401, 403]:
+                # Token expired, refresh and retry once
+                self._client.get_token()
+                response = self._client.session.post(
+                    self._client.base_url,
+                    data=json.dumps(payload),
+                    stream=True,
+                    timeout=self._client.timeout,
+                    impersonate="chrome110"
+                )
+
             if response.status_code != 200:
                 raise IOError(f"IBM request failed with status code {response.status_code}: {response.text}")
 
@@ -273,17 +284,34 @@ class IBM(OpenAICompatibleProvider):
     required_auth = False  # No API key required for IBM Granite Playground
     AVAILABLE_MODELS = [
         "granite-chat",
-        # "granite-thinking",
+        "granite-thinking",
         "granite-search",
-        # "granite-research",
+        "granite-research",
     ]
+
+    def get_token(self) -> str:
+        """Fetches a fresh dynamic Bearer token from the IBM UI auth endpoint."""
+        auth_url = "https://www.ibm.com/granite/playground/api/v1/ui/auth"
+        try:
+            # Use the existing session to benefit from cookies/headers
+            response = self.session.get(auth_url, timeout=self.timeout, impersonate="chrome110")
+            if response.ok:
+                data = response.json()
+                token = data.get("token")
+                if token:
+                    self.headers["Authorization"] = f"Bearer {token}"
+                    self.session.headers.update(self.headers)
+                    return token
+            raise IOError(f"Failed to fetch auth token: {response.status_code}")
+        except Exception as e:
+            raise IOError(f"Error fetching auth token: {str(e)}")
 
     def __init__(self, api_key: str = None, timeout: Optional[int] = 30, browser: str = "chrome"):
         """
         Initialize IBM client.
         
         Args:
-            api_key: Not required for IBM Granite Playground (uses hardcoded bearer token)
+            api_key: Not required for IBM Granite Playground (uses dynamic bearer token)
             timeout: Request timeout in seconds
             browser: Browser type for fingerprinting
         """
@@ -301,7 +329,7 @@ class IBM(OpenAICompatibleProvider):
             self.headers = {
                 "Accept": "text/event-stream",
                 "Accept-Language": fingerprint.get("accept_language", "en-US,en;q=0.9"),
-                "Authorization": "Bearer 2c8c80d2-f589-46ff-9549-853e56cbb825",
+                "Authorization": "",
                 "Content-Type": "application/json",
                 "Cache-Control": "no-cache",
                 "Origin": "https://www.ibm.com",
@@ -320,7 +348,7 @@ class IBM(OpenAICompatibleProvider):
             self.headers = {
                 "Accept": "text/event-stream",
                 "Accept-Language": "en-US,en;q=0.9",
-                "Authorization": "Bearer 2c8c80d2-f589-46ff-9549-853e56cbb825",
+                "Authorization": "",
                 "Content-Type": "application/json",
                 "Cache-Control": "no-cache",
                 "Origin": "https://www.ibm.com",
@@ -337,6 +365,9 @@ class IBM(OpenAICompatibleProvider):
         
         # Update session headers
         self.session.headers.update(self.headers)
+
+        # Fetch initial token
+        self.get_token()
         
         # Initialize chat interface
         self.chat = Chat(self)

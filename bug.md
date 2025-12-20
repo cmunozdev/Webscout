@@ -55,12 +55,12 @@
 | webscout.Provider.sonus.SonusAI | SUCCESS |
 | webscout.Provider.toolbaz.Toolbaz | SUCCESS |
 | webscout.Provider.turboseek.TurboSeek | SUCCESS |
-| webscout.Provider.typefully.TypefullyAI | FAILED (Empty) |
+| webscout.Provider.typefully.TypefullyAI | SUCCESS |
 | webscout.Provider.x0gpt.X0GPT | SUCCESS |
 | webscout.Provider.yep.YEPCHAT | SUCCESS |
 
 ## Summary
 
-- **Success:** 29
-- **Failed:** 9
+- **Success:** 30
+- **Failed:** 8
 - **Skipped:** 16
