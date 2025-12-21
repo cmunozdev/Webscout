@@ -14,7 +14,9 @@ class DeepInfra(Provider):
     """
     A class to interact with the DeepInfra API with LitAgent user-agent.
     """
+
     required_auth = False
+    # Default models list (will be updated dynamically)
     AVAILABLE_MODELS = [
         "moonshotai/Kimi-K2-Instruct",
         "moonshotai/Kimi-K2-Thinking",
@@ -96,6 +98,57 @@ class DeepInfra(Provider):
         "allenai/olmOCR-7B-0725-FP8",
     ]
 
+    @classmethod
+    def get_models(cls, api_key: Optional[str] = None):
+        """Fetch available models from DeepInfra API.
+
+        Args:
+            api_key (str, optional): DeepInfra API key. If not provided, returns default models.
+
+        Returns:
+            list: List of available model IDs
+        """
+        if not api_key:
+            return cls.AVAILABLE_MODELS
+
+        try:
+            # Use a temporary curl_cffi session for this class method
+            temp_session = Session()
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+
+            response = temp_session.get(
+                "https://api.deepinfra.com/v1/models",
+                headers=headers,
+                impersonate="chrome110",  # Use impersonate for fetching
+            )
+
+            if response.status_code != 200:
+                return cls.AVAILABLE_MODELS
+
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                return [model["id"] for model in data["data"]]
+            return cls.AVAILABLE_MODELS
+
+        except (CurlError, Exception):
+            # Fallback to default models list if fetching fails
+            return cls.AVAILABLE_MODELS
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from DeepInfra API"""
+        try:
+            models = cls.get_models(api_key)
+            if models and len(models) > 0:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            # Fallback to default models list if fetching fails
+            pass
+
     @staticmethod
     def _deepinfra_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
         """Extracts content from DeepInfra stream JSON objects."""
@@ -119,9 +172,12 @@ class DeepInfra(Provider):
         act: Optional[str] = None,
         model: str = "meta-llama/Llama-3.3-70B-Instruct-Turbo",
         system_prompt: str = "You are a helpful assistant.",
-        browser: str = "chrome"
+        browser: str = "chrome",
     ):
         """Initializes the DeepInfra API client."""
+        # Update available models from API
+        self.update_available_models(api_key)
+
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
 
@@ -172,9 +228,7 @@ class DeepInfra(Provider):
             if callable(getattr(Optimizers, method)) and not method.startswith("__")
         )
         Conversation.intro = (
-            AwesomePrompts().get_act(
-                act, raise_not_found=True, default=None, case_insensitive=True
-            )
+            AwesomePrompts().get_act(act, raise_not_found=True, default=None, case_insensitive=True)
             if act
             else intro or Conversation.intro
         )
@@ -194,10 +248,12 @@ class DeepInfra(Provider):
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
 
-        self.headers.update({
-            "Accept": self.fingerprint["accept"],
-            "Accept-Language": self.fingerprint["accept_language"],
-        })
+        self.headers.update(
+            {
+                "Accept": self.fingerprint["accept"],
+                "Accept-Language": self.fingerprint["accept_language"],
+            }
+        )
 
         self.session.headers.update(self.headers)
 
@@ -259,7 +315,7 @@ class DeepInfra(Provider):
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": conversation_prompt},
             ],
-            "stream": stream
+            "stream": stream,
         }
 
         def for_stream():
@@ -270,7 +326,7 @@ class DeepInfra(Provider):
                     data=json.dumps(payload),
                     stream=True,
                     timeout=self.timeout,
-                    impersonate="chrome110"
+                    impersonate="chrome110",
                 )
                 response.raise_for_status()
 
@@ -281,12 +337,12 @@ class DeepInfra(Provider):
                     skip_markers=["[DONE]"],
                     content_extractor=self._deepinfra_extractor,
                     yield_raw_on_error=False,
-                    raw=raw
+                    raw=raw,
                 )
 
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
-                        content_chunk = content_chunk.decode('utf-8', errors='ignore')
+                        content_chunk = content_chunk.decode("utf-8", errors="ignore")
 
                     if raw:
                         yield content_chunk
@@ -296,14 +352,17 @@ class DeepInfra(Provider):
                             yield dict(text=content_chunk)
 
             except CurlError as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed (CurlError): {str(e)}"
+                ) from e
             except Exception as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed ({type(e).__name__}): {str(e)}"
+                ) from e
             finally:
                 if not raw and streaming_text:
                     self.last_response = {"text": streaming_text}
                     self.conversation.update_chat_history(prompt, streaming_text)
-
 
         def for_non_stream():
             try:
@@ -311,7 +370,7 @@ class DeepInfra(Provider):
                     self.url,
                     data=json.dumps(payload),
                     timeout=self.timeout,
-                    impersonate="chrome110"
+                    impersonate="chrome110",
                 )
                 response.raise_for_status()
 
@@ -323,9 +382,13 @@ class DeepInfra(Provider):
                     data=response.text,
                     to_json=True,
                     intro_value=None,
-                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0].get("message", {}).get("content") if isinstance(chunk, dict) else None,
+                    content_extractor=lambda chunk: chunk.get("choices", [{}])[0]
+                    .get("message", {})
+                    .get("content")
+                    if isinstance(chunk, dict)
+                    else None,
                     yield_raw_on_error=False,
-                    raw=raw
+                    raw=raw,
                 )
                 # Extract the single result
                 content = next(processed_stream, None)
@@ -338,11 +401,14 @@ class DeepInfra(Provider):
                 return self.last_response if not raw else content
 
             except CurlError as e:
-                raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}") from e
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed (CurlError): {e}"
+                ) from e
             except Exception as e:
-                err_text = getattr(e, 'response', None) and getattr(e.response, 'text', '')
-                raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {e} - {err_text}") from e
-
+                err_text = getattr(e, "response", None) and getattr(e.response, "text", "")
+                raise exceptions.FailedToGenerateResponseError(
+                    f"Request failed ({type(e).__name__}): {e} - {err_text}"
+                ) from e
 
         return for_stream() if stream else for_non_stream()
 
@@ -384,28 +450,31 @@ class DeepInfra(Provider):
             >>> for chunk in ai.chat("Hello", stream=True, raw=True):
             ...     print(chunk, end='', flush=True)
         """
+
         def for_stream_chat():
             # ask() yields dicts or strings when streaming
             gen = self.ask(
-                prompt, stream=True, raw=raw,
-                optimizer=optimizer, conversationally=conversationally
+                prompt, stream=True, raw=raw, optimizer=optimizer, conversationally=conversationally
             )
             for response_dict in gen:
                 if raw:
                     yield response_dict
                 else:
-                    yield self.get_message(response_dict) # get_message expects dict
+                    yield self.get_message(response_dict)  # get_message expects dict
 
         def for_non_stream_chat():
             # ask() returns dict or str when not streaming
             response_data = self.ask(
-                prompt, stream=False, raw=raw,
-                optimizer=optimizer, conversationally=conversationally
+                prompt,
+                stream=False,
+                raw=raw,
+                optimizer=optimizer,
+                conversationally=conversationally,
             )
             if raw:
                 return response_data
             else:
-                return self.get_message(response_data) # get_message expects dict
+                return self.get_message(response_data)  # get_message expects dict
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
@@ -413,6 +482,7 @@ class DeepInfra(Provider):
         if not isinstance(response, dict):
             return str(response)
         return response["text"]
+
 
 if __name__ == "__main__":
     ai = DeepInfra()

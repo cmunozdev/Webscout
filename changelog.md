@@ -22,6 +22,9 @@ All notable changes to this project will be documented in this file.
     - Replaced incorrect type comparisons (e.g., `== bool`) with idiomatic `is bool`.
     - Split multiple statements on single lines (E701, E702) across the entire project for better readability.
 - **refactor**: Replaced star imports (`from ... import *`) with explicit imports in `GitToolkit` and `samurai` provider to eliminate name shadowing and improve static analysis.
+- **refactor**: Added dynamic model fetching to both DeepInfra providers (`webscout/Provider/Deepinfra.py`, `webscout/Provider/OPENAI/deepinfra.py`) following Groq provider pattern. Implemented `get_models()` and `update_available_models()` class methods that fetch from `https://api.deepinfra.com/v1/models` API endpoint with fallback to default models on failure. Providers now automatically update their available models list during initialization.
+### 🚮 Removed
+- **removed**: `yep.py` - Removed the YEPCHAT provider and related files.
 
 ## [2025.12.20] - 2025-12-20
 

@@ -70,7 +70,6 @@ from webscout.Provider.OPENAI.venice import Venice
 from webscout.Provider.OPENAI.wisecat import WiseCat
 from webscout.Provider.OPENAI.writecream import Writecream
 from webscout.Provider.OPENAI.x0gpt import X0GPT
-from webscout.Provider.OPENAI.yep import YEPCHAT
 from webscout.Provider.OPENAI.zenmux import Zenmux
 
 # List of all exported names

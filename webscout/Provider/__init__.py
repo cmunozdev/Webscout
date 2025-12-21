@@ -54,7 +54,6 @@ from webscout.Provider.VercelAI import VercelAI
 from webscout.Provider.WiseCat import WiseCat
 from webscout.Provider.WrDoChat import WrDoChat
 from webscout.Provider.x0gpt import X0GPT
-from webscout.Provider.yep import YEPCHAT
 
 from .Openai import OPENAI
 
@@ -115,5 +114,4 @@ __all__ = [
     "WiseCat",
     "WrDoChat",
     "X0GPT",
-    "YEPCHAT",
 ]
