@@ -3,12 +3,12 @@ TempMail.io Provider Implementation
 Based on temp-mail.io API
 """
 
-import aiohttp
-import asyncio
 from dataclasses import dataclass
-from typing import List, Dict, Any, Optional, Union, Tuple, NoReturn
+from typing import Any, Dict, List, Optional, Tuple
 
-from .base import AsyncTempMailProvider, TempMailProvider, generate_random_string
+import aiohttp
+
+from .base import AsyncTempMailProvider, TempMailProvider
 
 
 @dataclass

@@ -1,14 +1,17 @@
-from curl_cffi.requests import Session
+import re  # Import re for the extractor
+from typing import Any, Dict, Generator, Optional, Union
+
 from curl_cffi import CurlError
-import json
-from typing import Optional, Union, Any, Dict, Generator
+from curl_cffi.requests import Session
+
 from webscout import exceptions
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation, sanitize_stream # Import sanitize_stream
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
-from webscout.litagent import LitAgent
-import re # Import re for the extractor
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 
 
 class Elmo(Provider):
@@ -21,12 +24,12 @@ class Elmo(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,  # Note: max_tokens is not used by this API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful AI assistant. Provide clear, concise, and well-structured information. Organize your responses into paragraphs for better readability.",
     ) -> None:
         """Instantiates Elmo
@@ -99,11 +102,12 @@ class Elmo(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False,  # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:  # Corrected return type hint
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI
 
         Args:
@@ -230,9 +234,10 @@ class Elmo(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[str, Generator[str, None, None]]:  # Corrected return type hint
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
@@ -283,5 +288,8 @@ if __name__ == "__main__":
     from rich import print
     ai = Elmo()
     response = ai.chat("write a poem about AI", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

@@ -1,8 +1,9 @@
-from urllib.request import Request, urlopen
-from urllib.error import HTTPError
 import json
 import time
-from typing import Dict, Any
+from typing import Any, Dict
+from urllib.error import HTTPError
+from urllib.request import Request, urlopen
+
 try:
     from webscout.litagent.agent import LitAgent
 except ImportError:
@@ -29,14 +30,14 @@ _USER_AGENT_GENERATOR = LitAgent() if LitAgent else None
 def request(url: str, retry_attempts: int = 3) -> Dict[str, Any]:
     """
     Send a request to GitHub API with retry mechanism
-    
+
     Args:
         url: GitHub API endpoint URL
         retry_attempts: Number of retry attempts
-        
+
     Returns:
         Parsed JSON response
-        
+
     Raises:
         NotFoundError: If resource not found
         RateLimitError: If rate limited
@@ -46,7 +47,7 @@ def request(url: str, retry_attempts: int = 3) -> Dict[str, Any]:
         "User-Agent": _USER_AGENT_GENERATOR.random() if _USER_AGENT_GENERATOR else "webscout-gitapi/1.0",
         "Accept": "application/vnd.github+json"
     }
-    
+
     for attempt in range(retry_attempts):
         try:
             req = Request(url, headers=headers)
@@ -56,7 +57,7 @@ def request(url: str, retry_attempts: int = 3) -> Dict[str, Any]:
                 return json.loads(data)
             except json.JSONDecodeError as json_err:
                 raise RequestError(f"Invalid JSON response from {url}: {str(json_err)}")
-            
+
         except HTTPError as e:
             if e.code == 404:
                 raise NotFoundError(f"Resource not found: {url}")
@@ -67,12 +68,12 @@ def request(url: str, retry_attempts: int = 3) -> Dict[str, Any]:
                     continue
                 raise RateLimitError(f"Rate limited after {retry_attempts} attempts")
             if e.code == 403:
-                raise RequestError(f"Forbidden: Check your authentication token")
+                raise RequestError("Forbidden: Check your authentication token")
             if attempt == retry_attempts - 1:
                 raise RequestError(f"HTTP Error {e.code}: {e.reason}")
             # Wait before retrying on other HTTP errors
             time.sleep(1)
-            
+
         except Exception as e:
             if attempt == retry_attempts - 1:
                 raise RequestError(f"Request failed: {str(e)}")

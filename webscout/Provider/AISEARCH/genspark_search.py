@@ -1,13 +1,12 @@
-import cloudscraper
-from uuid import uuid4
-import json
-from typing import TypedDict, List, Iterator, cast, Dict, Optional, Union, Any
-import requests
 import sys
-import re
+from typing import Any, Dict, Iterator, List, Optional, TypedDict, Union, cast
+from uuid import uuid4
 
-from webscout.AIbase import AISearch, SearchResponse
+import cloudscraper
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import AISearch, SearchResponse
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
 
@@ -18,9 +17,10 @@ class SourceDict(TypedDict, total=False):
     snippet: str
     favicon: str
 
-class StatusUpdateDict(TypedDict):
+class StatusUpdateDict(TypedDict, total=False):
     type: str
     message: str
+    data: Any
 
 class StatusTopBarDict(TypedDict, total=False):
     type: str
@@ -41,7 +41,7 @@ class ResultSummaryDict(TypedDict, total=False):
 class Genspark(AISearch):
     """
     Strongly typed Genspark AI search API client.
-    
+
     Updated to handle Unicode more gracefully and support more result fields.
     """
 
@@ -130,7 +130,7 @@ class Genspark(AISearch):
     ]:
         """
         Strongly typed search method for Genspark API.
-        
+
         Args:
             prompt: The search query or prompt.
             stream: If True, yields results as they arrive.
@@ -138,7 +138,7 @@ class Genspark(AISearch):
         """
         self._reset_search_data()
         url = f"{self.chat_endpoint}?query={requests.utils.quote(prompt)}"
-        
+
         def _process_stream() -> Iterator[Union[dict, SearchResponse]]: #type: ignore
             CloudflareException = cloudscraper.exceptions.CloudflareException
             RequestException = requests.exceptions.RequestException
@@ -159,9 +159,9 @@ class Genspark(AISearch):
                     event_type = data.get("type")
                     field_name = data.get("field_name")
                     result_id = data.get("result_id")
-                    
+
                     # Internal State Updates
-                    if event_type == "result_start":
+                    if event_type == "result_start" and isinstance(result_id, str):
                         self.result_summary[result_id] = cast(ResultSummaryDict, {
                             "source": data.get("result_source"),
                             "rel_score": data.get("result_rel_score"),
@@ -207,7 +207,7 @@ class Genspark(AISearch):
                     # Content extraction
                     if event_type == "result_field_delta" and field_name:
                         if (
-                            field_name.startswith("streaming_detail_answer") or 
+                            field_name.startswith("streaming_detail_answer") or
                             field_name.startswith("streaming_simple_answer") or
                             field_name == "answer" or
                             field_name == "content"
@@ -225,7 +225,7 @@ class Genspark(AISearch):
                     raw=raw,
                     output_formatter=None if raw else lambda x: SearchResponse(x) if isinstance(x, str) else x,
                 )
-                
+
                 for item in processed_stream:
                     yield item
             except CloudflareException as e:
@@ -234,7 +234,7 @@ class Genspark(AISearch):
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
 
         processed_stream_gen = _process_stream()
-        
+
         if stream:
             return processed_stream_gen
         else:
@@ -246,7 +246,7 @@ class Genspark(AISearch):
                 else:
                     if isinstance(item, SearchResponse):
                         full_SearchResponse_text += str(item)
-            
+
             if raw:
                 full_raw = "".join(str(item) for item in all_raw_events_for_this_search)
                 self.last_response = full_raw
@@ -261,18 +261,21 @@ if __name__ == "__main__":
     ai = Genspark()
     try:
         search_result_stream = ai.search("liger-kernal details", stream=True, raw=False)
-        
-        for chunk in search_result_stream:
-            try:
-                # Use a more robust way to print Unicode characters on Windows
-                text = str(chunk)
-                sys.stdout.write(text)
-                sys.stdout.flush()
-            except UnicodeEncodeError:
-                # Fallback for Windows consoles that don't support UTF-8
-                safe_chunk = str(chunk).encode('ascii', errors='replace').decode('ascii')
-                sys.stdout.write(safe_chunk)
-                sys.stdout.flush()
+
+        if hasattr(search_result_stream, "__iter__") and not isinstance(search_result_stream, (str, bytes, SearchResponse)):
+            for chunk in search_result_stream:
+                try:
+                    # Use a more robust way to print Unicode characters on Windows
+                    text = str(chunk)
+                    sys.stdout.write(text)
+                    sys.stdout.flush()
+                except UnicodeEncodeError:
+                    # Fallback for Windows consoles that don't support UTF-8
+                    safe_chunk = str(chunk).encode('ascii', errors='replace').decode('ascii')
+                    sys.stdout.write(safe_chunk)
+                    sys.stdout.flush()
+        else:
+            print(search_result_stream)
         print()
 
     except KeyboardInterrupt:

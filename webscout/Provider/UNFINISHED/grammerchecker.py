@@ -1,5 +1,6 @@
 import requests
 
+
 def create_grammar_check_job(text: str):
     url = 'https://api.aigrammarchecker.io/api/ai-check-grammar/create-job'
     headers = {

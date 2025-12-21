@@ -1,13 +1,19 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import re
-from typing import Union, Any, Dict, Optional, Generator
 import secrets
+from typing import Any, Dict, Generator, Optional, Union
 
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+
 
 class JadveOpenAI(Provider):
     """
@@ -21,12 +27,12 @@ class JadveOpenAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gpt-5-mini",
         system_prompt: str = "You are a helpful AI assistant." # Note: system_prompt is not used by this API
     ):
@@ -78,7 +84,7 @@ class JadveOpenAI(Provider):
             "sec-gpc": "1",
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36 Edg/140.0.0.0"
         }
-        
+
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies = proxies # Assign proxies directly
@@ -115,11 +121,12 @@ class JadveOpenAI(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[dict, Generator[dict, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Chat with AI.
 
@@ -157,10 +164,10 @@ class JadveOpenAI(Provider):
             try:
                 # Use curl_cffi session post with impersonate
                 response = self.session.post(
-                    self.api_endpoint, 
+                    self.api_endpoint,
                     # headers are set on the session
-                    json=payload, 
-                    stream=True, 
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     # proxies are set on the session
                     impersonate="chrome120" # Use a common impersonation profile
@@ -220,12 +227,12 @@ class JadveOpenAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         """
-        Generate a chat response (string). 
+        Generate a chat response (string).
 
         Args:
             prompt (str): Prompt to be sent.
@@ -258,22 +265,23 @@ class JadveOpenAI(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Retrieves message from the response.
 
         Args:
-            response (dict): Response from the ask() method.
+            response (Response): Response from the ask() method.
         Returns:
             str: Extracted text.
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         # Extractor handles formatting
         return response.get("text", "")
 
 if __name__ == "__main__":
     for model in JadveOpenAI.AVAILABLE_MODELS:
-        ai = JadveOpenAI(model=model)    
+        ai = JadveOpenAI(model=model)
         response = ai.chat("hi")
         print(f"Model: {model}")
         print(response)

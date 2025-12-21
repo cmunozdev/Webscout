@@ -1,15 +1,19 @@
-import time
-import requests
 import pathlib
-import urllib.parse
 import tempfile
-from typing import Union
+import time
+import urllib.parse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from io import BytesIO
+
+import requests
+from litprinter import ic
+
 from webscout import exceptions
 from webscout.litagent import LitAgent
-from concurrent.futures import ThreadPoolExecutor, as_completed
+
 from . import utils
 from .base import BaseTTSProvider
+
 
 class StreamElements(BaseTTSProvider):
 
@@ -21,7 +25,7 @@ class StreamElements(BaseTTSProvider):
 
     required_auth = False
 
-    
+
 
     # Supported voices
 
@@ -171,14 +175,17 @@ class StreamElements(BaseTTSProvider):
                     # Check if the request was successful
                     if response.ok and response.status_code == 200:
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"Chunk {part_number} processed successfully")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"Chunk {part_number} processed successfully")
                         return part_number, response.content
                     else:
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"No data received for chunk {part_number}. Retrying...")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"No data received for chunk {part_number}. Retrying...")
                 except requests.RequestException as e:
                     if verbose:
-                        ic.configureOutput(prefix='DEBUG| '); ic(f"Error for chunk {part_number}: {e}. Retrying...")
+                        ic.configureOutput(prefix='DEBUG| ')
+                        ic(f"Error for chunk {part_number}: {e}. Retrying...")
                     time.sleep(1)
         try:
             # Using ThreadPoolExecutor to handle requests concurrently
@@ -196,25 +203,29 @@ class StreamElements(BaseTTSProvider):
                         audio_chunks[part_number] = audio_data  # Store the audio data in correct sequence
                     except Exception as e:
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"Failed to generate audio for chunk {chunk_num}: {e}")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"Failed to generate audio for chunk {chunk_num}: {e}")
 
             # Combine audio chunks in the correct sequence
             combined_audio = BytesIO()
             for part_number in sorted(audio_chunks.keys()):
                 combined_audio.write(audio_chunks[part_number])
                 if verbose:
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"Added chunk {part_number} to the combined file.")
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"Added chunk {part_number} to the combined file.")
 
             # Save the combined audio data to a single file
             with open(filename, 'wb') as f:
                 f.write(combined_audio.getvalue())
             if verbose:
-                ic.configureOutput(prefix='DEBUG| '); ic(f"Final Audio Saved as {filename}")
+                ic.configureOutput(prefix='DEBUG| ')
+                ic(f"Final Audio Saved as {filename}")
             return filename.as_posix()
 
         except requests.exceptions.RequestException as e:
             if verbose:
-                ic.configureOutput(prefix='DEBUG| '); ic(f"Failed to perform the operation: {e}")
+                ic.configureOutput(prefix='DEBUG| ')
+                ic(f"Failed to perform the operation: {e}")
             raise exceptions.FailedToGenerateResponseError(
                 f"Failed to perform the operation: {e}"
             )
@@ -224,6 +235,8 @@ if __name__ == "__main__":
     streamelements = StreamElements()
     text = "This is a test of the StreamElements text-to-speech API. It supports multiple sentences and advanced logging."
 
-    ic.configureOutput(prefix='DEBUG| '); ic("Generating audio...")
+    ic.configureOutput(prefix='DEBUG| ')
+    ic("Generating audio...")
     audio_file = streamelements.tts(text, voice="Mathieu")
-    ic.configureOutput(prefix='INFO| '); ic(f"Audio saved to: {audio_file}")
+    ic.configureOutput(prefix='INFO| ')
+    ic(f"Audio saved to: {audio_file}")

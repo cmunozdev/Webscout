@@ -1,21 +1,22 @@
+import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import requests
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
 
 from webscout.litagent import LitAgent
 from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
     ChatCompletionMessage,
+    Choice,
     ChoiceDelta,
     CompletionUsage,
+    count_tokens,
     format_prompt,
     get_system_prompt,
-    count_tokens
 )
 
 # ANSI escape codes for formatting
@@ -47,8 +48,8 @@ class Completions(BaseCompletions):
         # Format the messages using the format_prompt utility
         # This creates a conversation in the format: "User: message\nAssistant: response\nUser: message\nAssistant:"
         formatted_prompt = format_prompt(messages, add_special_tokens=True, do_continue=True)
-        
-       
+
+
         # Prepare the payload for Netwrck API
         payload = {
             "query": formatted_prompt,
@@ -87,7 +88,7 @@ class Completions(BaseCompletions):
             for line in response.iter_lines():
                 if not line:
                     continue
-                
+
                 try:
                     decoded_line = line.decode('utf-8').strip('"')
                     if decoded_line:
@@ -95,18 +96,18 @@ class Completions(BaseCompletions):
                         formatted_content = self._client.format_text(decoded_line)
                         streaming_text += formatted_content
                         completion_tokens += count_tokens(formatted_content)
-                        
+
                         # Create a delta object for this chunk
                         delta = ChoiceDelta(content=formatted_content)
                         choice = Choice(index=0, delta=delta, finish_reason=None)
-                        
+
                         chunk = ChatCompletionChunk(
                             id=request_id,
                             choices=[choice],
                             created=created_time,
                             model=model,
                         )
-                        
+
                         yield chunk
                 except Exception:
                     continue
@@ -114,14 +115,14 @@ class Completions(BaseCompletions):
             # Final chunk with finish_reason
             delta = ChoiceDelta(content=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop")
-            
+
             chunk = ChatCompletionChunk(
                 id=request_id,
                 choices=[choice],
                 created=created_time,
                 model=model,
             )
-            
+
             yield chunk
 
         except requests.exceptions.RequestException as e:
@@ -140,7 +141,7 @@ class Completions(BaseCompletions):
                 proxies=proxies or getattr(self._client, "proxies", None)
             )
             response.raise_for_status()
-            
+
             # Process the response
             raw_response = response.text.strip('"')
             # Format the full response using the client's formatter
@@ -150,26 +151,26 @@ class Completions(BaseCompletions):
             prompt_tokens = count_tokens(payload.get("query", ""))
             completion_tokens = count_tokens(full_response)
             total_tokens = prompt_tokens + completion_tokens
-            
+
             usage = CompletionUsage(
                 prompt_tokens=prompt_tokens,
                 completion_tokens=completion_tokens,
                 total_tokens=total_tokens
             )
-            
+
             # Create the message object
             message = ChatCompletionMessage(
                 role="assistant",
                 content=full_response
             )
-            
+
             # Create the choice object
             choice = Choice(
                 index=0,
                 message=message,
                 finish_reason="stop"
             )
-            
+
             # Create the completion object
             completion = ChatCompletion(
                 id=request_id,
@@ -178,7 +179,7 @@ class Completions(BaseCompletions):
                 model=model,
                 usage=usage,
             )
-            
+
             return completion
 
         except Exception as e:
@@ -236,10 +237,10 @@ class Netwrck(OpenAICompatibleProvider):
         self.temperature = temperature
         self.top_p = top_p
         self.system_prompt = system_prompt
-        
+
         # Initialize LitAgent for user agent generation
         agent = LitAgent()
-        
+
         self.headers = {
             'authority': 'netwrck.com',
             'accept': '*/*',
@@ -249,10 +250,10 @@ class Netwrck(OpenAICompatibleProvider):
             'referer': 'https://netwrck.com/',
             'user-agent': agent.random()
         }
-        
+
         self.session = requests.Session()
         self.session.headers.update(self.headers)
-        
+
         # Initialize the chat interface
         self.chat = Chat(self)
 
@@ -300,12 +301,12 @@ class Netwrck(OpenAICompatibleProvider):
         """
         if model in self.AVAILABLE_MODELS:
             return model
-        
+
         # Try to find a matching model
         for available_model in self.AVAILABLE_MODELS:
             if model.lower() in available_model.lower():
                 return available_model
-        
+
         # Default to DeepSeek if no match
         print(f"{BOLD}Warning: Model '{model}' not found, using default model 'deepseek/deepseek-r1'{RESET}")
         return "deepseek/deepseek-r1"
@@ -342,7 +343,7 @@ if __name__ == "__main__":
                 ],
                 stream=False
             )
-            
+
             if response and response.choices and response.choices[0].message.content:
                 status = "✓"
                 # Truncate response if too long

@@ -1,13 +1,17 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import json
-from typing import Union, Any, Dict, Optional, Generator
+from typing import Any, Dict, Generator, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+
 
 class Marcus(Provider):
     """
@@ -35,14 +39,14 @@ class Marcus(Provider):
         self.api_endpoint = "https://www.askmarcus.app/api/response"
         self.timeout = timeout
         self.last_response = {}
-        
+
         self.headers = {
             'content-type': 'application/json',
             'accept': '*/*',
             'origin': 'https://www.askmarcus.app',
             'referer': 'https://www.askmarcus.app/chat',
         }
-        
+
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies = proxies # Assign proxies directly
@@ -102,7 +106,7 @@ class Marcus(Provider):
                     impersonate="chrome110" # Use a common impersonation profile
                 )
                 response.raise_for_status() # Check for HTTP errors
-                
+
                 # Use sanitize_stream to decode bytes and yield text chunks
                 processed_stream = sanitize_stream(
                     data=response.iter_content(chunk_size=None), # Pass byte iterator
@@ -139,7 +143,7 @@ class Marcus(Provider):
                     impersonate="chrome110" # Use a common impersonation profile
                 )
                 response.raise_for_status() # Check for HTTP errors
-                
+
                 response_text_raw = response.text # Get raw text
 
                 # Process the text using sanitize_stream (even though it's not streaming)

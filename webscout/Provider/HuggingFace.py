@@ -1,13 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union, List
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, List, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class HuggingFace(Provider):
     """
@@ -18,7 +19,7 @@ class HuggingFace(Provider):
     AVAILABLE_MODELS = []
 
     @classmethod
-    def get_models(cls, api_key: str = None) -> List[str]:
+    def get_models(cls, api_key: Optional[str] = None) -> list[str]:
         """Fetch available text-generation models from Hugging Face."""
         url = "https://router.huggingface.co/v1/models"
         try:
@@ -26,7 +27,7 @@ class HuggingFace(Provider):
             headers = {}
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            
+
             response = temp_session.get(url, headers=headers, timeout=10)
             if response.status_code == 200:
                 data = response.json()
@@ -38,7 +39,7 @@ class HuggingFace(Provider):
             return cls.AVAILABLE_MODELS
 
     @classmethod
-    def update_available_models(cls, api_key: str = None):
+    def update_available_models(cls, api_key: Optional[str] = None):
         """Update the available models list from Hugging Face API dynamically."""
         try:
             models = cls.get_models(api_key)
@@ -53,12 +54,12 @@ class HuggingFace(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "meta-llama/Llama-3.3-70B-Instruct",
         system_prompt: str = "You are a helpful assistant.",
         temperature: float = 0.7,
@@ -157,37 +158,38 @@ class HuggingFace(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Hugging Face Router API and returns the response.
-        
+
         Args:
             prompt: The prompt to send to the API
             stream: Whether to stream the response
-            raw: If True, returns unprocessed response chunks without any 
+            raw: If True, returns unprocessed response chunks without any
                 processing or sanitization. Useful for debugging or custom
                 processing pipelines. Defaults to False.
             optimizer: Optional prompt optimizer name
             conversationally: Whether to use conversation context
-            
+
         Returns:
-            When raw=False: Dict with 'text' key (non-streaming) or 
+            When raw=False: Dict with 'text' key (non-streaming) or
                 Generator yielding dicts (streaming)
-            When raw=True: Raw string response (non-streaming) or 
+            When raw=True: Raw string response (non-streaming) or
                 Generator yielding raw string chunks (streaming)
-                
+
         Examples:
             >>> hf = HuggingFace(api_key="your-key")
             >>> # Get processed response
             >>> response = hf.ask("Hello")
             >>> print(response["text"])
-            
+
             >>> # Get raw response
             >>> raw_response = hf.ask("Hello", raw=True)
             >>> print(raw_response)
-            
+
             >>> # Stream raw chunks
             >>> for chunk in hf.ask("Hello", stream=True, raw=True):
             ...     print(chunk, end='', flush=True)
@@ -214,7 +216,7 @@ class HuggingFace(Provider):
         }
 
         def for_stream():
-            streaming_text = "" 
+            streaming_text = ""
             try:
                 response = self.session.post(
                     self.url,
@@ -237,7 +239,7 @@ class HuggingFace(Provider):
                 for content_chunk in processed_stream:
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:
@@ -300,7 +302,7 @@ class HuggingFace(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         raw: bool = False,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -330,14 +332,19 @@ class HuggingFace(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Retrieves message from response dict."""
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":
     hf = HuggingFace(api_key="")
     models = hf.AVAILABLE_MODELS
     print(models)
-    for chunk in hf.chat("Hi!", stream=True):
-        print(chunk, end="", flush=True)
+    response = hf.chat("Hi!", stream=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

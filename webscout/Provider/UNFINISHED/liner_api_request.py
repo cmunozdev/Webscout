@@ -1,25 +1,23 @@
-import requests
 import json
-from typing import Dict, Optional, Generator, Union, Any
-from uuid import uuid4
-import time
-import base64
 import random
+from typing import Dict, Generator, Optional, Union
+from uuid import uuid4
 
+import requests
+
+from webscout import LitAgent, exceptions
 from webscout.AIbase import AISearch
-from webscout import exceptions
-from webscout import LitAgent
 
 
 class Response:
     """A wrapper class for Liner API responses.
-    
+
     This class automatically converts response objects to their text representation
     when printed or converted to string.
-    
+
     Attributes:
         text (str): The text content of the response
-        
+
     Example:
         >>> response = Response("Hello, world!")
         >>> print(response)
@@ -29,20 +27,20 @@ class Response:
     """
     def __init__(self, text: str):
         self.text = text
-    
+
     def __str__(self):
         return self.text
-    
+
     def __repr__(self):
         return self.text
 
 
 class Liner(AISearch):
     """A class to interact with the Liner AI search API.
-    
+
     Liner provides a powerful search interface that returns AI-generated responses
     based on web content. It supports both streaming and non-streaming responses.
-    
+
     Basic Usage:
         >>> from webscout import Liner
         >>> ai = Liner(cookies_path="cookies.json")
@@ -50,18 +48,18 @@ class Liner(AISearch):
         >>> response = ai.search("What is Python?")
         >>> print(response)
         Python is a high-level programming language...
-        
+
         >>> # Streaming example
         >>> for chunk in ai.search("Tell me about AI", stream=True):
         ...     print(chunk, end="", flush=True)
         Artificial Intelligence is...
-        
+
         >>> # Raw response format
         >>> for chunk in ai.search("Hello", stream=True, raw=True):
         ...     print(chunk)
         {'text': 'Hello'}
         {'text': ' there!'}
-    
+
     Args:
         cookies_path (str): Path to the cookies JSON file
         timeout (int, optional): Request timeout in seconds. Defaults to 30.
@@ -79,7 +77,7 @@ class Liner(AISearch):
         reasoning_mode: bool = False,
     ):
         """Initialize the Liner API client.
-        
+
         Args:
             cookies_path (str): Path to the cookies JSON file
             timeout (int, optional): Request timeout in seconds. Defaults to 30.
@@ -95,13 +93,13 @@ class Liner(AISearch):
         self.cookies_path = cookies_path
         self.deep_search = deep_search
         self.reasoning_mode = reasoning_mode
-        
+
         # Generate random IDs
         self.space_id = random.randint(10000000, 99999999)
         self.thread_id = random.randint(10000000, 99999999)
         self.user_message_id = random.randint(100000000, 999999999)
         self.user_id = random.randint(1000000, 9999999)
-        
+
         self.headers = {
             "accept": "text/event-stream",
             "accept-encoding": "gzip, deflate, br, zstd",
@@ -119,7 +117,7 @@ class Liner(AISearch):
             "sec-gpc": "1",
             "user-agent": LitAgent().random()
         }
-        
+
         # Load cookies from JSON file
         self.cookies = self._load_cookies()
         if not self.cookies:
@@ -132,7 +130,7 @@ class Liner(AISearch):
 
     def _load_cookies(self) -> Optional[Dict[str, str]]:
         """Load cookies from a JSON file.
-        
+
         Returns:
             Optional[Dict[str, str]]: Dictionary of cookies if successful, None otherwise
         """
@@ -157,7 +155,7 @@ class Liner(AISearch):
         raw: bool = False,
     ) -> Union[Response, Generator[Union[Dict[str, str], Response], None, None]]:
         """Search using the Liner API and get AI-generated responses.
-        
+
         Args:
             prompt (str): The search query or prompt to send to the API.
             stream (bool, optional): If True, yields response chunks as they arrive.
@@ -165,12 +163,12 @@ class Liner(AISearch):
             raw (bool, optional): If True, returns raw response dictionaries with 'text' key.
                                 If False, returns Response objects that convert to text automatically.
                                 Defaults to False.
-        
+
         Returns:
-            Union[Response, Generator[Union[Dict[str, str], Response], None, None]]: 
+            Union[Response, Generator[Union[Dict[str, str], Response], None, None]]:
                 - If stream=False: Returns complete response
                 - If stream=True: Yields response chunks as they arrive
-        
+
         Raises:
             APIConnectionError: If the API request fails
         """
@@ -192,7 +190,7 @@ class Liner(AISearch):
             "experimentVariants": [],
             "isDeepResearchMode": self.deep_search
         }
-        
+
         def for_stream():
             try:
                 with self.session.post(
@@ -205,18 +203,18 @@ class Liner(AISearch):
                         raise exceptions.APIConnectionError(
                             f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                         )
-                    
+
                     current_reasoning = ""
                     current_answer = ""
-                    
+
                     for line in response.iter_lines(decode_unicode=True):
                         if line == "event:finish_answer":
                             break
-                            
+
                         if line.startswith('data:'):
                             try:
                                 data = json.loads(line[5:])  # Remove 'data:' prefix
-                                
+
                                 # Handle reasoning updates if enabled
                                 if self.reasoning_mode and 'reasoning' in data:
                                     current_reasoning += data['reasoning']
@@ -224,7 +222,7 @@ class Liner(AISearch):
                                         yield {"text": data['reasoning']}
                                     else:
                                         yield Response(data['reasoning'])
-                                        
+
                                 # Handle answer updates
                                 if 'answer' in data:
                                     current_answer += data['answer']
@@ -232,13 +230,13 @@ class Liner(AISearch):
                                         yield {"text": data['answer']}
                                     else:
                                         yield Response(data['answer'])
-                                        
+
                             except json.JSONDecodeError:
                                 continue
-                                
+
             except requests.exceptions.RequestException as e:
                 raise exceptions.APIConnectionError(f"Request failed: {e}")
-                
+
         def for_non_stream():
             full_response = ""
             for chunk in for_stream():
@@ -246,7 +244,7 @@ class Liner(AISearch):
                     yield chunk
                 else:
                     full_response += str(chunk)
-            
+
             if not raw:
                 self.last_response = Response(full_response)
                 return self.last_response
@@ -256,8 +254,8 @@ class Liner(AISearch):
 
 if __name__ == "__main__":
     from rich import print
-    
+
     ai = Liner(cookies_path="cookies.json")
     response = ai.search(input(">>> "), stream=True, raw=False)
     for chunk in response:
-        print(chunk, end="", flush=True) 
+        print(chunk, end="", flush=True)

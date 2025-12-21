@@ -1,15 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-from typing import Any, Dict, Optional, Generator, Union
 import uuid
-import json
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class QodoAI(Provider):
     """
@@ -18,7 +17,7 @@ class QodoAI(Provider):
 
     AVAILABLE_MODELS = [
         "gpt-4.1",
-        "gpt-4o", 
+        "gpt-4o",
         "o3",
         "o4-mini",
         "claude-4-sonnet",
@@ -56,21 +55,21 @@ class QodoAI(Provider):
         """Initializes the Qodo AI API client."""
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         self.url = "https://api.cli.qodo.ai/v2/agentic/start-task"
         self.info_url = "https://api.cli.qodo.ai/v2/info/get-things"
-        
+
         # Initialize LitAgent for user agent generation
         self.agent = LitAgent()
         self.fingerprint = self.agent.generate_fingerprint(browser)
-        
+
         # Store API key
         self.api_key = api_key or "sk-dS7U-extxMWUxc8SbYYOuncqGUIE8-y2OY8oMCpu0eI-qnSUyH9CYWO_eAMpqwfMo7pXU3QNrclfZYMO0M6BJTM"
-        
+
         # Generate session ID dynamically from API
         self.session_id = self._get_session_id()
         self.request_id = str(uuid.uuid4())
-        
+
         # Use the fingerprint for headers
         self.headers = {
             "Accept": "text/plain",
@@ -83,7 +82,7 @@ class QodoAI(Provider):
             "Request-id": self.request_id,
             "User-Agent": self.fingerprint["user_agent"],
         }
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
         # Add Session-id to headers after getting it from API
@@ -118,23 +117,23 @@ class QodoAI(Provider):
     def refresh_identity(self, browser: str = None):
         """
         Refreshes the browser identity fingerprint.
-        
+
         Args:
             browser: Specific browser to use for the new fingerprint
         """
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
-        
+
         # Update headers with new fingerprint
         self.headers.update({
             "Accept-Language": self.fingerprint["accept_language"],
             "User-Agent": self.fingerprint["user_agent"],
         })
-        
+
         # Update session headers
         for header, value in self.headers.items():
             self.session.headers[header] = value
-        
+
         return self.fingerprint
 
     def _build_payload(self, prompt: str):
@@ -379,13 +378,13 @@ class QodoAI(Provider):
                 "User-Agent": self.fingerprint["user_agent"] if hasattr(self, 'fingerprint') else "axios/1.10.0",
             }
             temp_session.headers.update(temp_headers)
-            
+
             response = temp_session.get(
                 self.info_url,
                 timeout=self.timeout if hasattr(self, 'timeout') else 30,
                 impersonate="chrome110"
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 session_id = data.get("session-id")
@@ -406,12 +405,12 @@ class QodoAI(Provider):
                     "Usage: QodoAI(api_key='your_api_key_here')\n"
                     "To get an API key, install Qodo CLI via: https://docs.qodo.ai/qodo-documentation/qodo-gen-cli/getting-started/setup-and-quickstart"
                 )
-                    
+
             # Fallback to generated session ID if API call fails
             from datetime import datetime
             today = datetime.now().strftime("%Y%m%d")
             return f"{today}-{str(uuid.uuid4())}"
-            
+
         except exceptions.FailedToGenerateResponseError:
             # Re-raise our custom exceptions
             raise
@@ -427,23 +426,22 @@ class QodoAI(Provider):
     def refresh_session(self):
         """
         Refreshes the session ID by calling the Qodo API.
-        
+
         Returns:
             str: The new session ID
         """
-        old_session_id = self.session_id
         self.session_id = self._get_session_id()
-        
+
         # Update headers with new session ID
         self.headers["Session-id"] = self.session_id
         self.session.headers["Session-id"] = self.session_id
-        
+
         return self.session_id
 
     def get_available_models(self) -> Dict[str, Any]:
         """
         Get available models and info from Qodo API.
-        
+
         Returns:
             Dict containing models, default_model, version, and session info
         """
@@ -453,7 +451,7 @@ class QodoAI(Provider):
                 timeout=self.timeout,
                 impersonate=self.fingerprint.get("browser_type", "chrome110")
             )
-            
+
             if response.status_code == 200:
                 return response.json()
             elif response.status_code == 401:
@@ -464,7 +462,7 @@ class QodoAI(Provider):
                 )
             else:
                 raise exceptions.FailedToGenerateResponseError(f"Failed to get models: HTTP {response.status_code}")
-                
+
         except CurlError as e:
             raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}")
         except Exception as e:
@@ -473,6 +471,6 @@ class QodoAI(Provider):
 
 if __name__ == "__main__":
     ai = QodoAI() # u will need to give your API key here to get api install qodo cli via https://docs.qodo.ai/qodo-documentation/qodo-gen-cli/getting-started/setup-and-quickstart
-    response = ai.chat("write a poem about india", raw=False, stream=True) 
+    response = ai.chat("write a poem about india", raw=False, stream=True)
     for chunk in response:
         print(chunk, end='', flush=True)

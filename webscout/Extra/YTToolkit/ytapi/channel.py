@@ -1,19 +1,13 @@
 import json
 import re
+from typing import Dict, List, Optional
+from urllib.parse import unquote
 
-from .https import (
-    channel_about,
-    streams_data,
-    uploads_data,
-    channel_playlists,
-    upcoming_videos
-)
-from .video import Video
+from .https import channel_about, channel_playlists, streams_data, upcoming_videos, uploads_data
+from .patterns import _ChannelPatterns as Patterns
 from .pool import collect
 from .utils import dup_filter
-from urllib.parse import unquote
-from typing import List, Optional, Dict
-from .patterns import _ChannelPatterns as Patterns
+from .video import Video
 
 
 class Channel:
@@ -87,11 +81,11 @@ class Channel:
         ]
         extracted = collect(lambda x: x.findall(self._about_page) or None, patterns)
         name, avatar, banner, verified, socials = [e[0] if e else None for e in extracted]
-        
+
         # Add robust error handling for info extraction
         info_pattern = re.compile("\\[{\"aboutChannelRenderer\":(.*?)],")
         info_match = info_pattern.search(self._about_page)
-        
+
         if not info_match:
             # Fallback metadata for search results or incomplete channel data
             return {
@@ -110,11 +104,11 @@ class Channel:
                 "verified": bool(verified),
                 "socials": unquote(socials) if socials is not None else None
             }
-        
+
         try:
             info_str = info_match.group(1) + "]}}}}"
             info = json.loads(info_str)["metadata"]["aboutChannelViewModel"]
-            
+
             return {
                 "id": info.get("channelId", self._usable_id),
                 "name": name,
@@ -232,7 +226,7 @@ class Channel:
         """
         ids = self.old_streams
         return ids[0] if ids else None
-    
+
     def uploads(self, limit: int = 20) -> Optional[List[str]]:
         """
         Fetches the ids of all uploaded videos

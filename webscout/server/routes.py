@@ -5,49 +5,52 @@ API routes for the Webscout server.
 import time
 import uuid
 
-from fastapi import FastAPI, Request, Body, Query
-from fastapi.responses import JSONResponse
+from fastapi import Body, FastAPI, Query, Request
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
+from litprinter import ic
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.status import (
     HTTP_500_INTERNAL_SERVER_ERROR,
 )
 
-from litprinter import ic
+from webscout.search.engines import ENGINES
 
 from .config import AppConfig
-from .request_models import (
-    ChatCompletionRequest, ImageGenerationRequest, ModelListResponse
-)
 from .exceptions import APIError
 from .providers import (
-    resolve_provider_and_model, resolve_tti_provider_and_model,
-    get_provider_instance, get_tti_provider_instance
+    get_provider_instance,
+    get_tti_provider_instance,
+    resolve_provider_and_model,
+    resolve_tti_provider_and_model,
 )
+from .request_models import ChatCompletionRequest, ImageGenerationRequest, ModelListResponse
 from .request_processing import (
-    process_messages, prepare_provider_params,
-    handle_streaming_response, handle_non_streaming_response
+    handle_non_streaming_response,
+    handle_streaming_response,
+    prepare_provider_params,
+    process_messages,
 )
-from webscout.search.engines import ENGINES
+
 
 class Api:
     """API route handler class."""
-    
+
     def __init__(self, app: FastAPI) -> None:
         self.app = app
 
     def register_validation_exception_handler(self):
         """Register comprehensive exception handlers."""
-        from fastapi.exceptions import RequestValidationError
-        from starlette.exceptions import HTTPException as StarletteHTTPException
         from starlette.status import HTTP_422_UNPROCESSABLE_ENTITY, HTTP_500_INTERNAL_SERVER_ERROR
+
         from .exceptions import APIError
-        
+
         github_footer = "If you believe this is a bug, please pull an issue at https://github.com/OEvortex/Webscout."
 
         @self.app.exception_handler(APIError)
         async def api_error_handler(request, exc: APIError):
-            ic.configureOutput(prefix='ERROR| '); ic(f"API Error: {exc.message} (Status: {exc.status_code})")
+            ic.configureOutput(prefix='ERROR| ')
+            ic(f"API Error: {exc.message} (Status: {exc.status_code})")
             # Patch: add footer to error content before creating JSONResponse
             error_response = exc.to_response()
             # If the response is a JSONResponse, patch its content dict before returning
@@ -68,7 +71,7 @@ class Api:
             errors = exc.errors()
             error_messages = []
             body = await request.body()
-            is_empty_body = not body or body.strip() in (b"", b"null", b"{}")
+            not body or body.strip() in (b"", b"null", b"{}")
             for error in errors:
                 loc = error.get("loc", [])
                 loc_str = " -> ".join(str(item) for item in loc)
@@ -101,7 +104,8 @@ class Api:
 
         @self.app.exception_handler(Exception)
         async def general_exception_handler(request, exc: Exception):
-            ic.configureOutput(prefix='ERROR| '); ic(f"Unhandled server error: {exc}")
+            ic.configureOutput(prefix='ERROR| ')
+            ic(f"Unhandled server error: {exc}")
             content = {
                 "error": {
                     "message": f"Internal server error: {str(exc)}",
@@ -126,7 +130,7 @@ class Api:
             return {"status": "healthy", "service": "webscout-api", "version": "0.2.0"}
 
     def _register_model_routes(self):
-        """Register model listing routes."""        
+        """Register model listing routes."""
         @self.app.get(
             "/v1/models",
             response_model=ModelListResponse,
@@ -183,32 +187,32 @@ class Api:
         async def list_providers():
             """Get information about all available chat completion providers."""
             providers = {}
-            
+
             # Extract unique provider names (exclude model mappings)
             provider_names = set()
             for key, provider_class in AppConfig.provider_map.items():
                 if "/" not in key:  # Provider name, not model mapping
                     provider_names.add(key)
-            
+
             for provider_name in sorted(provider_names):
                 provider_class = AppConfig.provider_map[provider_name]
-                
+
                 # Get available models for this provider
                 models = []
                 for key, cls in AppConfig.provider_map.items():
                     if key.startswith(f"{provider_name}/"):
                         model_name = key.split("/", 1)[1]
                         models.append(model_name)
-                
+
                 # Sort models
                 models = sorted(models)
-                
+
                 # Get supported parameters (common OpenAI-compatible parameters)
                 supported_params = [
-                    "model", "messages", "max_tokens", "temperature", "top_p", 
+                    "model", "messages", "max_tokens", "temperature", "top_p",
                     "presence_penalty", "frequency_penalty", "stop", "stream", "user"
                 ]
-                
+
                 providers[provider_name] = {
                     "name": provider_name,
                     "class": provider_class.__name__,
@@ -216,12 +220,12 @@ class Api:
                     "parameters": supported_params,
                     "model_count": len(models)
                 }
-            
+
             return {
                 "providers": providers,
                 "total_providers": len(providers)
             }
-        
+
         @self.app.get(
             "/v1/TTI/models",
             response_model=ModelListResponse,
@@ -256,32 +260,32 @@ class Api:
         async def list_tti_providers():
             """Get information about all available TTI providers."""
             providers = {}
-            
+
             # Extract unique provider names (exclude model mappings)
             provider_names = set()
             for key, provider_class in AppConfig.tti_provider_map.items():
                 if "/" not in key:  # Provider name, not model mapping
                     provider_names.add(key)
-            
+
             for provider_name in sorted(provider_names):
                 provider_class = AppConfig.tti_provider_map[provider_name]
-                
+
                 # Get available models for this provider
                 models = []
                 for key, cls in AppConfig.tti_provider_map.items():
                     if key.startswith(f"{provider_name}/"):
                         model_name = key.split("/", 1)[1]
                         models.append(model_name)
-                
+
                 # Sort models
                 models = sorted(models)
-                
+
                 # Get supported parameters (common TTI parameters)
                 supported_params = [
-                    "prompt", "model", "n", "size", "response_format", "user", 
+                    "prompt", "model", "n", "size", "response_format", "user",
                     "style", "aspect_ratio", "timeout", "image_format", "seed"
                 ]
-                
+
                 providers[provider_name] = {
                     "name": provider_name,
                     "class": provider_class.__name__,
@@ -289,7 +293,7 @@ class Api:
                     "parameters": supported_params,
                     "model_count": len(models)
                 }
-            
+
             return {
                 "providers": providers,
                 "total_providers": len(providers)
@@ -325,7 +329,8 @@ class Api:
             request_id = f"chatcmpl-{uuid.uuid4()}"
 
             try:
-                ic.configureOutput(prefix='INFO| '); ic(f"Processing chat completion request {request_id} for model: {chat_request.model}")
+                ic.configureOutput(prefix='INFO| ')
+                ic(f"Processing chat completion request {request_id} for model: {chat_request.model}")
 
                 # Resolve provider and model
                 provider_class, model_name = resolve_provider_and_model(chat_request.model)
@@ -333,9 +338,11 @@ class Api:
                 # Initialize provider with caching and error handling
                 try:
                     provider = get_provider_instance(provider_class)
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"Using provider instance: {provider_class.__name__}")
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"Using provider instance: {provider_class.__name__}")
                 except Exception as e:
-                    ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize provider {provider_class.__name__}: {e}")
+                    ic.configureOutput(prefix='ERROR| ')
+                    ic(f"Failed to initialize provider {provider_class.__name__}: {e}")
                     raise APIError(
                         f"Failed to initialize provider {provider_class.__name__}: {e}",
                         HTTP_500_INTERNAL_SERVER_ERROR,
@@ -386,7 +393,8 @@ class Api:
                 # Re-raise API errors as-is
                 raise
             except Exception as e:
-                ic.configureOutput(prefix='ERROR| '); ic(f"Unexpected error in chat completion {request_id}: {e}")
+                ic.configureOutput(prefix='ERROR| ')
+                ic(f"Unexpected error in chat completion {request_id}: {e}")
                 raise APIError(
                     f"Internal server error: {str(e)}",
                     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -407,7 +415,8 @@ class Api:
             request_id = f"img-{uuid.uuid4()}"
 
             try:
-                ic.configureOutput(prefix='INFO| '); ic(f"Processing image generation request {request_id} for model: {image_request.model}")
+                ic.configureOutput(prefix='INFO| ')
+                ic(f"Processing image generation request {request_id} for model: {image_request.model}")
 
                 # Resolve TTI provider and model
                 provider_class, model_name = resolve_tti_provider_and_model(image_request.model)
@@ -415,7 +424,8 @@ class Api:
                 # Initialize TTI provider
                 try:
                     provider = get_tti_provider_instance(provider_class)
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"Using TTI provider instance: {provider_class.__name__}")
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"Using TTI provider instance: {provider_class.__name__}")
                 except APIError as e:
                     # Add helpful footer for provider errors
                     return JSONResponse(
@@ -429,7 +439,8 @@ class Api:
                         }
                     )
                 except Exception as e:
-                    ic.configureOutput(prefix='ERROR| '); ic(f"Failed to initialize TTI provider {provider_class.__name__}: {e}")
+                    ic.configureOutput(prefix='ERROR| ')
+                    ic(f"Failed to initialize TTI provider {provider_class.__name__}: {e}")
                     raise APIError(
                         f"Failed to initialize TTI provider {provider_class.__name__}: {e}",
                         HTTP_500_INTERNAL_SERVER_ERROR,
@@ -470,13 +481,15 @@ class Api:
                     )
 
                 elapsed = time.time() - start_time
-                ic.configureOutput(prefix='INFO| '); ic(f"Completed image generation request {request_id} in {elapsed:.2f}s")
+                ic.configureOutput(prefix='INFO| ')
+                ic(f"Completed image generation request {request_id} in {elapsed:.2f}s")
 
                 return response_data
             except APIError:
                 raise
             except Exception as e:
-                ic.configureOutput(prefix='ERROR| '); ic(f"Unexpected error in image generation {request_id}: {e}")
+                ic.configureOutput(prefix='ERROR| ')
+                ic(f"Unexpected error in image generation {request_id}: {e}")
                 raise APIError(
                     f"Internal server error: {str(e)}",
                     HTTP_500_INTERNAL_SERVER_ERROR,
@@ -576,47 +589,47 @@ class Api:
         async def get_search_providers():
             """Get information about all available search providers."""
             providers = {}
-            
+
             # Collect all unique engine names
             all_engines = set()
             for category_engines in ENGINES.values():
                 all_engines.update(category_engines.keys())
-            
+
             for engine_name in sorted(all_engines):
                 # Find all categories this engine supports
                 categories = []
                 for category, engines in ENGINES.items():
                     if engine_name in engines:
                         categories.append(category)
-                
+
                 # Get supported parameters based on categories
                 supported_params = ["q"]  # query is always supported
-                
+
                 if "text" in categories or "images" in categories or "news" in categories or "videos" in categories:
                     supported_params.extend(["max_results", "region", "safesearch"])
-                
+
                 if "suggestions" in categories:
                     supported_params.extend(["region"])
-                
+
                 if "maps" in categories:
                     supported_params.extend(["place", "street", "city", "county", "state", "country", "postalcode", "latitude", "longitude", "radius", "max_results"])
-                
+
                 if "translate" in categories:
                     supported_params.extend(["from_", "to"])
-                
+
                 if "weather" in categories:
                     supported_params.extend(["language"])
-                
+
                 # Remove duplicates
                 supported_params = list(set(supported_params))
-                
+
                 providers[engine_name] = {
                     "name": engine_name,
                     "categories": sorted(categories),
                     "supported_types": sorted(categories),  # types are the same as categories
                     "parameters": sorted(supported_params)
                 }
-            
+
             return {
                 "providers": providers,
                 "total_providers": len(providers)

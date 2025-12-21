@@ -1,12 +1,14 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Union, Any, Dict, Generator, Optional, List
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent as Lit
+
 
 class Sambanova(Provider):
     """
@@ -28,42 +30,42 @@ class Sambanova(Provider):
         """Update the available models list from Sambanova API."""
         if not self.api_key:
             return
-            
+
         try:
             temp_session = Session()
             headers = {
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {self.api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.sambanova.ai/v1/models",
                 headers=headers,
                 impersonate="chrome120"
             )
-            
+
             if response.status_code == 200:
                 data = response.json()
                 if "data" in data and isinstance(data["data"], list):
                     new_models = [model['id'] for model in data['data'] if 'id' in model]
                     if new_models:
                         self.AVAILABLE_MODELS = new_models
-            
+
         except Exception:
             pass
 
     def __init__(
         self,
-        api_key: str = None,
+        api_key: Optional[str] = None,
         is_conversation: bool = True,
         max_tokens: int = 4096,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "Meta-Llama-3.1-8B-Instruct",
         system_prompt: str = "You are a helpful AI assistant.",
     ):
@@ -74,7 +76,7 @@ class Sambanova(Provider):
         self.model = model
         self.system_prompt = system_prompt
         self.timeout = timeout
-        
+
         # Update models list dynamically if API key is provided
         if api_key:
             self.update_available_models()
@@ -90,7 +92,7 @@ class Sambanova(Provider):
             "Content-Type": "application/json",
             "User-Agent": Lit().random(),
         }
-        
+
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
@@ -120,11 +122,12 @@ class Sambanova(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
-    ) -> Union[Any, Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI using the Sambanova API."""
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
@@ -156,13 +159,13 @@ class Sambanova(Provider):
             try:
                 # Use curl_cffi session post with impersonate
                 response = self.session.post(
-                    self.base_url, 
-                    json=payload, 
-                    stream=True, 
+                    self.base_url,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome120"
                 )
-                response.raise_for_status() 
+                response.raise_for_status()
 
                 streaming_text = ""
                 processed_stream = sanitize_stream(
@@ -242,18 +245,18 @@ class Sambanova(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
         tool_choice: Optional[Dict[str, Any]] = None,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`"""
-        
+
         def for_stream_chat():
              # ask() yields dicts or strings when streaming
              gen = self.ask(
-                 prompt, stream=True, raw=raw, 
+                 prompt, stream=True, raw=raw,
                  optimizer=optimizer, conversationally=conversationally,
                  tools=tools, tool_choice=tool_choice
              )
@@ -261,14 +264,14 @@ class Sambanova(Provider):
                  if raw:
                      yield response_dict
                  else:
-                     yield self.get_message(response_dict) 
+                     yield self.get_message(response_dict)
 
         def for_non_stream_chat():
              # ask() returns dict or str when not streaming
              response_data = self.ask(
                  prompt,
                  stream=False,
-                 raw=raw, 
+                 raw=raw,
                  optimizer=optimizer,
                  conversationally=conversationally,
                  tools=tools,
@@ -276,11 +279,11 @@ class Sambanova(Provider):
              )
              if raw:
                  return response_data
-             return self.get_message(response_data) 
+             return self.get_message(response_data)
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: Any) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Retrieves a clean message from the provided response.
 
@@ -297,12 +300,15 @@ class Sambanova(Provider):
                 return response["text"]
             elif "tool_calls" in response:
                 return json.dumps(response["tool_calls"])
-        return ""
+        return str(response)
 
 if __name__ == "__main__":
     # Ensure curl_cffi is installed
     from rich import print
     ai = Sambanova(api_key='')
     response = ai.chat(input(">>> "), stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

@@ -1,16 +1,17 @@
-import requests
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+import requests
+
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk,
     ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
     Choice,
     ChoiceDelta,
-    ChatCompletionMessage,
     CompletionUsage,
 )
 
@@ -238,7 +239,7 @@ class Zenmux(OpenAICompatibleProvider):
         "z-ai/glm-4.6v-flash",
     ]
 
-    def __init__(self, browser: str = "chrome", api_key: str = None):
+    def __init__(self, browser: str = "chrome", api_key: Optional[str] = None):
         self.timeout = None
         self.base_url = "https://zenmux.ai/api/v1/chat/completions"
         self.session = requests.Session()
@@ -281,12 +282,10 @@ class Zenmux(OpenAICompatibleProvider):
             }
             try:
                 from curl_cffi.requests import Session as CurlSession
-                from curl_cffi import CurlError
 
                 curl_available = True
             except Exception:
                 CurlSession = None
-                CurlError = Exception
                 curl_available = False
             try:
                 from webscout.litagent import LitAgent
@@ -308,7 +307,7 @@ class Zenmux(OpenAICompatibleProvider):
                 pass
             if api_key:
                 headers["Authorization"] = f"Bearer {api_key}"
-            if curl_available:
+            if curl_available and CurlSession is not None:
                 session = CurlSession()
                 response = session.get(
                     "https://zenmux.ai/api/v1/models",

@@ -90,6 +90,18 @@ class FailedToGenerateResponseError(WebscoutE):
     """
     pass
 
+class ProviderConnectionError(WebscoutE):
+    """
+    Exception raised when there are issues connecting to a specific provider.
+    """
+    pass
+
+class InvalidOptimizerError(WebscoutE):
+    """
+    Exception raised when an invalid or unavailable optimizer is requested.
+    """
+    pass
+
 class InvalidAuthenticationError(Exception):
     """Custom exception for authentication errors (e.g., invalid API key, cookies)."""
     pass

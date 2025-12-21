@@ -1,13 +1,12 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, List, Optional, Union, Iterator
+from typing import Any, Dict, Generator, Iterator, List, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 
 
@@ -20,8 +19,8 @@ class DeepAI(Provider):
     """
     required_auth = True
     AVAILABLE_MODELS = [
-        "standard", 
-        "genius", 
+        "standard",
+        "genius",
         "online",
         "supergenius",
         "onlinegenius",
@@ -146,7 +145,7 @@ class DeepAI(Provider):
         )
         self.conversation.history_offset = history_offset
 
-    def refresh_identity(self, browser: str = None):
+    def refresh_identity(self, browser: Optional[str] = None):
         """
         Refreshes the browser identity fingerprint.
 
@@ -174,8 +173,8 @@ class DeepAI(Provider):
         raw: bool = False,
         optimizer: Optional[str] = None,
         conversationally: bool = False,
-        **kwargs
-    ) -> Union[Dict[str, Any], Iterator[Dict[str, Any]]]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Send a prompt to DeepAI and get the response.
 
@@ -254,8 +253,8 @@ class DeepAI(Provider):
         optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
-        **kwargs
-    ) -> Union[str, Iterator[str]]:
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Send a chat message to DeepAI and get the response.
 
@@ -297,12 +296,12 @@ class DeepAI(Provider):
             else:
                 return self.get_message(response)
 
-    def get_message(self, response: Union[Dict[str, Any], str]) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extract the message from the response.
 
         Args:
-            response: Response dictionary from ask method or str if raw
+            response: Response obtained from ask method
 
         Returns:
             The message text
@@ -312,7 +311,7 @@ class DeepAI(Provider):
         elif isinstance(response, str):
             return response
         else:
-            raise ValueError(f"Unexpected response type: {type(response)}")
+            return str(response)
 
     @classmethod
     def get_models(cls) -> List[str]:
@@ -346,8 +345,11 @@ if __name__ == "__main__":
             test_ai = DeepAI(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

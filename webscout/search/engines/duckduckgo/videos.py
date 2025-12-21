@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from ....exceptions import WebscoutE
 from ....search.results import VideosResult
 from .base import DuckDuckGoBase
 

@@ -1,8 +1,8 @@
-import re
 import json
-from typing import Dict, Any, List, Optional, Generator
+import re
+from typing import Any, Dict, Generator, List, Optional
+
 from .https import video_data
-from urllib.request import Request, urlopen
 
 try:
     from webscout.litagent.agent import LitAgent
@@ -282,12 +282,12 @@ class Video:
         # Find related videos in the page data
         pattern = r'"watchNextEndScreenRenderer".*?"videoId":"([a-zA-Z0-9_-]{11})"'
         matches = re.findall(pattern, self._video_data)
-        
+
         if not matches:
             # Fallback pattern
             pattern = r'"compactVideoRenderer".*?"videoId":"([a-zA-Z0-9_-]{11})"'
             matches = re.findall(pattern, self._video_data)
-        
+
         # Remove duplicates and self
         seen = set()
         unique = []
@@ -297,7 +297,7 @@ class Video:
                 unique.append(vid)
                 if len(unique) >= limit:
                     break
-        
+
         return unique
 
     def get_chapters(self) -> Optional[List[Dict[str, Any]]]:
@@ -310,7 +310,7 @@ class Video:
         # Look for chapter data in the page
         pattern = r'"chapterRenderer":\s*\{[^}]*"title":\s*\{\s*"simpleText":\s*"([^"]+)"[^}]*"timeRangeStartMillis":\s*(\d+)'
         matches = re.findall(pattern, self._video_data)
-        
+
         if not matches:
             # Alternative pattern
             pattern = r'"chapters":\s*\[(.*?)\]'
@@ -321,10 +321,10 @@ class Video:
                     chapters_str = '[' + chapter_match.group(1) + ']'
                     chapters_data = json.loads(chapters_str)
                     return chapters_data
-                except:
+                except Exception:
                     pass
             return None
-        
+
         chapters = []
         for title, start_ms in matches:
             chapters.append({
@@ -332,7 +332,7 @@ class Video:
                 'start_seconds': int(start_ms) / 1000,
                 'start_time': f"{int(int(start_ms)/1000//60)}:{int(int(start_ms)/1000%60):02d}"
             })
-        
+
         return chapters if chapters else None
 
     def stream_comments(self, limit: int = 20) -> Generator[Dict[str, Any], None, None]:
@@ -358,10 +358,10 @@ class Video:
             # Simpler pattern
             r'"authorText":"([^"]+)".*?"contentText":"([^"]*)"',
         ]
-        
+
         count = 0
         seen_comments = set()
-        
+
         for pattern in patterns:
             if count >= limit:
                 break
@@ -374,13 +374,13 @@ class Video:
                 if comment_key in seen_comments:
                     continue
                 seen_comments.add(comment_key)
-                
+
                 # Clean up text
                 text = text.replace('\\n', '\n')
                 text = text.replace('\\u0026', '&')
                 text = text.replace('\\u003c', '<')
                 text = text.replace('\\u003e', '>')
-                
+
                 yield {
                     'author': author,
                     'text': text,
@@ -396,7 +396,7 @@ if __name__ == '__main__':
     print(f"Is Short: {video.is_short}")
     print(f"Hashtags: {video.hashtags}")
     print(f"Related videos: {video.get_related_videos(5)}")
-    
+
     chapters = video.get_chapters()
     if chapters:
         print(f"Chapters: {chapters[:3]}")

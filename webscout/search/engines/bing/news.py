@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from time import sleep
 from typing import List
 from urllib.parse import urlencode
-from time import sleep
 
-from .base import BingBase
 from webscout.scout import Scout
 from webscout.search.results import NewsResult
+
+from .base import BingBase
 
 
 class BingNewsSearch(BingBase):
@@ -31,7 +32,7 @@ class BingNewsSearch(BingBase):
             "moderate": "Moderate",
             "off": "Off"
         }
-        safe = safe_map.get(safesearch.lower(), "Moderate")
+        safe_map.get(safesearch.lower(), "Moderate")
 
         # Bing news URL
         url = f"{self.base_url}/news/infinitescrollajax"

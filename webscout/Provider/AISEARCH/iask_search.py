@@ -1,13 +1,14 @@
-import aiohttp
 import asyncio
-import lxml.html
 import re
 import urllib.parse
-from markdownify import markdownify as md
-from typing import Dict, Optional, Generator, Union, AsyncIterator, Literal
+from typing import AsyncIterator, Dict, Generator, Literal, Optional, Union
 
-from webscout.AIbase import AISearch, SearchResponse
+import aiohttp
+import lxml.html
+from markdownify import markdownify as md
+
 from webscout import exceptions
+from webscout.AIbase import AISearch, SearchResponse
 from webscout.scout import Scout
 
 
@@ -240,26 +241,31 @@ class IAsk(AISearch):
                 async_gen = loop.run_until_complete(async_gen_coro)
 
                 # Process chunks one by one
-                while True:
-                    try:
-                        # Get the next chunk
-                        chunk_coro = async_gen.__anext__()
-                        chunk = loop.run_until_complete(chunk_coro)
+                if hasattr(async_gen, "__anext__"):
+                    while True:
+                        try:
+                            # Get the next chunk
+                            chunk_coro = async_gen.__anext__()
+                            chunk = loop.run_until_complete(chunk_coro)
 
-                        # Update buffer and yield the chunk
-                        if isinstance(chunk, dict) and 'text' in chunk:
-                            buffer += chunk['text']
-                        elif isinstance(chunk, SearchResponse):
-                            buffer += chunk.text
-                        else:
-                            buffer += str(chunk)
+                            # Update buffer and yield the chunk
+                            if isinstance(chunk, dict) and 'text' in chunk:
+                                buffer += chunk['text']
+                            elif isinstance(chunk, SearchResponse):
+                                buffer += chunk.text
+                            else:
+                                buffer += str(chunk)
 
-                        yield chunk
-                    except StopAsyncIteration:
-                        break
-                    except Exception as e:
-                        print(f"Error in generator: {e}")
-                        break
+                            yield chunk
+                        except StopAsyncIteration:
+                            break
+                        except Exception as e:
+                            print(f"Error in generator: {e}")
+                            break
+                elif isinstance(async_gen, SearchResponse):
+                    yield async_gen
+                else:
+                    yield str(async_gen)
             finally:
                 # Store the final response and close the loop
                 self.last_response = {"text": buffer}
@@ -337,7 +343,7 @@ class IAsk(AISearch):
                                     yield formatted_chunk
                                 else:
                                     yield chunk.replace("<br/>", "\n")
-                            except:
+                            except Exception:
                                 cache = cache_find(diff)
                                 if cache:
                                     if diff.get("response", None):

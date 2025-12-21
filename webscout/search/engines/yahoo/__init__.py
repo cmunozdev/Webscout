@@ -15,11 +15,11 @@ All engines support:
 
 Example:
     >>> from webscout.search.engines.yahoo import YahooText
-    >>> 
+    >>>
     >>> # Search with automatic pagination
     >>> searcher = YahooText()
     >>> results = searcher.search("python programming", max_results=50)
-    >>> 
+    >>>
     >>> for result in results:
     ...     print(f"{result.title}: {result.url}")
 """

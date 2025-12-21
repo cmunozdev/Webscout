@@ -1,13 +1,12 @@
-from typing import Any, Dict
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
-from webscout.litagent import LitAgent
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
+from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+from webscout.litagent import LitAgent
 
 
 class TypefullyAI(Provider):
@@ -24,12 +23,12 @@ class TypefullyAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You're a helpful assistant.",
         model: str = "openai:gpt-4o-mini",
     ):
@@ -77,7 +76,6 @@ class TypefullyAI(Provider):
     @staticmethod
     def _typefully_extractor(chunk) -> str:
         """Extracts content from Typefully AI SSE format."""
-        import re
         import json
 
         # Handle parsed JSON objects (when to_json=True)
@@ -120,9 +118,10 @@ class TypefullyAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Dict[str, Any]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -191,10 +190,11 @@ class TypefullyAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
-    ) -> str:
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         def for_stream():
             for response in self.ask(
                 prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally
@@ -219,8 +219,9 @@ class TypefullyAI(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
         text = response.get("text", "")
         try:
             formatted_text = text.replace("\\n", "\n").replace("\\n\\n", "\n\n")
@@ -240,8 +241,12 @@ if __name__ == "__main__":
             test_ai = TypefullyAI(model=model, timeout=60)
             response_stream = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response_stream:
-                response_text += chunk
+            if hasattr(response_stream, "__iter__") and not isinstance(response_stream, (str, bytes)):
+                for chunk in response_stream:
+                    response_text += chunk
+            else:
+                response_text = str(response_stream)
+
             if response_text and len(response_text.strip()) > 0:
                 status = "OK"
                 clean_text = response_text.strip()

@@ -1,16 +1,21 @@
-import time
-import uuid
 import json
 import random
-from typing import List, Dict, Optional, Union, Generator, Any
-from curl_cffi import CurlError
+import time
+import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 from curl_cffi.requests import Session
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -45,7 +50,7 @@ class Completions(BaseCompletions):
         # Extract system message if present for systemPrompt parameter
         system_prompt = self._client.system_prompt
         filtered_messages = []
-        
+
         for msg in messages:
             if msg["role"] == "system":
                 system_prompt = msg["content"]
@@ -322,7 +327,7 @@ class Venice(OpenAICompatibleProvider):
             messages=[{"role": "user", "content": "Hello!"}]
         )
     """
-    required_auth = False 
+    required_auth = False
     AVAILABLE_MODELS = [
         "mistral-31-24b",
         "dolphin-3.0-mistral-24b",

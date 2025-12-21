@@ -2,13 +2,15 @@
 ##  Qwen3-TTS Provider                                                         ##
 ##################################################################################
 import json
+import pathlib
 import random
 import string
-import time
-import pathlib
 import tempfile
+from typing import Optional
+
 import httpx
-from typing import Optional, Union, Dict, List
+from litprinter import ic
+
 from webscout import exceptions
 from webscout.litagent import LitAgent
 
@@ -17,16 +19,15 @@ try:
     from .base import BaseTTSProvider
 except ImportError:
     # Handle direct execution
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
-    from webscout.Provider.TTS import utils
     from webscout.Provider.TTS.base import BaseTTSProvider
 
 class QwenTTS(BaseTTSProvider):
     """
     Text-to-speech provider using the Qwen3-TTS API (Hugging Face Spaces).
-    
+
     This provider follows the OpenAI TTS API structure with support for:
     - Multiple TTS models (mapped to Gradio fn_index)
     - 40+ high-quality voices across multiple languages
@@ -35,19 +36,19 @@ class QwenTTS(BaseTTSProvider):
     - Streaming response simulation
     """
     required_auth = False
-    
+
     BASE_URL = "https://qwen-qwen3-tts-demo.hf.space"
-    
+
     # Request headers
     headers: dict[str, str] = {
         "User-Agent": LitAgent().random(),
         "origin": BASE_URL,
         "referer": f"{BASE_URL}/",
     }
-    
+
     # Override supported models
     SUPPORTED_MODELS = ["qwen3-tts"]
-    
+
     # Supported voices
     SUPPORTED_VOICES = [
         "cherry", "serena", "ethan", "chelsie", "momo", "vivian", "moon", "maia",
@@ -57,7 +58,7 @@ class QwenTTS(BaseTTSProvider):
         "neil", "elias", "arthur", "nini", "ebona", "seren", "pip", "stella", "li",
         "marcus", "roy", "peter", "eric", "rocky", "kiki", "sunny", "jada", "dylan"
     ]
-    
+
     # Voice mapping for API compatibility
     voice_mapping = {
         "cherry": "Cherry / 芊悦",
@@ -114,7 +115,7 @@ class QwenTTS(BaseTTSProvider):
     def __init__(self, timeout: int = 60, proxy: Optional[str] = None):
         """
         Initialize the QwenTTS client.
-        
+
         Args:
             timeout (int): Request timeout in seconds
             proxy (str): Proxy configuration string
@@ -130,10 +131,10 @@ class QwenTTS(BaseTTSProvider):
         return "".join(random.choices(string.ascii_lowercase + string.digits, k=10))
 
     def tts(
-        self, 
-        text: str, 
+        self,
+        text: str,
         model: str = "qwen3-tts",
-        voice: str = "cherry", 
+        voice: str = "cherry",
         response_format: str = "wav",
         language: str = "Auto / 自动",
         verbose: bool = True
@@ -158,26 +159,27 @@ class QwenTTS(BaseTTSProvider):
         """
         if not text or not isinstance(text, str):
             raise ValueError("Input text must be a non-empty string")
-        
+
         voice = self.validate_voice(voice)
         qwen_voice = self.voice_mapping.get(voice, self.voice_mapping["cherry"])
-        
+
         # Create temporary file
         file_extension = f".{response_format}"
         filename = pathlib.Path(tempfile.mktemp(suffix=file_extension, dir=self.temp_dir))
-        
+
         session_hash = self._generate_session_hash()
-        
+
         if verbose:
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Joining queue for voice: {voice} ({qwen_voice})")
-            
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Joining queue for voice: {voice} ({qwen_voice})")
+
         client_kwargs = {
             "headers": self.headers,
             "timeout": self.timeout
         }
         if self.proxy:
             client_kwargs["proxy"] = self.proxy
-            
+
         try:
             with httpx.Client(**client_kwargs) as client:
                 # Step 1: Join the queue
@@ -189,23 +191,24 @@ class QwenTTS(BaseTTSProvider):
                     "trigger_id": 7,
                     "session_hash": session_hash
                 }
-                
+
                 response = client.post(join_url, json=payload)
                 response.raise_for_status()
-                
+
                 # Step 2: Poll for data (SSE)
                 data_url = f"{self.BASE_URL}/gradio_api/queue/data?session_hash={session_hash}"
                 audio_url = None
-                
+
                 with client.stream("GET", data_url) as stream:
                     for line in stream.iter_lines():
-                        if not line: continue
+                        if not line:
+                            continue
                         if line.startswith("data: "):
                             try:
                                 data = json.loads(line[6:])
                             except json.JSONDecodeError:
                                 continue
-                                
+
                             msg = data.get("msg")
                             if msg == "process_completed":
                                 if data.get("success"):
@@ -226,24 +229,26 @@ class QwenTTS(BaseTTSProvider):
                 # Step 3: Download the audio file
                 audio_response = client.get(audio_url)
                 audio_response.raise_for_status()
-                
+
                 with open(filename, "wb") as f:
                     f.write(audio_response.content)
-                
+
                 if verbose:
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"Speech generated successfully: {filename}")
-                
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"Speech generated successfully: {filename}")
+
                 return filename.as_posix()
 
         except Exception as e:
             if verbose:
-                ic.configureOutput(prefix='DEBUG| '); ic(f"Error in QwenTTS: {e}")
+                ic.configureOutput(prefix='DEBUG| ')
+                ic(f"Error in QwenTTS: {e}")
             raise exceptions.FailedToGenerateResponseError(f"Failed to generate audio: {e}")
 
     def create_speech(
         self,
         input: str,
-        model: str = "qwen3-tts", 
+        model: str = "qwen3-tts",
         voice: str = "cherry",
         response_format: str = "wav",
         verbose: bool = False,
@@ -267,11 +272,11 @@ class StreamingResponseContextManager:
     """Context manager for streaming TTS responses."""
     def __init__(self, tts_provider: QwenTTS):
         self.tts_provider = tts_provider
-    
+
     def create(self, **kwargs):
         audio_file = self.tts_provider.create_speech(**kwargs)
         return StreamingResponse(audio_file)
-    
+
     def __enter__(self): return self
     def __exit__(self, exc_type, exc_val, exc_tb): pass
 
@@ -279,14 +284,14 @@ class StreamingResponse:
     """Streaming response object for TTS audio."""
     def __init__(self, audio_file: str):
         self.audio_file = audio_file
-    
+
     def __enter__(self): return self
     def __exit__(self, exc_type, exc_val, exc_tb): pass
-    
+
     def stream_to_file(self, file_path: str):
         import shutil
         shutil.copy2(self.audio_file, file_path)
-    
+
     def iter_bytes(self, chunk_size: int = 1024):
         with open(self.audio_file, 'rb') as f:
             while chunk := f.read(chunk_size):
@@ -295,8 +300,11 @@ class StreamingResponse:
 if __name__ == "__main__":
     qwen = QwenTTS()
     try:
-        ic.configureOutput(prefix='DEBUG| '); ic("Testing Qwen3-TTS...")
+        ic.configureOutput(prefix='DEBUG| ')
+        ic("Testing Qwen3-TTS...")
         path = qwen.create_speech(input="Hello, this is a test.", voice="jennifer", verbose=True)
-        ic.configureOutput(prefix='INFO| '); ic(f"Saved to {path}")
+        ic.configureOutput(prefix='INFO| ')
+        ic(f"Saved to {path}")
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| '); ic(f"Error: {e}")
+        ic.configureOutput(prefix='ERROR| ')
+        ic(f"Error: {e}")

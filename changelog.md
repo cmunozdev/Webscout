@@ -2,15 +2,34 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.12.21] - 2025-12-21
+
+### 🐛 Fixed
+- **fix**: Conducted an extensive codebase cleanup using Ruff, resolving over 200 linting issues and potential bugs.
+- **fix**: Standardized error handling by replacing bare `except:` blocks with `except Exception:` or specific exception types across multiple modules (Bing search, GGUF converter, SwiftCLI, and various AI providers).
+- **fix**: Resolved numerous `F821 Undefined name` and `F405` errors:
+    - Restored missing `get_item` method in `YTdownloader.py`.
+    - Defined missing variables (`result`, `content`, `tool_calls`) in `TextPollinationsAI.py` response processing.
+    - Fixed missing `ic` imports from `litprinter` in multiple TTS providers (`MurfAI`, `OpenAI.fm`, `Parler`, `Qwen`, `Sherpa`, `FreeTTS`).
+    - Fixed missing `exceptions` import in `FreeTTS`.
+    - Resolved undefined `CLI` reference in SwiftCLI `Context` using `TYPE_CHECKING` and explicit imports.
+    - Added missing type hint imports (`Optional`, `Any`, `Union`, `Generator`, `Response`) across 30+ AI provider modules including Cohere, Gemini, Groq, HuggingFace, and more.
+    - Fixed undefined `LitAgent` reference in `GitToolkit/utils.py` and missing `Union` in `YTdownloader.py`.
+    - Resolved `Response` naming conflict in `Ayle.py` by aliasing `curl_cffi` response.
+- **fix**: Corrected syntax errors and corrupted logic blocks in `YTdownloader.py` and `iask_search.py`.
+- **fix**: Improved project adherence to PEP 8:
+    - Moved module-level imports to the top of files in `server` and `aihumanizer`.
+    - Replaced incorrect type comparisons (e.g., `== bool`) with idiomatic `is bool`.
+    - Split multiple statements on single lines (E701, E702) across the entire project for better readability.
+- **refactor**: Replaced star imports (`from ... import *`) with explicit imports in `GitToolkit` and `samurai` provider to eliminate name shadowing and improve static analysis.
+- **refactor**: Added dynamic model fetching to both DeepInfra providers (`webscout/Provider/Deepinfra.py`, `webscout/Provider/OPENAI/deepinfra.py`) following Groq provider pattern. Implemented `get_models()` and `update_available_models()` class methods that fetch from `https://api.deepinfra.com/v1/models` API endpoint with fallback to default models on failure. Providers now automatically update their available models list during initialization.
+### 🚮 Removed
+- **removed**: `yep.py` - Removed the YEPCHAT provider and related files.
 
 ## [2025.12.20] - 2025-12-20
 
 ### 📝 Documentation Updates
 - **docs**: litprinter.md - Completely rewrote documentation to be comprehensive and consistent with other Webscout docs. Added detailed sections for IceCream debugging, Rich Console, Panels & Layouts, Traceback Enhancement, Themes & Styling, Advanced Usage, Integration with Webscout, API Reference, Dependencies, and Supported Python Versions. Enhanced with professional formatting, extensive code examples, and parameter tables.
-
----
-
-## [2025.12.20] - 2025-12-20
 
 ### ✨ Added
 

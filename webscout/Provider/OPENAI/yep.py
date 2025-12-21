@@ -1,14 +1,20 @@
+import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import cloudscraper  # Import cloudscraper
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, get_system_prompt, count_tokens  # Import count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,  # Import count_tokens
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -194,7 +200,7 @@ class Completions(BaseCompletions):
             }
             yield chunk
 
-        except cloudscraper.exceptions.CloudflareChallengeError as e:
+        except cloudscraper.exceptions.CloudflareChallengeError:
             pass
 
     def _create_non_stream(

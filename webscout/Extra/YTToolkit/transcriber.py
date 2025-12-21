@@ -6,16 +6,29 @@
 
 """
 
-import requests 
-import http.cookiejar as cookiejar  
-import json  
-from xml.etree import ElementTree  
-import re 
-import html  
-from typing import List, Dict, Union, Optional  
+import html
+import http.cookiejar as cookiejar
+import re
+from concurrent.futures import ThreadPoolExecutor
 from functools import lru_cache
-from concurrent.futures import ThreadPoolExecutor  
-from webscout.exceptions import *  
+from typing import Dict, List, Optional, Union
+from xml.etree import ElementTree
+
+import requests
+
+from webscout.exceptions import (
+    CookiePathInvalidError,
+    FailedToCreateConsentCookieError,
+    InvalidVideoIdError,
+    NoTranscriptFoundError,
+    NotTranslatableError,
+    TooManyRequestsError,
+    TranscriptRetrievalError,
+    TranscriptsDisabledError,
+    TranslationLanguageNotAvailableError,
+    VideoUnavailableError,
+    YouTubeRequestFailedError,
+)
 from webscout.litagent import LitAgent
 
 # YouTube API settings
@@ -27,15 +40,15 @@ MAX_WORKERS = 4
 
 class YTTranscriber:
     """Transcribe YouTube videos with style! 🎤
-    
+
     >>> transcript = YTTranscriber.get_transcript('https://youtu.be/dQw4w9WgXcQ')
     >>> print(transcript[0]['text'])
     'Never gonna give you up'
     """
-    
+
     _session = None
     _executor = ThreadPoolExecutor(max_workers=MAX_WORKERS)
-    
+
     @classmethod
     def _get_session(cls):
         if cls._session is None:
@@ -74,17 +87,17 @@ class YTTranscriber:
         """
         video_id = cls._extract_video_id(video_url)
         http_client = cls._get_session()
-        
+
         if proxies:
             http_client.proxies.update(proxies)
-        
+
         if cookies:
             cls._load_cookies(cookies, video_id)
 
         transcript_list = TranscriptListFetcher(http_client).fetch(video_id)
         language_codes = [languages] if languages else None
         transcript = transcript_list.find_transcript(language_codes)
-        
+
         return transcript.fetch(preserve_formatting)
 
     @staticmethod
@@ -96,15 +109,15 @@ class YTTranscriber:
             r'youtube\.com\/embed\/([0-9A-Za-z_-]{11})',
             r'youtube\.com\/shorts\/([0-9A-Za-z_-]{11})'
         ]
-        
+
         for pattern in patterns:
             match = re.search(pattern, video_url)
             if match:
                 return match.group(1)
-        
+
         if re.match(r'^[0-9A-Za-z_-]{11}$', video_url):
             return video_url
-            
+
         raise InvalidVideoIdError(video_url)
 
     @staticmethod
@@ -139,7 +152,7 @@ class TranscriptListFetcher:
         # First get the HTML to extract the API key
         video_html = self._fetch_video_html(video_id)
         api_key = self._extract_innertube_api_key(video_html, video_id)
-        
+
         # Use InnerTube API to get video data
         innertube_data = self._fetch_innertube_data(video_id, api_key)
         return self._extract_captions_from_innertube(innertube_data, video_id)
@@ -150,11 +163,11 @@ class TranscriptListFetcher:
         match = re.search(pattern, html_content)
         if match and len(match.groups()) == 1:
             return match.group(1)
-        
+
         # Check for IP block
         if 'class="g-recaptcha"' in html_content:
             raise TooManyRequestsError(video_id)
-        
+
         raise TranscriptRetrievalError(video_id, "Could not extract InnerTube API key")
 
     def _fetch_innertube_data(self, video_id: str, api_key: str) -> dict:
@@ -173,13 +186,13 @@ class TranscriptListFetcher:
         # Check playability status
         playability_status = innertube_data.get("playabilityStatus", {})
         status = playability_status.get("status")
-        
+
         if status == "ERROR":
             reason = playability_status.get("reason", "Unknown error")
             if "unavailable" in reason.lower():
                 raise VideoUnavailableError(video_id)
             raise TranscriptRetrievalError(video_id, reason)
-        
+
         if status == "LOGIN_REQUIRED":
             reason = playability_status.get("reason", "")
             if "bot" in reason.lower():
@@ -187,14 +200,14 @@ class TranscriptListFetcher:
             if "age" in reason.lower() or "inappropriate" in reason.lower():
                 raise TranscriptRetrievalError(video_id, "Video is age-restricted")
             raise TranscriptRetrievalError(video_id, reason or "Login required")
-        
+
         # Get captions
         captions = innertube_data.get("captions", {})
         captions_json = captions.get("playerCaptionsTracklistRenderer")
-        
+
         if captions_json is None or "captionTracks" not in captions_json:
             raise TranscriptsDisabledError(video_id)
-        
+
         return captions_json
 
     def _create_consent_cookie(self, html_content, video_id):
@@ -218,7 +231,7 @@ class TranscriptListFetcher:
 
 
 class TranscriptList:
-    """   
+    """
     >>> transcript_list = TranscriptList.build(http_client, video_id, captions_json)
     >>> transcript = transcript_list.find_transcript(['en'])
     >>> print(transcript)
@@ -314,7 +327,7 @@ class TranscriptList:
         Finds a transcript for a given language code. If no language is provided, it will
         return the first available transcript.
 
-        :param language_codes: A list of language codes in a descending priority. 
+        :param language_codes: A list of language codes in a descending priority.
         :type languages: list[str]
         :return: the found Transcript
         :rtype Transcript:
@@ -337,7 +350,7 @@ class TranscriptList:
         it fails to do so.
         :type languages: list[str]
         :return: the found Transcript
-        :rtype Transcript:  
+        :rtype Transcript:
         :raises: NoTranscriptFound
         """
         if not language_codes:
@@ -358,7 +371,7 @@ class TranscriptList:
         it fails to do so.
         :type languages: list[str]
         :return: the found Transcript
-        :rtype Transcript:  
+        :rtype Transcript:
         :raises: NoTranscriptFound
         """
         if not language_codes:
@@ -409,7 +422,7 @@ class TranscriptList:
 
 class Transcript:
     """Your personal transcript handler! 🎭
-    
+
     >>> transcript = transcript_list.find_transcript(['en'])
     >>> print(transcript.language)
     'English'
@@ -435,10 +448,10 @@ class Transcript:
 
     def fetch(self, preserve_formatting=False):
         """Get that transcript data! 🎯
-        
+
         Args:
             preserve_formatting (bool): Keep HTML formatting? Default is nah fam.
-            
+
         Returns:
             list: That sweet transcript data with text, start time, and duration! 📝
         """
@@ -462,13 +475,13 @@ class Transcript:
 
     def translate(self, language_code):
         """Translate to another language! 🌎
-        
+
         Args:
             language_code (str): Which language you want fam?
-            
+
         Returns:
             Transcript: A fresh transcript in your requested language! 🔄
-            
+
         Raises:
             NotTranslatableError: If we can't translate this one 😢
             TranslationLanguageNotAvailableError: If that language isn't available 🚫
@@ -492,13 +505,13 @@ class Transcript:
 
 class TranscriptParser:
     """Parsing those transcripts like a pro! 🎯
-    
+
     >>> parser = TranscriptParser(preserve_formatting=True)
     >>> data = parser.parse(xml_data)
     >>> print(data[0])
     {'text': 'Never gonna give you up', 'start': 0.0, 'duration': 4.5}
     """
-    
+
     _FORMATTING_TAGS = [
         'strong',  # For that extra emphasis 💪
         'em',      # When you need that italic swag 🎨
@@ -538,17 +551,17 @@ class TranscriptParser:
                 for xml_element in ElementTree.fromstring(plain_data)
                 if xml_element.text is not None
             ]
-        except ElementTree.ParseError as e:
+        except ElementTree.ParseError:
             # If XML parsing fails, try to extract text manually
             return self._fallback_parse(plain_data)
-    
+
     def _fallback_parse(self, plain_data):
         """Fallback parsing method if XML parsing fails."""
         results = []
         # Try regex pattern matching
         pattern = r'<text start="([^"]+)" dur="([^"]+)"[^>]*>([^<]*)</text>'
         matches = re.findall(pattern, plain_data, re.DOTALL)
-        
+
         for start, dur, text in matches:
             text = html.unescape(text)
             text = re.sub(self._html_regex, '', text)
@@ -558,7 +571,7 @@ class TranscriptParser:
                     'start': float(start),
                     'duration': float(dur),
                 })
-        
+
         return results
 
 

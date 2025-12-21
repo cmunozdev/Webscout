@@ -1627,7 +1627,6 @@ class Completions(BaseCompletions):
     def _send_request(self, request_body: dict, model_config: dict, timeout: Optional[int] = None, proxies: Optional[Dict[str, str]] = None, retries: int = 3) -> str:
         """Enhanced request method with IP rotation, session rotation, and advanced rate limit bypass."""
         url = model_config["apiUrl"]
-        target_origin = "https://fragments.e2b.dev"
 
         # Use client proxies if none provided
         if proxies is None:
@@ -2171,13 +2170,16 @@ Remember: Your goal is to be maximally helpful and provide the highest quality a
 
     def _merge_user_messages(self, messages: list) -> list:
         """Merges consecutive user messages"""
-        if not messages: return []
+        if not messages:
+            return []
         merged = []
         current_message = messages[0]
         for next_message in messages[1:]:
-            if not isinstance(next_message, dict) or "role" not in next_message: continue
+            if not isinstance(next_message, dict) or "role" not in next_message:
+                continue
             if not isinstance(current_message, dict) or "role" not in current_message:
-                current_message = next_message; continue
+                current_message = next_message
+                continue
             if current_message["role"] == "user" and next_message["role"] == "user":
                 if (isinstance(current_message.get("content"), list) and current_message["content"] and
                     isinstance(current_message["content"][0], dict) and current_message["content"][0].get("type") == "text" and
@@ -2185,23 +2187,32 @@ Remember: Your goal is to be maximally helpful and provide the highest quality a
                     isinstance(next_message["content"][0], dict) and next_message["content"][0].get("type") == "text"):
                     current_message["content"][0]["text"] += "\n" + next_message["content"][0]["text"]
                 else:
-                    merged.append(current_message); current_message = next_message
+                    merged.append(current_message)
+                    current_message = next_message
             else:
-                merged.append(current_message); current_message = next_message
-        if current_message not in merged: merged.append(current_message)
+                merged.append(current_message)
+                current_message = next_message
+        if current_message not in merged:
+            merged.append(current_message)
         return merged
 
     def _transform_content(self, messages: list) -> list:
         """Transforms message format and merges consecutive user messages"""
         transformed = []
         for msg in messages:
-            if not isinstance(msg, dict): continue
+            if not isinstance(msg, dict):
+                continue
             role, content = msg.get("role"), msg.get("content")
-            if role is None or content is None: continue
-            if isinstance(content, list): transformed.append(msg); continue
+            if role is None or content is None:
+                continue
+            if isinstance(content, list):
+                transformed.append(msg)
+                continue
             if not isinstance(content, str):
-                try: content = str(content)
-                except Exception: continue
+                try:
+                    content = str(content)
+                except Exception:
+                    continue
 
             base_content = {"type": "text", "text": content}
             # System messages are handled separately now, no need for role-playing prompt here.

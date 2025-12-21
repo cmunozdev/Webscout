@@ -1,15 +1,20 @@
-import requests
 import json
 import time
 import uuid
 from copy import deepcopy
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
+
+import requests
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -46,7 +51,7 @@ class Completions(BaseCompletions):
             if message.get("role") == "user":
                 user_content = message.get("content")
                 break
-        
+
         if not user_content:
             raise ValueError("At least one user message is required")
 
@@ -54,7 +59,7 @@ class Completions(BaseCompletions):
         payload = deepcopy(self._client.base_payload)
         payload["query"] = user_content
         payload["modelType"] = model
-        
+
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
 
@@ -84,21 +89,21 @@ class Completions(BaseCompletions):
                     continue
                 if not line.startswith("data:"):
                     continue
-                
+
                 data_str = line[6:].strip()
                 if not data_str:
                     continue
-                
+
                 try:
                     event = json.loads(data_str)
                 except json.JSONDecodeError:
                     continue
-                
+
                 chunk_content = event.get("answer")
                 if chunk_content:
                     delta = ChoiceDelta(content=chunk_content, role="assistant")
                     choice = Choice(index=0, delta=delta, finish_reason=None)
-                    
+
                     chunk = ChatCompletionChunk(
                         id=request_id,
                         object="chat.completion.chunk",
@@ -107,7 +112,7 @@ class Completions(BaseCompletions):
                         choices=[choice]
                     )
                     yield chunk
-            
+
             # Send final chunk with finish_reason
             final_delta = ChoiceDelta(content=None)
             final_choice = Choice(index=0, delta=final_delta, finish_reason="stop")
@@ -145,16 +150,16 @@ class Completions(BaseCompletions):
                     continue
                 if not line.startswith("data:"):
                     continue
-                
+
                 data_str = line[6:].strip()
                 if not data_str:
                     continue
-                
+
                 try:
                     event = json.loads(data_str)
                 except json.JSONDecodeError:
                     continue
-                
+
                 chunk = event.get("answer")
                 if chunk:
                     answer_parts.append(chunk)
@@ -163,7 +168,7 @@ class Completions(BaseCompletions):
                 raise IOError("No answer content received from Liner")
 
             full_content = "".join(answer_parts)
-            
+
             message = ChatCompletionMessage(role="assistant", content=full_content)
             choice = Choice(index=0, message=message, finish_reason="stop")
             usage = CompletionUsage(
@@ -195,7 +200,7 @@ class Liner(OpenAICompatibleProvider):
     Liner AI provider for OpenAI-compatible API.
     Supports claude-4-5-sonnet and other models via Liner's search-enhanced AI.
     """
-    
+
     AVAILABLE_MODELS = [
         "claude-4-5-sonnet",
         "gpt-4",
@@ -211,7 +216,7 @@ class Liner(OpenAICompatibleProvider):
     ):
         """
         Initialize the Liner provider.
-        
+
         Args:
             api_key: Not used, kept for compatibility
             model: Model to use (default: claude-4-5-sonnet)
@@ -225,9 +230,9 @@ class Liner(OpenAICompatibleProvider):
         self.model = model
         self.timeout = timeout
         self.proxies = proxies
-        
+
         self.base_url = "https://getliner.com/lisa/v2/answer?lpv=250414"
-        
+
         self.headers = {
             "accept": "text/event-stream",
             "accept-language": "en-US,en;q=0.9,en-IN;q=0.8",
@@ -246,7 +251,7 @@ class Liner(OpenAICompatibleProvider):
             "sentry-trace": "30690146d0014887896af7e513702e97-92aa3c44e2ecea6b-0",
             "user-agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/141.0.0.0 Safari/537.36 Edg/141.0.0.0",
         }
-        
+
         self.cookies = {
             "_k_state": "MmRiY2RjYTgtYjExMi00NTY1LWI1NWQtZjZkZjQ4NjFkZTE3LS0wNzZmNjVmNC05MTIzLTQ1MmItODQzMC0yYmRlYmEyNTA3NjQ=",
             "__stripe_mid": "b3b3a7d0-d8a7-41b8-a75c-df41869803e0f06952",
@@ -269,7 +274,7 @@ class Liner(OpenAICompatibleProvider):
             "_dd_s": "aid=c19eef5b-af5a-4b9a-97b1-5d4ef1bfeff4&rum=0&expire=1760087072218",
             "AMP_ac91207b66": "JTdCJTIyZGV2aWNlSWQlMjIlM0ElMjJiOTI5MzI0MC0wMTJmLTRlOTctYjUwYi03ZTdiNDIxM2RiZTAlMjIlMkMlMjJ1c2VySWQlMjIlM0ElMjI4NTI2MzE0JTIyJTJDJTIyc2Vzc2lvbklkJTIyJTNBMTc2MDA4NTQzOTg5NiUyQyUyMm9wdE91dCUyMiUzQWZhbHNlJTJDJTIybGFzdEV2ZW50VGltZSUyMiUzQTE3NjAwODYxNzIyMzclMkMlMjJsYXN0RXZlbnRJZCUyMiUzQTk3JTJDJTIycGFnZUNvdW50ZXIlMjIlM0E1JTdE",
         }
-        
+
         self.base_payload = {
             "spaceId": 17788115,
             "threadId": 89019415,
@@ -288,7 +293,7 @@ class Liner(OpenAICompatibleProvider):
             "isDeepResearchMode": False,
             "answerFormat": "auto",
         }
-        
+
         self.session = requests.Session()
         self.chat = Chat(self)
 
@@ -307,7 +312,7 @@ class Liner(OpenAICompatibleProvider):
 if __name__ == "__main__":
     # Example usage
     client = Liner(model="claude-4-5-sonnet")
-    
+
     # Non-streaming example
     response = client.chat.completions.create(
         model="claude-4-5-sonnet",
@@ -318,7 +323,7 @@ if __name__ == "__main__":
     )
     print("Non-streaming response:")
     print(response.choices[0].message.content)
-    
+
     # Streaming example
     print("\nStreaming response:")
     stream = client.chat.completions.create(

@@ -1,15 +1,18 @@
-import os
 import json
-from typing import Any, Dict, Optional, Union, Generator
+import os
 import uuid
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation, sanitize_stream # Import sanitize_stream
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+)
 
 
 class LearnFast(Provider):
@@ -22,12 +25,12 @@ class LearnFast(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600, # Note: max_tokens is not used by this API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful AI assistant.", # Note: system_prompt is not used by this API
     ):
         """
@@ -105,10 +108,10 @@ class LearnFast(Provider):
             files = {"file": img_file}
             try:
                 response = self.session.post(
-                    "https://0x0.st", 
+                    "https://0x0.st",
                     files=files,
                     # Add impersonate if using the main session
-                    impersonate="chrome110" 
+                    impersonate="chrome110"
                 )
                 response.raise_for_status()
                 image_url = response.text.strip()
@@ -148,12 +151,13 @@ class LearnFast(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         image_path: Optional[str] = None,
-    ) -> Union[dict, Generator[dict, None, None], str]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with LearnFast
 
         Args:
@@ -205,10 +209,10 @@ class LearnFast(Provider):
             full_response = ""
             try:
                 response = self.session.post(
-                    self.api_endpoint, 
+                    self.api_endpoint,
                     headers=current_headers, # Use headers with uniqueid
-                    data=data, 
-                    stream=True, 
+                    data=data,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"
                 )
@@ -261,16 +265,17 @@ class LearnFast(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         image_path: Optional[str] = None,
-        raw: bool = False
+        raw: bool = False,
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str` or stream, with raw support"""
         try:
             response_gen = self.ask(
                 prompt, stream=stream, raw=raw,
-                optimizer=optimizer, conversationally=conversationally, 
+                optimizer=optimizer, conversationally=conversationally,
                 image_path=image_path
             )
             if stream:
@@ -306,5 +311,8 @@ if __name__ == "__main__":
     from rich import print
     ai = LearnFast()
     response = ai.chat("Hello, how are you?", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end='', flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end='', flush=True)
+    else:
+        print(response)

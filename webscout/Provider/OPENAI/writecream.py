@@ -1,14 +1,20 @@
+import json
 import time
 import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import requests
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from .base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from .utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -24,8 +30,8 @@ class Completions(BaseCompletions):
     def create(
         self,
         *,
-        model: str = None,  # Not used by Writecream, for compatibility
-        messages: List[Dict[str, str]],
+        model: str,  # Not used by Writecream, for compatibility
+        messages: List[Dict[str, Any]],
         max_tokens: Optional[int] = None,  # Not used by Writecream
         stream: bool = False,
         temperature: Optional[float] = None,  # Not used by Writecream
@@ -158,9 +164,13 @@ class Writecream(OpenAICompatibleProvider):
 if __name__ == "__main__":
     client = Writecream()
     response = client.chat.completions.create(
+        model="writecream",
         messages=[
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "What is the capital of France?"}
         ]
     )
-    print(response.choices[0].message.content)
+    if isinstance(response, ChatCompletion):
+        print(response.choices[0].message.content)
+    else:
+        print(response)

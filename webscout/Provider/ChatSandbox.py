@@ -1,18 +1,13 @@
-from typing import Optional, Union, Any, Dict, Generator, List
-from uuid import uuid4
 import json
-import re
-import random
+from typing import Any, Dict, Generator, Optional, Union
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from webscout.AIutel import sanitize_stream
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
 from webscout import exceptions
-from webscout.litagent import LitAgent
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+
 
 class ChatSandbox(Provider):
     """
@@ -33,16 +28,16 @@ class ChatSandbox(Provider):
     """
     required_auth = False
     AVAILABLE_MODELS = [
-        "openai", 
-        "openai-gpt-4o", 
-        "openai-o1-mini", 
-        "deepseek", 
-        "deepseek-r1", 
+        "openai",
+        "openai-gpt-4o",
+        "openai-o1-mini",
+        "deepseek",
+        "deepseek-r1",
         "deepseek-r1-full",
-        "gemini", 
+        "gemini",
         "gemini-thinking",
-        "mistral", 
-        "mistral-large", 
+        "mistral",
+        "mistral-large",
         "gemma-3",
         "llama"
     ]
@@ -54,12 +49,12 @@ class ChatSandbox(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
     ):
         """
         Initializes the ChatSandbox API with given parameters.
@@ -96,7 +91,7 @@ class ChatSandbox(Provider):
             'origin': 'https://chatsandbox.com',
             'referer': f'https://chatsandbox.com/chat/{self.model}',
         }
-        
+
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
@@ -140,9 +135,10 @@ class ChatSandbox(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the ChatSandbox API and returns the response.
 
@@ -185,7 +181,7 @@ class ChatSandbox(Provider):
                     raise exceptions.FailedToGenerateResponseError(
                         f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                     )
-                
+
                 streaming_response = ""
                 # Use sanitize_stream with the custom extractor
                 processed_stream = sanitize_stream(
@@ -224,9 +220,9 @@ class ChatSandbox(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> str:
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the ChatSandbox API.
 
@@ -262,19 +258,19 @@ class ChatSandbox(Provider):
                 )
             )
 
-    def get_message(self, response: Dict[str, Any]) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extract the message from the API response.
-        
+
         Args:
-            response (Dict[str, Any]): The API response.
-            
+            response (Response): The API response.
+
         Returns:
             str: The extracted message.
         """
         if not isinstance(response, dict):
             return str(response)
-            
+
         raw_text = response.get("text", "")
 
         # Try to parse as JSON
@@ -308,8 +304,12 @@ if __name__ == "__main__":
         try:
             test_ai = ChatSandbox(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word")
-            response_text = response
-            
+
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                response_text = "".join(list(response))
+            else:
+                response_text = str(response)
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 display_text = response_text.strip()[:50].replace('\n', ' ') + ("..." if len(response_text.strip()) > 50 else "")

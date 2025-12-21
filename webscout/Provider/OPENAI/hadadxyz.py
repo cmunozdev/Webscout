@@ -1,17 +1,20 @@
-import json
 import time
 import uuid
-import re
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens, format_prompt
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
+    format_prompt,
 )
 
 try:
@@ -69,10 +72,10 @@ class Completions(BaseCompletions):
         include_think_tags: bool = True,
         **kwargs: Any
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
-        
+
         # Format the prompt using the utility
         prompt = format_prompt(messages, include_system=True)
-        
+
         payload = {
             "tools": {},
             "modelId": model,
@@ -93,7 +96,7 @@ class Completions(BaseCompletions):
 
         request_id = f"chatcmpl-{uuid.uuid4()}"
         created_time = int(time.time())
-        
+
         if stream:
             return self._create_stream(request_id, created_time, model, payload, timeout, proxies, include_think_tags)
         else:
@@ -105,7 +108,7 @@ class Completions(BaseCompletions):
         include_think_tags: bool = True
     ) -> Generator[ChatCompletionChunk, None, None]:
         extractor = _DeltaExtractor(include_think_tags=include_think_tags)
-        
+
         try:
             response = self._client.session.post(
                 self._client.api_endpoint,
@@ -117,10 +120,10 @@ class Completions(BaseCompletions):
                 impersonate="chrome120"
             )
             response.raise_for_status()
-            
+
             prompt_tokens = count_tokens(payload["messages"][0]["parts"][0]["text"])
             completion_tokens = 0
-            
+
             from webscout.AIutel import sanitize_stream
             processed_stream = sanitize_stream(
                 data=response.iter_lines(),
@@ -134,7 +137,7 @@ class Completions(BaseCompletions):
             for content_chunk in processed_stream:
                 if content_chunk and isinstance(content_chunk, str):
                     completion_tokens += count_tokens(content_chunk)
-                    
+
                     delta = ChoiceDelta(
                         content=content_chunk,
                         role="assistant"
@@ -180,14 +183,14 @@ class Completions(BaseCompletions):
     ) -> ChatCompletion:
         full_content = ""
         prompt_tokens = count_tokens(payload["messages"][0]["parts"][0]["text"])
-        
+
         try:
             for chunk in self._create_stream(request_id, created_time, model, payload, timeout, proxies, include_think_tags):
                 if chunk.choices and chunk.choices[0].delta.content:
                     full_content += chunk.choices[0].delta.content
-            
+
             completion_tokens = count_tokens(full_content)
-            
+
             message = ChatCompletionMessage(
                 role="assistant",
                 content=full_content

@@ -1,16 +1,14 @@
 import json
-import os
-from typing import Any, Dict, Optional, Generator, Union, List
+from typing import Any, Dict, Generator, Optional, Union
 
-from curl_cffi.requests import Session
 from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class OPENAI(Provider):
     """
@@ -19,12 +17,12 @@ class OPENAI(Provider):
     required_auth = True
 
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from OpenAI API.
-        
+
         Args:
             api_key (str, optional): OpenAI API key
-            
+
         Returns:
             list: List of available model IDs
         """
@@ -36,21 +34,21 @@ class OPENAI(Provider):
             headers = {
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.openai.com/v1/models",
                 headers=headers,
                 impersonate="chrome110"
             )
-            
+
             if response.status_code != 200:
                 raise Exception(f"API request failed with status {response.status_code}: {response.text}")
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model["id"] for model in data["data"] if "id" in model]
             raise Exception("Invalid response format from API")
-            
+
         except (CurlError, Exception) as e:
             raise Exception(f"Failed to fetch models: {str(e)}")
 
@@ -72,12 +70,12 @@ class OPENAI(Provider):
         top_p: float = 1,
         model: str = "gpt-3.5-turbo",
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         base_url: str = "https://api.openai.com/v1/chat/completions",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome"
@@ -167,9 +165,10 @@ class OPENAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -279,8 +278,9 @@ class OPENAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
             gen = self.ask(

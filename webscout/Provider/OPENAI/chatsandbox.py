@@ -1,22 +1,24 @@
-from typing import List, Dict, Optional, Union, Generator, Any
-import time
 import json
+import time
+from typing import Any, Dict, Generator, List, Optional, Union
+
+from curl_cffi.const import CurlHttpVersion
+from curl_cffi.requests import Session
+
+from webscout import exceptions
+from webscout.AIutel import sanitize_stream
 from webscout.litagent import LitAgent
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
     ChatCompletion,
     ChatCompletionChunk,
-    Choice,
     ChatCompletionMessage,
+    Choice,
     ChoiceDelta,
     CompletionUsage,
+    count_tokens,
     format_prompt,
-    count_tokens
 )
-from curl_cffi.requests import Session
-from curl_cffi.const import CurlHttpVersion
-from webscout.AIutel import sanitize_stream
-from webscout import exceptions
 
 # ANSI escape codes for formatting
 BOLD = "\033[1m"
@@ -92,7 +94,7 @@ class Completions(BaseCompletions):
         session = Session()
         session.headers.update(headers)
         session.proxies = proxies if proxies is not None else {}
-        
+
         def for_stream():
             try:
                 response = session.post(
@@ -107,7 +109,7 @@ class Completions(BaseCompletions):
                     raise exceptions.FailedToGenerateResponseError(
                         f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                     )
-                
+
                 streaming_text = ""
                 # Use sanitize_stream with the custom extractor
                 processed_stream = sanitize_stream(
@@ -173,16 +175,16 @@ class Chat(BaseChat):
 
 class ChatSandbox(OpenAICompatibleProvider):
     AVAILABLE_MODELS = [
-        "openai", 
-        "openai-gpt-4o", 
-        "openai-o1-mini", 
-        "deepseek", 
-        "deepseek-r1", 
+        "openai",
+        "openai-gpt-4o",
+        "openai-o1-mini",
+        "deepseek",
+        "deepseek-r1",
         "deepseek-r1-full",
-        "gemini", 
+        "gemini",
         "gemini-thinking",
-        "mistral", 
-        "mistral-large", 
+        "mistral",
+        "mistral-large",
         "gemma-3",
         "llama"
     ]

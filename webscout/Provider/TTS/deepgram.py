@@ -1,25 +1,24 @@
 ##################################################################################
 ##  Deepgram TTS Provider                                                      ##
 ##################################################################################
-import time
-import requests
 import pathlib
-import base64
 import tempfile
-import json
-from io import BytesIO
-from webscout import exceptions
+import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
-from webscout.litagent import LitAgent
+
+import requests
 from litprinter import ic
+
+from webscout import exceptions
+from webscout.litagent import LitAgent
 
 try:
     from . import utils
     from .base import BaseTTSProvider
 except ImportError:
     # Handle direct execution
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
     from webscout.Provider.TTS import utils
     from webscout.Provider.TTS.base import BaseTTSProvider
@@ -27,7 +26,7 @@ except ImportError:
 class DeepgramTTS(BaseTTSProvider):
     """
     Text-to-speech provider using the Deepgram Aura-2 API.
-    
+
     This provider follows the OpenAI TTS API structure with support for:
     - Aura-2 next-gen voices
     - Low-latency real-time performance
@@ -35,7 +34,7 @@ class DeepgramTTS(BaseTTSProvider):
     - Concurrent generation for long texts
     """
     required_auth = False
-    
+
     # Request headers
     headers: dict[str, str] = {
         "Accept": "*/*",
@@ -45,18 +44,18 @@ class DeepgramTTS(BaseTTSProvider):
         "Referer": "https://deepgram.com/ai-voice-generator",
         "User-Agent": LitAgent().random()
     }
-    
+
     # Supported Aura-2 voices
     SUPPORTED_MODELS = ["aura-2"]
-    
+
     SUPPORTED_VOICES = [
-        "thalia", "odysseus", "harmonia", "theia", "electra", 
+        "thalia", "odysseus", "harmonia", "theia", "electra",
         "arcas", "amalthea", "helena", "hyperion", "apollo", "luna",
         # Legacy Aura-1 voices (if still supported by the endpoint)
         "asteria", "luna", "stella", "athena", "hera",
         "zeus", "orpheus", "arcas", "perseus", "angus", "orion", "helios"
     ]
-    
+
     # Voice mapping for Deepgram API compatibility
     voice_mapping = {
         # Aura-2
@@ -87,7 +86,7 @@ class DeepgramTTS(BaseTTSProvider):
     def __init__(self, timeout: int = 30, proxies: dict = None):
         """
         Initialize the Deepgram TTS client.
-        
+
         Args:
             timeout (int): Request timeout in seconds
             proxies (dict): Proxy configuration
@@ -102,12 +101,12 @@ class DeepgramTTS(BaseTTSProvider):
         self.default_voice = "thalia"
 
     def tts(
-        self, 
-        text: str, 
+        self,
+        text: str,
         model: str = "aura-2", # Dummy model param for compatibility
-        voice: str = "thalia", 
+        voice: str = "thalia",
         response_format: str = "mp3",
-        instructions: str = None, 
+        instructions: str = None,
         verbose: bool = True
     ) -> str:
         """
@@ -124,10 +123,10 @@ class DeepgramTTS(BaseTTSProvider):
         """
         if not text:
             raise ValueError("Input text must be a non-empty string")
-            
+
         # Map voice to Deepgram API format
         voice_id = self.voice_mapping.get(voice.lower(), f"aura-2-{voice.lower()}-en")
-        
+
         # Create temporary file
         file_extension = f".{response_format}"
         filename = pathlib.Path(tempfile.mktemp(suffix=file_extension, dir=self.temp_dir))
@@ -135,15 +134,17 @@ class DeepgramTTS(BaseTTSProvider):
         # Split text into sentences for long inputs
         sentences = utils.split_sentences(text)
         if verbose:
-            ic.configureOutput(prefix='DEBUG| '); ic(f"DeepgramTTS: Processing {len(sentences)} chunks")
-            ic.configureOutput(prefix='DEBUG| '); ic(f"Voice: {voice} -> {voice_id}")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"DeepgramTTS: Processing {len(sentences)} chunks")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"Voice: {voice} -> {voice_id}")
 
         def generate_audio_for_chunk(part_text: str, part_number: int):
             max_retries = 3
             for attempt in range(max_retries):
                 try:
                     payload = {
-                        "text": part_text, 
+                        "text": part_text,
                         "model": voice_id,
                         "demoType": "voice-generator",
                         "params": "tag=landingpage-aivoicegenerator"
@@ -157,12 +158,14 @@ class DeepgramTTS(BaseTTSProvider):
 
                     if response.content:
                         if verbose:
-                            ic.configureOutput(prefix='DEBUG| '); ic(f"Chunk {part_number} processed successfully")
+                            ic.configureOutput(prefix='DEBUG| ')
+                            ic(f"Chunk {part_number} processed successfully")
                         return part_number, response.content
 
                 except requests.RequestException as e:
                     if verbose:
-                        ic.configureOutput(prefix='WARNING| '); ic(f"Error processing chunk {part_number}: {e}. Retrying {attempt+1}/{max_retries}")
+                        ic.configureOutput(prefix='WARNING| ')
+                        ic(f"Error processing chunk {part_number}: {e}. Retrying {attempt+1}/{max_retries}")
                     time.sleep(1)
 
             raise exceptions.FailedToGenerateResponseError(f"Failed to generate audio for chunk {part_number}")
@@ -184,8 +187,9 @@ class DeepgramTTS(BaseTTSProvider):
                         f.write(audio_chunks[i])
 
                 if verbose:
-                    ic.configureOutput(prefix='INFO| '); ic(f"Audio saved to {filename}")
-                    
+                    ic.configureOutput(prefix='INFO| ')
+                    ic(f"Audio saved to {filename}")
+
                 return str(filename)
 
         except Exception as e:

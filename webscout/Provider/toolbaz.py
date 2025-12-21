@@ -1,20 +1,25 @@
-import re
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import uuid
 import base64
 import json
 import random
+import re
 import string
 import time
+import uuid
 from datetime import datetime
-from typing import Any, Dict, Optional, Generator, Union, List
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+
 
 class Toolbaz(Provider):
     """
@@ -37,7 +42,7 @@ class Toolbaz(Provider):
 
         "grok-4-fast",
         "grok-4.1-fast",
-        
+
         "toolbaz-v4.5-fast",
         "toolbaz_v4",
         "toolbaz_v3.5_pro",
@@ -48,7 +53,7 @@ class Toolbaz(Provider):
 
         "Llama-4-Maverick",
         "Llama-3.3-70B",
-        
+
         "mixtral_8x22b",
         "L3-70B-Euryale-v2.1",
         "midnight-rose",
@@ -60,12 +65,12 @@ class Toolbaz(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600, # Note: max_tokens is not directly used by the API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gemini-2.0-flash",
         system_prompt: str = "You are a helpful AI assistant." # Note: system_prompt is not directly used by the API
     ):
@@ -156,7 +161,7 @@ class Toolbaz(Provider):
             }
             # Use curl_cffi session post WITHOUT impersonate for token request
             resp = self.session.post(
-                "https://data.toolbaz.com/token.php", 
+                "https://data.toolbaz.com/token.php",
                 data=data
                 # Removed impersonate="chrome110" for this specific request
             )
@@ -181,10 +186,11 @@ class Toolbaz(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        raw: bool = False,  # Kept for compatibility, but output is always dict/string
+        raw: bool = False,
         optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """Sends a prompt to the Toolbaz API and returns the response."""
         if optimizer and optimizer not in self.__available_optimizers:
             raise exceptions.FailedToGenerateResponseError(f"Optimizer is not one of {self.__available_optimizers}")
@@ -196,7 +202,7 @@ class Toolbaz(Provider):
             )
 
         # get_auth now raises exceptions on failure
-        auth = self.get_auth() 
+        auth = self.get_auth()
         # No need to check if auth is None, as an exception would have been raised
 
         data = {
@@ -264,7 +270,7 @@ class Toolbaz(Provider):
                 resp.raise_for_status()
 
                 # Use response.text which is already decoded
-                text = resp.text 
+                text = resp.text
                 # Remove [model: ...] tags
                 text = re.sub(r"\[model:.*?\]", "", text)
 
@@ -287,6 +293,7 @@ class Toolbaz(Provider):
         optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """Generates a response from the Toolbaz API."""
         def for_stream_chat():
@@ -319,7 +326,7 @@ class Toolbaz(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: Dict[str, Any]) -> str:
+    def get_message(self, response: Response) -> str:
         """Extract the message from the response.
 
         Args:
@@ -328,13 +335,14 @@ class Toolbaz(Provider):
         Returns:
             str: Message extracted
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 # Example usage
 if __name__ == "__main__":
     # Ensure curl_cffi is installed
-    from rich import print # Use rich print if available
+    from rich import print  # Use rich print if available
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
@@ -346,10 +354,11 @@ if __name__ == "__main__":
             response_stream = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
             # print(f"\r{model:<50} {'Streaming...':<10}", end="", flush=True)
-            for chunk in response_stream:
-                response_text += chunk
-                # Optional: print chunks for visual feedback
-                # print(chunk, end="", flush=True)
+            if hasattr(response_stream, "__iter__") and not isinstance(response_stream, (str, bytes)):
+                for chunk in response_stream:
+                    response_text += chunk
+            else:
+                response_text = str(response_stream)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

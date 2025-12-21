@@ -1,23 +1,24 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class Algion(Provider):
     """
     A class to interact with the Algion API (OpenAI-compatible free API).
-    
+
     Attributes:
         AVAILABLE_MODELS: List of available models
         url: API endpoint URL
         api: API key for authentication
-         
+
     Examples:
         >>> from webscout.Provider.Algion import Algion
         >>> ai = Algion()
@@ -25,17 +26,17 @@ class Algion(Provider):
         >>> print(response)
     """
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from Algion API.
-        
+
         Args:
             api_key (str, optional): Algion API key. If not provided, uses default free key.
-            
+
         Returns:
             list: List of available model IDs
         """
         api_key = api_key or "123123"
-            
+
         try:
             # Use a temporary curl_cffi session for this class method
             temp_session = Session()
@@ -43,21 +44,21 @@ class Algion(Provider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.algion.dev/v1/models",
                 headers=headers,
                 impersonate="chrome110"
             )
-            
+
             if response.status_code != 200:
                 raise Exception(f"Failed to fetch models: HTTP {response.status_code}")
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model["id"] for model in data["data"]]
             raise Exception("Invalid response format from API")
-            
+
         except (CurlError, Exception) as e:
             raise Exception(f"Failed to fetch models: {str(e)}")
 
@@ -78,18 +79,18 @@ class Algion(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gpt-4o",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome"
     ):
         """Initializes the Algion API client.
-        
+
         Args:
             api_key: API key for authentication (default: "123123" - free key)
             is_conversation: Whether to use conversation mode
@@ -168,7 +169,7 @@ class Algion(Provider):
 
         Args:
             browser: Specific browser to use for the new fingerprint
-            
+
         Returns:
             dict: New fingerprint
         """
@@ -194,9 +195,10 @@ class Algion(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Algion API and returns the response.
 
@@ -209,7 +211,7 @@ class Algion(Provider):
 
         Returns:
             Dict or Generator: Response from the API
-            
+
         Examples:
             >>> ai = Algion()
             >>> response = ai.ask("What is AI?")
@@ -261,7 +263,7 @@ class Algion(Provider):
                     # Always yield as string, even in raw mode
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:
@@ -325,7 +327,7 @@ class Algion(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -341,7 +343,7 @@ class Algion(Provider):
 
         Returns:
             str or Generator: Response text
-            
+
         Examples:
             >>> ai = Algion()
             >>> response = ai.chat("Tell me a joke")
@@ -370,7 +372,7 @@ class Algion(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message from the API response.
 
@@ -380,8 +382,9 @@ class Algion(Provider):
         Returns:
             str: The message content
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
 try:
     fetched_models = Algion.get_models()
@@ -392,12 +395,12 @@ except Exception:
 
 if __name__ == "__main__":
     from rich import print
-    
+
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
 
-    for model in Algion.AVAILABLE_MODELS: 
+    for model in Algion.AVAILABLE_MODELS:
         try:
             test_ai = Algion(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)

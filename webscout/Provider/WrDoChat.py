@@ -1,17 +1,17 @@
 import json
 import re
-from typing import Optional, Union, Any, Dict, Generator
 from datetime import datetime
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
+
 
 class WrDoChat(Provider):
     """
@@ -58,12 +58,12 @@ class WrDoChat(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2000,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "gemini-2.5-flash-preview-04-17",
         system_prompt: str = "You are a helpful AI assistant.",
     ):
@@ -149,7 +149,7 @@ class WrDoChat(Provider):
 
     def _wrdo_extractor(self, line: Union[str, Dict[str, Any]]) -> Optional[str]:
         """Extracts content from the oi.wr.do stream format.
-        
+
         Format:
         f:{"messageId":"..."}
         0:"content chunk"
@@ -163,7 +163,7 @@ class WrDoChat(Provider):
                 # Decode potential unicode escapes like \u00e9
                 content = match.group(1).encode().decode('unicode_escape')
                 return content.replace('\\\\', '\\').replace('\\"', '"')  # Handle escaped backslashes and quotes
-            
+
             # Store message ID from 'f:' response
             elif line.startswith('f:'):
                 try:
@@ -188,9 +188,10 @@ class WrDoChat(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Dict[str, Any], None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Send a message to the oi.wr.do API.
 
@@ -217,7 +218,8 @@ class WrDoChat(Provider):
 
         chat_id = str(uuid4())
         message_id = str(uuid4())
-        current_time = datetime.utcnow().isoformat() + "Z"
+        from datetime import timezone
+        current_time = datetime.now(timezone.utc).isoformat() + "Z"
 
         payload = {
             "id": chat_id,
@@ -304,7 +306,7 @@ class WrDoChat(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
     ) -> Union[str, Generator[str, None, None]]:
@@ -342,26 +344,31 @@ class WrDoChat(Provider):
                 return self.get_message(result)
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extract message from response.
 
         Args:
-            response (dict): The response dictionary.
+            response (Response): The response dictionary.
 
         Returns:
             str: The extracted message.
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 
 if __name__ == "__main__":
-    from rich import print
     import json
-    
+
+    from rich import print
+
     # Example usage
     ai = WrDoChat(cookies_path="cookies.json")
     response = ai.chat("write me a poem about AI", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

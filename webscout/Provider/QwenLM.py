@@ -5,7 +5,7 @@ from typing import Any, Dict, Generator, Optional, Union
 from curl_cffi import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
@@ -143,7 +143,8 @@ class QwenLM(Provider):
         raw: bool = False,
         optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator[Any, None, None]]:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI."""
 
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
@@ -307,9 +308,10 @@ class QwenLM(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Extracts the message content from a response dict."""
-        assert isinstance(response, dict), "Response should be a dict"
+        if not isinstance(response, dict):
+            return str(response)
         return response.get("text", "")
 
 if __name__ == "__main__":

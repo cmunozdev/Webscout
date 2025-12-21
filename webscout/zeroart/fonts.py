@@ -1,9 +1,11 @@
 """
 ZeroArt Fonts: Predefined ASCII art fonts
-""" 
+"""
 
 from typing import Dict, List
+
 from .base import ZeroArtFont
+
 
 class BlockFont(ZeroArtFont):
     """Block-style ASCII art font"""
@@ -200,7 +202,7 @@ class BlockFont(ZeroArtFont):
                 " ███████ "
             ]
         }
-        
+
         self.letters.update(block_letters)
 
 class SlantFont(ZeroArtFont):
@@ -416,7 +418,7 @@ class SlantFont(ZeroArtFont):
                 "/____|_| "
             ]
         }
-        
+
         self.letters.update(slant_letters)
 
 # Add more custom fonts here
@@ -615,7 +617,7 @@ class NeonFont(ZeroArtFont):
                 " ████████ "
             ]
         }
-        
+
         self.letters.update(neon_letters)
 
 class CyberFont(ZeroArtFont):
@@ -813,7 +815,7 @@ class CyberFont(ZeroArtFont):
                 " ▓▓▓▓▓▓▓ "
             ]
         }
-        
+
         self.letters.update(cyber_letters)
 
 class DottedFont(ZeroArtFont):
@@ -1011,7 +1013,7 @@ class DottedFont(ZeroArtFont):
                 " :::::::: "
             ]
         }
-        
+
         self.letters.update(dotted_letters)
 
 class ShadowFont(ZeroArtFont):
@@ -1235,7 +1237,7 @@ class ShadowFont(ZeroArtFont):
                 "▓▓▓▓▓▓▓▓ "
             ]
         }
-        
+
         self.letters.update(shadow_letters)
 
 class ThreeDFont(ZeroArtFont):
@@ -1451,7 +1453,7 @@ class ThreeDFont(ZeroArtFont):
                 "/____|"
             ]
         }
-        
+
         self.letters.update(three_d_letters)
 
 class ElectronicFont(ZeroArtFont):
@@ -1623,7 +1625,7 @@ class ElectronicFont(ZeroArtFont):
                 "==="
             ]
         }
-        
+
         self.letters.update(electronic_letters)
 
 class IsometricFont(ZeroArtFont):
@@ -1793,5 +1795,5 @@ class IsometricFont(ZeroArtFont):
                 "----"
             ]
         }
-        
+
         self.letters.update(isometric_letters)

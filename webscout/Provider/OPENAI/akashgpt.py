@@ -1,20 +1,24 @@
+import json
+import re
 import time
 import uuid
-import requests
-import re
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
-
-# Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions, Tool
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
-)
-from webscout.Provider.OPENAI.utils import format_prompt, get_system_prompt
+from typing import Any, Dict, Generator, List, Optional, Union
 
 # Import LitAgent for user agent generation
 from webscout.litagent import LitAgent
+
+# Import base classes and utility structures
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
+    format_prompt,
+)
 
 # AkashGPT constants
 AVAILABLE_MODELS = [
@@ -58,7 +62,7 @@ class Completions(BaseCompletions):
         conversation_prompt = format_prompt(messages, add_special_tokens=True, include_system=True)
 
         # Set up request parameters
-        api_key = kwargs.get("api_key", self._client.api_key)
+        kwargs.get("api_key", self._client.api_key)
 
         # Generate request ID and timestamp
         request_id = str(uuid.uuid4())
@@ -312,7 +316,7 @@ class AkashGPT(OpenAICompatibleProvider):
         print(response.choices[0].message.content)
     """
     required_auth = True
-    
+
     AVAILABLE_MODELS = AVAILABLE_MODELS
 
     def __init__(
@@ -330,7 +334,7 @@ class AkashGPT(OpenAICompatibleProvider):
             proxies: Optional proxy configuration dict
         """
         super().__init__(api_key=api_key, tools=tools, proxies=proxies)
-        
+
         # Store the api_key for use in completions
         self.api_key = api_key
         self.timeout = 30

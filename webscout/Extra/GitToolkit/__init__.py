@@ -1,10 +1,10 @@
-from .gitapi import *
+from .gitapi import GitError, NotFoundError, RateLimitError, Repository, RequestError, User
 
 __all__ = [
     'Repository',
     'User',
     'GitError',
-    'RateLimitError', 
+    'RateLimitError',
     'NotFoundError',
     'RequestError'
 ]

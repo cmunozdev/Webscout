@@ -1,12 +1,13 @@
 import json
 import random
 import time
+from typing import Any, Dict, Generator, List, Optional, Union
 from uuid import uuid4
-from typing import Dict, Optional, Generator, Union, Any, List
+
 from curl_cffi import requests
 
-from webscout.AIbase import AISearch, SearchResponse
 from webscout import exceptions
+from webscout.AIbase import AISearch, SearchResponse
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
 
@@ -79,7 +80,7 @@ class Perplexity(AISearch):
                     data='40{"jwt":"anonymous-ask-user"}',
                 )
             self.session.get("https://www.perplexity.ai/api/auth/session")
-        except:
+        except Exception:
             pass
 
     def _extract_answer(self, response):
@@ -97,7 +98,7 @@ class Perplexity(AISearch):
                 if isinstance(answer_content, str):
                     try:
                         return json.loads(answer_content).get("answer", "")
-                    except:
+                    except Exception:
                         return str(answer_content)
                 elif isinstance(answer_content, dict):
                     return answer_content.get("answer", "")
@@ -116,14 +117,14 @@ class Perplexity(AISearch):
                             if isinstance(answer_content, str):
                                 try:
                                     return json.loads(answer_content).get("answer", "")
-                                except:
+                                except Exception:
                                     return str(answer_content)
                             elif isinstance(answer_content, dict):
                                 return answer_content.get("answer", "")
             elif isinstance(text_val, str):
                 try:
                     return json.loads(text_val).get("answer", text_val)
-                except:
+                except Exception:
                     return text_val
         return ""
 
@@ -141,14 +142,14 @@ class Perplexity(AISearch):
                             if isinstance(answer_content, str):
                                 try:
                                     return json.loads(answer_content).get("answer", "")
-                                except:
+                                except Exception:
                                     return str(answer_content)
                             elif isinstance(answer_content, dict):
                                 return answer_content.get("answer", "")
             elif isinstance(text_val, str):
                 try:
                     return json.loads(text_val).get("answer", text_val)
-                except:
+                except Exception:
                     return text_val
         return ""
 
@@ -164,12 +165,12 @@ class Perplexity(AISearch):
                         if isinstance(content, dict) and "answer" in content:
                             try:
                                 return json.loads(content["answer"]).get("answer", "")
-                            except:
+                            except Exception:
                                 return str(content["answer"])
             elif isinstance(text_val, str):
                 try:
                     return json.loads(text_val).get("answer", text_val)
-                except:
+                except Exception:
                     return text_val
         return ""
 
@@ -193,7 +194,7 @@ class Perplexity(AISearch):
             sources = ["web"]
 
         # Prepare request data
-        json_data = {
+        json_data: Dict[str, Any] = {
             "query_str": prompt,
             "params": {
                 "attachments": follow_up["attachments"] if follow_up else [],
@@ -267,7 +268,7 @@ class Perplexity(AISearch):
                 else:
                     if raw:
                         return resp.text
-                    
+
                     full_response_text = ""
                     for chunk in stream_response():
                         full_response_text += str(chunk)

@@ -1,14 +1,14 @@
 import uuid
+from typing import Any, Dict, Generator, Optional, TypeVar, Union
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
-from typing import Any, Dict, Optional, Generator, Union, List, TypeVar
-from webscout.AIutel import Optimizers
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
-from webscout.litagent import LitAgent
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Optimizers, sanitize_stream  # Import sanitize_stream
 from webscout.conversation import Conversation
+from webscout.litagent import LitAgent
 
 T = TypeVar('T')
 
@@ -29,12 +29,12 @@ class YEPCHAT(Provider):
         is_conversation: bool = True,
         max_tokens: int = 1280,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "DeepSeek-R1-Distill-Qwen-32B",
         temperature: float = 0.6,
         top_p: float = 0.7,
@@ -57,7 +57,7 @@ class YEPCHAT(Provider):
             )
 
         # Initialize curl_cffi Session instead of cloudscraper
-        self.session = Session() 
+        self.session = Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.chat_endpoint = "https://api.yep.com/v1/chat/completions"
@@ -87,7 +87,7 @@ class YEPCHAT(Provider):
             "Sec-CH-UA-Platform": f'"{self.fingerprint["platform"]}"',
             "User-Agent": self.fingerprint["user_agent"],
         }
-        
+
         # Create session cookies with unique identifiers
         self.cookies = {"__Host-session": uuid.uuid4().hex, '__cf_bm': uuid.uuid4().hex}
 
@@ -114,13 +114,13 @@ class YEPCHAT(Provider):
     def refresh_identity(self, browser: str = None):
         """
         Refreshes the browser identity fingerprint.
-        
+
         Args:
             browser: Specific browser to use for the new fingerprint
         """
         browser = browser or self.fingerprint.get("browser_type", "chrome")
         self.fingerprint = self.agent.generate_fingerprint(browser)
-        
+
         # Update headers with new fingerprint
         self.headers.update({
             "Accept": self.fingerprint["accept"],
@@ -129,13 +129,13 @@ class YEPCHAT(Provider):
             "Sec-CH-UA-Platform": f'"{self.fingerprint["platform"]}"',
             "User-Agent": self.fingerprint["user_agent"],
         })
-        
+
         # Update session headers
         self.session.headers.update(self.headers)
-        
+
         # Generate new cookies (will be passed in requests)
         self.cookies = {"__Host-session": uuid.uuid4().hex, '__cf_bm': uuid.uuid4().hex}
-        
+
         return self.fingerprint
 
     def ask(
@@ -143,9 +143,10 @@ class YEPCHAT(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the Yep API and returns the response.
 
@@ -237,7 +238,7 @@ class YEPCHAT(Provider):
                         )
                 if raw:
                     return response.text
-                
+
                 # Use sanitize_stream to parse the non-streaming JSON response
                 processed_stream = sanitize_stream(
                     data=response.text,
@@ -252,7 +253,7 @@ class YEPCHAT(Provider):
                 if raw:
                     return content
                 content = content if isinstance(content, str) else ""
-                
+
                 if content:
                     self.conversation.update_chat_history(prompt, content)
                     return {"text": content}
@@ -269,9 +270,10 @@ class YEPCHAT(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """
         Initiates a chat with the Yep API using the provided prompt.
@@ -308,7 +310,7 @@ class YEPCHAT(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extracts the message content from the API response.
 
@@ -319,36 +321,19 @@ class YEPCHAT(Provider):
             Extracts and returns the message content from the response.
         """
         if isinstance(response, dict):
-            return response["text"]
+            return response.get("text", "")
         elif isinstance(response, (str, bytes)):
-            return response
+            return str(response)
         else:
-            raise TypeError(f"Unexpected response type: {type(response)}")
+            return str(response)
 
 
 if __name__ == "__main__":
-    # print("-" * 80)
-    # print(f"{'Model':<50} {'Status':<10} {'Response'}")
-    # print("-" * 80)
-
-    # for model in YEPCHAT.AVAILABLE_MODELS:
-    #     try:
-    #         test_ai = YEPCHAT(model=model, timeout=60)
-    #         response = test_ai.chat("Say 'Hello' in one word")
-    #         response_text = response
-            
-    #         if response_text and len(response_text.strip()) > 0:
-    #             status = "✓"
-    #             # Truncate response if too long
-    #             display_text = response_text.strip()[:50] + "..." if len(response_text.strip()) > 50 else response_text.strip()
-    #         else:
-    #             status = "✗"
-    #             display_text = "Empty or invalid response"
-    #         print(f"{model:<50} {status:<10} {display_text}")
-    #     except Exception as e:
-    #         print(f"{model:<50} {'✗':<10} {str(e)}")
     ai = YEPCHAT(model="DeepSeek-R1-Distill-Qwen-32B", timeout=60)
     response = ai.chat("Say 'Hello' in one word", raw=False, stream=True)
-    for chunk in response:
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end='', flush=True)
+    else:
+        print(response)
 
-        print(chunk, end='', flush=True)

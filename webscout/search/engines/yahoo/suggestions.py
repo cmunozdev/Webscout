@@ -10,7 +10,7 @@ from .base import YahooSearchEngine
 
 class YahooSuggestions(YahooSearchEngine[str]):
     """Yahoo search suggestions engine.
-    
+
     Provides autocomplete suggestions as you type.
     """
 
@@ -30,7 +30,7 @@ class YahooSuggestions(YahooSearchEngine[str]):
         **kwargs: Any,
     ) -> dict[str, Any]:
         """Build suggestions payload.
-        
+
         Args:
             query: Partial search query
             region: Region code
@@ -38,7 +38,7 @@ class YahooSuggestions(YahooSearchEngine[str]):
             timelimit: Time limit (unused)
             page: Page number (unused)
             **kwargs: Additional parameters
-            
+
         Returns:
             Query parameters
         """
@@ -47,21 +47,21 @@ class YahooSuggestions(YahooSearchEngine[str]):
             "output": "sd1",
             "nresults": kwargs.get("max_suggestions", 10),
         }
-        
+
         return payload
 
     def extract_results(self, html_text: str) -> list[str]:
         """Extract suggestions from JSON response.
-        
+
         Args:
             html_text: JSON response text
-            
+
         Returns:
             List of suggestion strings
         """
         try:
             data = json.loads(html_text)
-            
+
             # Yahoo returns suggestions in 'r' key
             if "r" in data and isinstance(data["r"], list):
                 suggestions = []
@@ -71,7 +71,7 @@ class YahooSuggestions(YahooSearchEngine[str]):
                     elif isinstance(item, str):
                         suggestions.append(item)
                 return suggestions
-            
+
             return []
         except (json.JSONDecodeError, KeyError, TypeError):
             return []
@@ -87,7 +87,7 @@ class YahooSuggestions(YahooSearchEngine[str]):
         **kwargs: Any,
     ) -> list[str] | None:
         """Get search suggestions for a query.
-        
+
         Args:
             query: Partial search query
             region: Region code
@@ -96,13 +96,13 @@ class YahooSuggestions(YahooSearchEngine[str]):
             page: Page number
             max_results: Maximum suggestions
             **kwargs: Additional parameters
-            
+
         Returns:
             List of suggestion strings
         """
         if max_results:
             kwargs["max_suggestions"] = max_results
-        
+
         payload = self.build_payload(
             query=query,
             region=region,
@@ -111,25 +111,25 @@ class YahooSuggestions(YahooSearchEngine[str]):
             page=page,
             **kwargs
         )
-        
+
         response = self.request(self.search_method, self.search_url, params=payload)
         if not response:
             return None
-        
+
         suggestions = self.extract_results(response)
-        
+
         if max_results:
             suggestions = suggestions[:max_results]
-        
+
         return suggestions if suggestions else None
 
     def run(self, keywords: str, region: str = "us-en") -> list[str]:
         """Run suggestions search and return results.
-        
+
         Args:
             keywords: Search query.
             region: Region code.
-            
+
         Returns:
             List of suggestion strings.
         """

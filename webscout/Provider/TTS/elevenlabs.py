@@ -2,23 +2,23 @@
 ##  ElevenLabs TTS Provider                                                      ##
 ##################################################################################
 import os
-import requests
 import pathlib
 import tempfile
-import time
-from io import BytesIO
+from concurrent.futures import ThreadPoolExecutor, as_completed
+
+import requests
+from litprinter import ic
+
 from webscout import exceptions
 from webscout.litagent import LitAgent
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from litprinter import ic
 
 try:
     from . import utils
     from .base import BaseTTSProvider
 except ImportError:
     # Handle direct execution
-    import sys
     import os
+    import sys
     sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', '..', '..'))
     from webscout.Provider.TTS import utils
     from webscout.Provider.TTS.base import BaseTTSProvider
@@ -26,12 +26,12 @@ except ImportError:
 class ElevenlabsTTS(BaseTTSProvider):
     """
     Text-to-speech provider using the ElevenLabs API.
-    
-    This provider supports both authenticated (with API key) and 
+
+    This provider supports both authenticated (with API key) and
     unauthenticated (limited) usage if available.
     """
     required_auth = True
-    
+
     # Supported models
     SUPPORTED_MODELS = [
         "eleven_multilingual_v2",
@@ -41,21 +41,21 @@ class ElevenlabsTTS(BaseTTSProvider):
         "eleven_turbo_v2",
         "eleven_monolingual_v1"
     ]
-    
+
     # Request headers
     headers: dict[str, str] = {
         "User-Agent": LitAgent().random(),
         "Accept": "audio/mpeg",
         "Content-Type": "application/json",
     }
-    
+
     # ElevenLabs voices
     SUPPORTED_VOICES = [
-        "brian", "alice", "bill", "callum", "charlie", "charlotte", 
-        "chris", "daniel", "eric", "george", "jessica", "laura", 
+        "brian", "alice", "bill", "callum", "charlie", "charlotte",
+        "chris", "daniel", "eric", "george", "jessica", "laura",
         "liam", "lily", "matilda", "sarah", "will"
     ]
-    
+
     # Voice mapping
     voice_mapping = {
         "brian": "nPczCjzI2devNBz1zQrb",
@@ -80,7 +80,7 @@ class ElevenlabsTTS(BaseTTSProvider):
     def __init__(self, api_key: str = None, timeout: int = 30, proxies: dict = None):
         """
         Initialize the ElevenLabs TTS client.
-        
+
         Args:
             api_key (str): ElevenLabs API key. If None, tries to use unauthenticated endpoint.
             timeout (int): Request timeout in seconds.
@@ -99,10 +99,10 @@ class ElevenlabsTTS(BaseTTSProvider):
         self.default_voice = "brian"
 
     def tts(
-        self, 
-        text: str, 
+        self,
+        text: str,
         model: str = "eleven_multilingual_v2",
-        voice: str = "brian", 
+        voice: str = "brian",
         response_format: str = "mp3",
         verbose: bool = True
     ) -> str:
@@ -111,15 +111,16 @@ class ElevenlabsTTS(BaseTTSProvider):
         """
         if not text:
             raise ValueError("Input text must be a non-empty string")
-            
+
         voice_id = self.voice_mapping.get(voice.lower(), voice)
-        
+
         file_extension = f".{response_format}"
         filename = pathlib.Path(tempfile.mktemp(suffix=file_extension, dir=self.temp_dir))
 
         sentences = utils.split_sentences(text)
         if verbose:
-            ic.configureOutput(prefix='DEBUG| '); ic(f"ElevenlabsTTS: Processing {len(sentences)} chunks")
+            ic.configureOutput(prefix='DEBUG| ')
+            ic(f"ElevenlabsTTS: Processing {len(sentences)} chunks")
 
         def generate_chunk(part_text: str, part_num: int):
             payload = {
@@ -135,7 +136,7 @@ class ElevenlabsTTS(BaseTTSProvider):
             if not self.api_key:
                 # Some public endpoints might still work without key but they are very restricted
                 params['allow_unauthenticated'] = '1'
-                
+
             response = self.session.post(url, json=payload, params=params, timeout=self.timeout)
             if response.status_code == 401 and not self.api_key:
                 raise exceptions.FailedToGenerateResponseError("ElevenLabs requires an API key for this request.")
@@ -149,13 +150,14 @@ class ElevenlabsTTS(BaseTTSProvider):
                 for future in as_completed(futures):
                     idx, data = future.result()
                     audio_chunks[idx] = data
-                
+
                 with open(filename, 'wb') as f:
                     for i in sorted(audio_chunks.keys()):
                         f.write(audio_chunks[i])
-                        
+
                 if verbose:
-                    ic.configureOutput(prefix='INFO| '); ic(f"Audio saved to {filename}")
+                    ic.configureOutput(prefix='INFO| ')
+                    ic(f"Audio saved to {filename}")
                 return str(filename)
         except Exception as e:
             raise exceptions.FailedToGenerateResponseError(f"ElevenLabs TTS failed: {e}")

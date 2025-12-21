@@ -3,13 +3,16 @@ Emailnator Provider Implementation
 Synchronous provider for Emailnator.com
 """
 
-from typing import List, Dict
-from time import sleep
-from requests import Session
-from webscout.litagent import LitAgent
-from .base import TempMailProvider
 from json import loads
-from re import findall
+from time import sleep
+from typing import Dict, List
+
+from requests import Session
+
+from webscout.litagent import LitAgent
+
+from .base import TempMailProvider
+
 
 class EmailnatorProvider(TempMailProvider):
     def __init__(self):

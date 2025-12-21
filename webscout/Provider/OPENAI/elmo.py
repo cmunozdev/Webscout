@@ -1,18 +1,20 @@
-import json
+import re
 import time
 import uuid
-import re
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
-)
 from webscout.AIutel import sanitize_stream
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+)
 
 try:
     from webscout.litagent import LitAgent
@@ -105,7 +107,7 @@ class Completions(BaseCompletions):
                 impersonate="chrome110"
             )
             response.raise_for_status()
-            
+
             # Use sanitize_stream to process the response
             processed_stream = sanitize_stream(
                 data=response.iter_content(chunk_size=None), # Pass byte iterator
@@ -119,7 +121,7 @@ class Completions(BaseCompletions):
             prompt_tokens = 0
             completion_tokens = 0
             total_tokens = 0
-            
+
             for content_chunk in processed_stream:
                 if content_chunk and isinstance(content_chunk, str):
                     completion_tokens += len(content_chunk.split())
@@ -149,7 +151,7 @@ class Completions(BaseCompletions):
                         "estimated_cost": None
                     }
                     yield chunk
-            
+
             # Final chunk
             delta = ChoiceDelta(content=None, role=None, tool_calls=None)
             choice = Choice(index=0, delta=delta, finish_reason="stop", logprobs=None)
@@ -185,7 +187,7 @@ class Completions(BaseCompletions):
                 proxies=proxies
             )
             response.raise_for_status()
-            
+
             # Use sanitize_stream to process the response and aggregate content
             processed_stream = sanitize_stream(
                 data=response.iter_content(chunk_size=None), # Pass byte iterator
@@ -195,13 +197,13 @@ class Completions(BaseCompletions):
                 yield_raw_on_error=True,
                 raw=False
             )
-            
+
             # Aggregate all content
             content = ""
             for content_chunk in processed_stream:
                 if content_chunk and isinstance(content_chunk, str):
                     content += content_chunk
-            
+
             message = ChatCompletionMessage(
                 role="assistant",
                 content=content
@@ -254,7 +256,7 @@ class Elmo(OpenAICompatibleProvider):
         }
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
-    
+
     @property
     def models(self):
         class _ModelList:

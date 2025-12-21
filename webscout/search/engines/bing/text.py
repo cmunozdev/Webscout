@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-from typing import List
-from urllib.parse import urlencode
 from time import sleep
+from typing import List
 
-from .base import BingBase
 from webscout.scout import Scout
 from webscout.search.results import TextResult
+
+from .base import BingBase
 
 
 class BingTextSearch(BingBase):
@@ -16,7 +16,7 @@ class BingTextSearch(BingBase):
     category = "text"
     def run(self, *args, **kwargs) -> List[TextResult]:
         keywords = args[0] if args else kwargs.get("keywords")
-        region = args[1] if len(args) > 1 else kwargs.get("region", "us")
+        args[1] if len(args) > 1 else kwargs.get("region", "us")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
         max_results = args[3] if len(args) > 3 else kwargs.get("max_results", 10)
         unique = kwargs.get("unique", True)
@@ -32,7 +32,7 @@ class BingTextSearch(BingBase):
             "moderate": "Moderate",
             "off": "Off"
         }
-        safe = safe_map.get(safesearch.lower(), "Moderate")
+        safe_map.get(safesearch.lower(), "Moderate")
 
         fetched_results = []
         fetched_links = set()
@@ -84,7 +84,7 @@ class BingTextSearch(BingBase):
                                 import base64
                                 decoded = base64.urlsafe_b64decode(encoded_url).decode()
                                 href = decoded
-                        except:
+                        except Exception:
                             pass
 
                     if unique and href in fetched_links:

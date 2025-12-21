@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from litprinter import ic
 from abc import ABC, abstractmethod
 from collections.abc import Mapping
 from functools import cached_property
 from typing import Any, Generic, Literal, TypeVar
+
+from litprinter import ic
 
 try:
     from lxml import html
@@ -41,7 +42,7 @@ class BaseSearchEngine(ABC, Generic[T]):
 
     def __init__(self, proxy: str | None = None, timeout: int | None = None, verify: bool = True):
         """Initialize search engine.
-        
+
         Args:
             proxy: Proxy URL (supports http/https/socks5).
             timeout: Request timeout in seconds.
@@ -75,14 +76,16 @@ class BaseSearchEngine(ABC, Generic[T]):
             response = self.http_client.request(method, url, **kwargs)  # type: ignore
             return response.text
         except Exception as ex:
-            ic.configureOutput(prefix='ERROR| '); ic(f"Error in {self.name} request: {ex}")
+            ic.configureOutput(prefix='ERROR| ')
+            ic(f"Error in {self.name} request: {ex}")
             return None
 
     @cached_property
     def parser(self) -> Any:
         """Get HTML parser."""
         if not LXML_AVAILABLE:
-            ic.configureOutput(prefix='WARNING| '); ic("lxml not available, HTML parsing disabled")
+            ic.configureOutput(prefix='WARNING| ')
+            ic("lxml not available, HTML parsing disabled")
             return None
         return LHTMLParser(remove_blank_text=True, remove_comments=True, remove_pis=True, collect_ids=False)
 
@@ -100,13 +103,13 @@ class BaseSearchEngine(ABC, Generic[T]):
         """Extract search results from html text."""
         if not LXML_AVAILABLE:
             raise ImportError("lxml is required for result extraction")
-        
+
         html_text = self.pre_process_html(html_text)
         tree = self.extract_tree(html_text)
-        
+
         results = []
         items = tree.xpath(self.items_xpath) if self.items_xpath else []
-        
+
         for item in items:
             result = self.result_type()
             for key, xpath in self.elements_xpath.items():
@@ -117,9 +120,10 @@ class BaseSearchEngine(ABC, Generic[T]):
                         value = "".join(data) if isinstance(data, list) else data
                         setattr(result, key, value.strip() if isinstance(value, str) else value)
                 except Exception as ex:
-                    ic.configureOutput(prefix='DEBUG| '); ic(f"Error extracting {key}: {ex}")
+                    ic.configureOutput(prefix='DEBUG| ')
+                    ic(f"Error extracting {key}: {ex}")
             results.append(result)
-        
+
         return results
 
     def post_extract_results(self, results: list[T]) -> list[T]:
@@ -154,41 +158,41 @@ class BaseSearch(ABC):
     """Base class for synchronous search engines (legacy)."""
 
     @abstractmethod
-    def text(self, *args, **kwargs) -> list[dict[str, str]]:
+    def text(self, *args, **kwargs) -> list[Any]:
         """Text search."""
         raise NotImplementedError
 
     @abstractmethod
-    def images(self, *args, **kwargs) -> list[dict[str, str]]:
+    def images(self, *args, **kwargs) -> list[Any]:
         """Images search."""
         raise NotImplementedError
 
     @abstractmethod
-    def videos(self, *args, **kwargs) -> list[dict[str, str]]:
+    def videos(self, *args, **kwargs) -> list[Any]:
         """Videos search."""
         raise NotImplementedError
 
     @abstractmethod
-    def news(self, *args, **kwargs) -> list[dict[str, str]]:
+    def news(self, *args, **kwargs) -> list[Any]:
         """News search."""
         raise NotImplementedError
 
     @abstractmethod
-    def answers(self, *args, **kwargs) -> list[dict[str, str]]:
+    def answers(self, *args, **kwargs) -> list[Any]:
         """Instant answers."""
         raise NotImplementedError
 
     @abstractmethod
-    def suggestions(self, *args, **kwargs) -> list[dict[str, str]]:
+    def suggestions(self, *args, **kwargs) -> list[Any]:
         """Suggestions."""
         raise NotImplementedError
 
     @abstractmethod
-    def maps(self, *args, **kwargs) -> list[dict[str, str]]:
+    def maps(self, *args, **kwargs) -> list[Any]:
         """Maps search."""
         raise NotImplementedError
 
     @abstractmethod
-    def translate(self, *args, **kwargs) -> list[dict[str, str]]:
+    def translate(self, *args, **kwargs) -> list[Any]:
         """Translate."""
         raise NotImplementedError

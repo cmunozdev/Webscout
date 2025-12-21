@@ -1,13 +1,15 @@
-from typing import List, Dict, Any
+from typing import Any, Dict, List
+
 from .utils import request
+
 
 class User:
     """Class for interacting with GitHub user data"""
-    
+
     def __init__(self, username: str):
         """
         Initialize user client
-        
+
         Args:
             username: GitHub username
         """
@@ -15,7 +17,7 @@ class User:
             raise ValueError("Username is required")
         if not isinstance(username, str):
             raise ValueError("Username must be a string")
-            
+
         self.username = username.strip()
         self.base_url = f"https://api.github.com/users/{self.username}"
 
@@ -26,7 +28,7 @@ class User:
     def get_repositories(self, page: int = 1, per_page: int = 30, repo_type: str = "all") -> List[Dict[str, Any]]:
         """
         Get user's public repositories
-        
+
         Args:
             page: Page number
             per_page: Items per page
@@ -103,7 +105,7 @@ class User:
     def get_social_accounts(self) -> List[Dict[str, Any]]:
         """
         Get user's social accounts.
-        
+
         Returns:
             List of social accounts with provider and url
         """
@@ -113,12 +115,12 @@ class User:
     def get_packages(self, package_type: str = "container", page: int = 1, per_page: int = 30) -> List[Dict[str, Any]]:
         """
         Get user's public packages.
-        
+
         Args:
             package_type: Type of package (container, npm, maven, rubygems, nuget, docker)
             page: Page number
             per_page: Results per page (max 100)
-            
+
         Returns:
             List of user's packages
         """

@@ -1,17 +1,20 @@
-from typing import Any, AsyncGenerator, Dict, Optional, Callable, List, Union
-
-import httpx
 import json
+from typing import Any, Callable, Dict, Generator, List, Optional, Union
+
+from curl_cffi import CurlError
 
 # Import curl_cffi for improved request handling
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+
 
 class GROQ(Provider):
     """
@@ -46,20 +49,20 @@ class GROQ(Provider):
         "llama-3.2-90b-vision-preview",
         "mixtral-8x7b-32768"
     ]
-    
+
     @classmethod
-    def get_models(cls, api_key: str = None):
+    def get_models(cls, api_key: Optional[str] = None):
         """Fetch available models from Groq API.
-        
+
         Args:
             api_key (str, optional): Groq API key. If not provided, returns default models.
-            
+
         Returns:
             list: List of available model IDs
         """
         if not api_key:
             return cls.AVAILABLE_MODELS
-            
+
         try:
             # Use a temporary curl_cffi session for this class method
             temp_session = Session()
@@ -67,21 +70,21 @@ class GROQ(Provider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.groq.com/openai/v1/models",
                 headers=headers,
                 impersonate="chrome110"  # Use impersonate for fetching
             )
-            
+
             if response.status_code != 200:
                 return cls.AVAILABLE_MODELS
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model["id"] for model in data["data"]]
             return cls.AVAILABLE_MODELS
-            
+
         except (CurlError, Exception):
             # Fallback to default models list if fetching fails
             return cls.AVAILABLE_MODELS
@@ -97,12 +100,12 @@ class GROQ(Provider):
         top_p: float = 1,
         model: str = "mixtral-8x7b-32768",
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: Optional[str] = None,
     ):
         """Instantiates GROQ
@@ -127,7 +130,7 @@ class GROQ(Provider):
         """
         # Update available models from API
         self.update_available_models(api_key)
-        
+
         # Validate model after updating available models
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
@@ -142,7 +145,7 @@ class GROQ(Provider):
         self.presence_penalty = presence_penalty
         self.frequency_penalty = frequency_penalty
         self.top_p = top_p
-        self.chat_endpoint = "https://api.groq.com/openai/v1/chat/completions" 
+        self.chat_endpoint = "https://api.groq.com/openai/v1/chat/completions"
         self.stream_chunk_size = 64
         self.timeout = timeout
         self.last_response = {}
@@ -158,10 +161,10 @@ class GROQ(Provider):
             for method in dir(Optimizers)
             if callable(getattr(Optimizers, method)) and not method.startswith("__")
         )
-        
+
         # Update curl_cffi session headers
         self.session.headers.update(self.headers)
-        
+
         # Set up conversation
         Conversation.intro = (
             AwesomePrompts().get_act(
@@ -174,10 +177,10 @@ class GROQ(Provider):
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
-        
+
         # Set proxies for curl_cffi session
         self.session.proxies = proxies
-    
+
     @staticmethod
     def _groq_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[Dict]:
         """Extracts the 'delta' object from Groq stream JSON chunks."""
@@ -211,10 +214,10 @@ class GROQ(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,  # Add tools parameter
-    ) -> dict:
+    ) -> Response:
         """Chat with AI
 
         Args:
@@ -258,9 +261,9 @@ class GROQ(Provider):
         def for_stream():
             try:
                 response = self.session.post(
-                    self.chat_endpoint, 
-                    json=payload, 
-                    stream=True, 
+                    self.chat_endpoint,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"  # Use impersonate for better compatibility
                 )
@@ -301,15 +304,19 @@ class GROQ(Provider):
                 raise exceptions.FailedToGenerateResponseError(f"Error: {str(e)}")
 
             # Handle tool calls if any
-            if 'tool_calls' in self.last_response.get('choices', [{}])[0].get('message', {}):
-                tool_calls = self.last_response['choices'][0]['message']['tool_calls']
+            first_choice = self.last_response.get('choices', [{}])[0]
+            message = first_choice.get('message', {})
+            if 'tool_calls' in message:
+                tool_calls = message.get('tool_calls', [])
                 for tool_call in tool_calls:
+                    if not isinstance(tool_call, dict):
+                        continue
                     function_name = tool_call.get('function', {}).get('name')
                     arguments = json.loads(tool_call.get('function', {}).get('arguments', "{}"))
                     if function_name in self.available_functions:
                         tool_response = self.available_functions[function_name](**arguments)
                         messages.append({
-                            "tool_call_id": tool_call['id'],
+                            "tool_call_id": tool_call.get('id'),
                             "role": "tool",
                             "name": function_name,
                             "content": tool_response
@@ -318,8 +325,8 @@ class GROQ(Provider):
                         # Make a second call to get the final response
                         try:
                             second_response = self.session.post(
-                                self.chat_endpoint, 
-                                json=payload, 
+                                self.chat_endpoint,
+                                json=payload,
                                 timeout=self.timeout,
                                 impersonate="chrome110"  # Use impersonate for better compatibility
                             )
@@ -341,9 +348,9 @@ class GROQ(Provider):
         def for_non_stream():
             try:
                 response = self.session.post(
-                    self.chat_endpoint, 
-                    json=payload, 
-                    stream=False, 
+                    self.chat_endpoint,
+                    json=payload,
+                    stream=False,
                     timeout=self.timeout,
                     impersonate="chrome110"  # Use impersonate for better compatibility
                 )
@@ -354,7 +361,7 @@ class GROQ(Provider):
                          # Removed response.reason_phrase
                         f"Failed to generate response - ({response.status_code}) - {response.text}"
                     )
-                
+
                 response_text = response.text # Get raw text
 
                 # Use sanitize_stream to parse the non-streaming JSON response
@@ -367,7 +374,7 @@ class GROQ(Provider):
                     yield_raw_on_error=False,
                     raw=raw
                 )
-                
+
                 # Extract the single result (the parsed JSON dictionary)
                 resp = next(processed_stream, None)
                 if raw:
@@ -386,15 +393,19 @@ class GROQ(Provider):
                 raise exceptions.FailedToGenerateResponseError(f"Error: {str(e)}")
 
             # Handle tool calls if any
-            if 'tool_calls' in resp.get('choices', [{}])[0].get('message', {}):
-                tool_calls = resp['choices'][0]['message']['tool_calls']
+            first_choice = resp.get('choices', [{}])[0]
+            message = first_choice.get('message', {})
+            if 'tool_calls' in message:
+                tool_calls = message.get('tool_calls', [])
                 for tool_call in tool_calls:
+                    if not isinstance(tool_call, dict):
+                        continue
                     function_name = tool_call.get('function', {}).get('name')
                     arguments = json.loads(tool_call.get('function', {}).get('arguments', "{}"))
                     if function_name in self.available_functions:
                         tool_response = self.available_functions[function_name](**arguments)
                         messages.append({
-                            "tool_call_id": tool_call['id'],
+                            "tool_call_id": tool_call.get('id'),
                             "role": "tool",
                             "name": function_name,
                             "content": tool_response
@@ -403,8 +414,8 @@ class GROQ(Provider):
                         # Make a second call to get the final response
                         try:
                             second_response = self.session.post(
-                                self.chat_endpoint, 
-                                json=payload, 
+                                self.chat_endpoint,
+                                json=payload,
                                 timeout=self.timeout,
                                 impersonate="chrome110"  # Use impersonate for better compatibility
                             )
@@ -431,10 +442,10 @@ class GROQ(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         tools: Optional[List[Dict[str, Any]]] = None,
-    ) -> str:
+    ) -> Union[str, Generator[str, None, None]]:
         """Generate response `str`
         Args:
             prompt (str): Prompt to be send.
@@ -465,16 +476,17 @@ class GROQ(Provider):
 
         return for_stream() if stream else for_non_stream()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """Retrieves message only from response
 
         Args:
-            response (dict): Response generated by `self.ask`
+            response (Response): Response generated by `self.ask`
 
         Returns:
             str: Message extracted
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+        if not isinstance(response, dict):
+            return str(response)
         try:
             # Check delta first for streaming
             if response.get("choices") and response["choices"][0].get("delta") and response["choices"][0]["delta"].get("content"):

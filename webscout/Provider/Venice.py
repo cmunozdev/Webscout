@@ -1,29 +1,33 @@
-from curl_cffi import CurlError
-from curl_cffi.requests import Session # Import Session
-import json
-from typing import Generator, Dict, Any, List, Optional, Union
-from uuid import uuid4
 import random
+from typing import Any, Dict, Generator, Optional, Union
+from uuid import uuid4
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session  # Import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
+
 
 class Venice(Provider):
     """
     A class to interact with the Venice AI API.
     """
-    
+
     required_auth = False
     AVAILABLE_MODELS = [
         "mistral-31-24b",
         "dolphin-3.0-mistral-24b",
         "dolphin-3.0-mistral-24b-1dot1"
     ]
-    
+
     def __init__(
         self,
         is_conversation: bool = True,
@@ -31,24 +35,24 @@ class Venice(Provider):
         timeout: int = 30,
         temperature: float = 0.8, # Keep temperature, user might want to adjust
         top_p: float = 0.9, # Keep top_p
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
-        model: str = "mistral-31-24b", 
+        act: Optional[str] = None,
+        model: str = "mistral-31-24b",
         # System prompt is empty in the example, but keep it configurable
-        system_prompt: str = "" 
+        system_prompt: str = ""
     ):
         """Initialize Venice AI client"""
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         # Update API endpoint
-        self.api_endpoint = "https://outerface.venice.ai/api/inference/chat" 
+        self.api_endpoint = "https://outerface.venice.ai/api/inference/chat"
         # Initialize curl_cffi Session
-        self.session = Session() 
+        self.session = Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.temperature = temperature
@@ -57,7 +61,7 @@ class Venice(Provider):
         self.model = model
         self.system_prompt = system_prompt
         self.last_response = {}
-        
+
         # Update Headers based on successful request
         self.headers = {
             "User-Agent": LitAgent().random(), # Keep using LitAgent
@@ -67,15 +71,15 @@ class Venice(Provider):
             "origin": "https://venice.ai",
             "referer": "https://venice.ai/", # Update referer
             # Update sec-ch-ua to match example
-            "sec-ch-ua": '"Microsoft Edge";v="135", "Not-A.Brand";v="8", "Chromium";v="135"', 
+            "sec-ch-ua": '"Microsoft Edge";v="135", "Not-A.Brand";v="8", "Chromium";v="135"',
             "sec-ch-ua-mobile": "?0",
             "sec-ch-ua-platform": '"Windows"',
             "sec-fetch-dest": "empty",
             "sec-fetch-mode": "cors",
             # Update sec-fetch-site to match example
-            "sec-fetch-site": "same-site", 
+            "sec-fetch-site": "same-site",
             # Add missing headers from example
-            "priority": "u=1, i", 
+            "priority": "u=1, i",
             "sec-gpc": "1",
             "x-venice-version": "interface@20250424.065523+50bac27" # Add version header
         }
@@ -83,7 +87,7 @@ class Venice(Provider):
         # Update curl_cffi session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies.update(proxies)
-        
+
         self.__available_optimizers = (
             method
             for method in dir(Optimizers)
@@ -115,9 +119,10 @@ class Venice(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -145,12 +150,12 @@ class Venice(Provider):
         def for_stream():
             try:
                 response = self.session.post(
-                    self.api_endpoint, 
-                    json=payload, 
-                    stream=True, 
+                    self.api_endpoint,
+                    json=payload,
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="edge101"
-                ) 
+                )
                 if response.status_code != 200:
                     raise exceptions.FailedToGenerateResponseError(
                         f"Request failed with status code {response.status_code} - {response.text}"
@@ -175,30 +180,30 @@ class Venice(Provider):
                             streaming_text += content_chunk
                             yield dict(text=content_chunk)
                 self.conversation.update_chat_history(prompt, streaming_text)
-                self.last_response = {"text": streaming_text} 
-            except CurlError as e: 
+                self.last_response = {"text": streaming_text}
+            except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {e}")
-            except Exception as e: 
+            except Exception as e:
                 raise exceptions.FailedToGenerateResponseError(f"An unexpected error occurred ({type(e).__name__}): {e}")
         def for_non_stream():
             full_text = ""
-            for chunk_data in for_stream(): 
+            for chunk_data in for_stream():
                 if isinstance(chunk_data, dict) and "text" in chunk_data:
                     full_text += chunk_data["text"]
-                elif isinstance(chunk_data, str): 
+                elif isinstance(chunk_data, str):
                      full_text += chunk_data
-            self.last_response = {"text": full_text} 
-            return self.last_response 
+            self.last_response = {"text": full_text}
+            return self.last_response
         return for_stream() if stream else for_non_stream()
 
     def chat(
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
-    ) -> Union[str, Generator]:
+    ) -> Union[str, Generator[str, None, None]]:
         def for_stream():
             for response in self.ask(prompt, True, raw=raw, optimizer=optimizer, conversationally=conversationally):
                 if raw:
@@ -222,20 +227,23 @@ if __name__ == "__main__":
     print("-" * 80)
     print(f"{'Model':<50} {'Status':<10} {'Response'}")
     print("-" * 80)
-    
+
     # Test all available models
     working = 0
     total = len(Venice.AVAILABLE_MODELS)
-    
+
     for model in Venice.AVAILABLE_MODELS:
         try:
             test_ai = Venice(model=model, timeout=60)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
-                print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
-            
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+                    print(f"\r{model:<50} {'Testing...':<10}", end="", flush=True)
+            else:
+                response_text = str(response)
+
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"
                 # Truncate response if too long

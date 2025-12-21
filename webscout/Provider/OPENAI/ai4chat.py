@@ -1,14 +1,20 @@
 import time
-import uuid
 import urllib.parse
-from curl_cffi.requests import Session, RequestsError
-from typing import List, Dict, Optional, Union, Generator, Any
+import uuid
+from typing import Any, Dict, Generator, List, Optional, Union
+
+from curl_cffi.requests import RequestsError
 
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
 )
 
 # --- AI4Chat Client ---
@@ -65,7 +71,7 @@ class Completions(BaseCompletions):
             full_response = self._get_ai4chat_response(conversation_prompt, country, user_id, timeout=timeout, proxies=proxies)
 
             # Track token usage
-            prompt_tokens = count_tokens(conversation_prompt)
+            count_tokens(conversation_prompt)
             completion_tokens = 0
 
             # Stream fixed-size character chunks (e.g., 48 chars)
@@ -194,7 +200,7 @@ class Completions(BaseCompletions):
         original_proxies = self._client.session.proxies
         if proxies is not None:
             self._client.session.proxies = proxies
-        
+
         try:
             # URL encode parameters
             encoded_text = urllib.parse.quote(prompt)
@@ -299,7 +305,7 @@ class AI4Chat(OpenAICompatibleProvider):
             def list(inner_self):
                 return type(self).AVAILABLE_MODELS
         return _ModelList()
-    
+
 if __name__ == "__main__":
     # Example usage
     client = AI4Chat()

@@ -3,12 +3,9 @@
 
 # Base classes
 from webscout.Provider.TTS.base import (
-    BaseTTSProvider,
     AsyncBaseTTSProvider,
+    BaseTTSProvider,
 )
-
-# Utility classes
-from webscout.Provider.TTS.utils import SentenceTokenizer
 
 # Provider implementations
 from webscout.Provider.TTS.deepgram import DeepgramTTS
@@ -21,6 +18,9 @@ from webscout.Provider.TTS.qwen import QwenTTS
 from webscout.Provider.TTS.sherpa import SherpaTTS
 from webscout.Provider.TTS.speechma import SpeechMaTTS
 from webscout.Provider.TTS.streamElements import StreamElements
+
+# Utility classes
+from webscout.Provider.TTS.utils import SentenceTokenizer
 
 # List of all exported names
 __all__ = [

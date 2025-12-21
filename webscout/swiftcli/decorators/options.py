@@ -28,9 +28,9 @@ def option(
 ) -> Callable:
     """
     Decorator to add an option to a command.
-    
+
     Options are named parameters that can be provided in any order.
-    
+
     Args:
         param_decls: Option names (e.g., "--name", "-n")
         type: Expected type
@@ -51,7 +51,7 @@ def option(
         hidden: Whether to hide from help output
         validation: Dictionary of validation rules (min_length, max_length, pattern, etc.)
         mutually_exclusive: List of option names that are mutually exclusive with this option
-        
+
     Example:
         @command()
         @option("--count", "-c", type=int, default=1)
@@ -66,7 +66,7 @@ def option(
     def decorator(f: Callable) -> Callable:
         if not hasattr(f, '_options'):
             f._options = []
-        
+
         f._options.append({
             'param_decls': param_decls,
             'type': type,
@@ -101,14 +101,14 @@ def envvar(
 ) -> Callable:
     """
     Decorator to load option value from environment variable.
-    
+
     Args:
         name: Environment variable name
         type: Expected type
         required: Whether variable is required
         default: Default value if not set
         help: Help text
-        
+
     Example:
         @command()
         @envvar("API_KEY", required=True)
@@ -120,7 +120,7 @@ def envvar(
     def decorator(f: Callable) -> Callable:
         if not hasattr(f, '_envvars'):
             f._envvars = []
-        
+
         f._envvars.append({
             'name': name,
             'type': type,
@@ -140,21 +140,21 @@ def config_file(
 ) -> Callable:
     """
     Decorator to load configuration from file.
-    
+
     Args:
         path: Config file path
         section: Config section to load
         required: Whether config is required
         auto_create: Whether to create file if missing
         format: File format (json, yaml, ini)
-        
+
     Example:
         @command()
         @config_file("~/.myapp/config.json")
         def setup(config: dict):
             '''Setup application'''
             print(f"Database: {config.get('database')}")
-            
+
         @command()
         @config_file("config.ini", section="api")
         def api(config: dict):
@@ -180,13 +180,13 @@ def version_option(
 ) -> Callable:
     """
     Decorator to add version option to command.
-    
+
     Args:
         version: Version string
         prog_name: Program name
         message: Custom version message
         package_name: Package name to get version from
-        
+
     Example:
         @command()
         @version_option(version="1.0.0")
@@ -210,11 +210,11 @@ def help_option(
 ) -> Callable:
     """
     Decorator to customize help option.
-    
+
     Args:
         param_decls: Help option flags
         help: Help text
-        
+
     Example:
         @command()
         @help_option(["--help", "-h"], "Show this message")

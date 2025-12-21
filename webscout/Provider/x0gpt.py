@@ -1,16 +1,22 @@
-from typing import Generator, Union, Any, Dict
+from typing import Any, Dict, Generator, Optional, Union
 from uuid import uuid4
-from curl_cffi import CurlError
-from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
-from webscout.litagent import LitAgent
+from curl_cffi import CurlError
+
 # Import HTTPVersion enum
 from curl_cffi.const import CurlHttpVersion
+from curl_cffi.requests import Session
+
+from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
+from webscout.litagent import LitAgent
+
 
 class X0GPT(Provider):
     """
@@ -34,12 +40,12 @@ class X0GPT(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful assistant.",
         model: str = "UNKNOWN"
     ):
@@ -64,7 +70,7 @@ class X0GPT(Provider):
             'You are a friendly assistant.'
         """
         # Initialize curl_cffi Session instead of requests.Session
-        self.session = Session() 
+        self.session = Session()
         self.is_conversation = is_conversation
         self.max_tokens_to_sample = max_tokens
         self.api_endpoint = "https://x0-gpt.devwtf.in/api/stream/reply"
@@ -121,9 +127,10 @@ class X0GPT(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the x0-gpt.devwtf.in API and returns the response.
 
@@ -179,7 +186,7 @@ class X0GPT(Provider):
                     raise exceptions.FailedToGenerateResponseError(
                         f"Failed to generate response - ({response.status_code}, {response.reason}) - {response.text}"
                     )
-                
+
                 streaming_response = ""
                 # Use sanitize_stream with regex-based extraction and filtering
                 processed_stream = sanitize_stream(
@@ -204,7 +211,7 @@ class X0GPT(Provider):
                     # Always yield as string, even in raw mode
                     if isinstance(content_chunk, bytes):
                         content_chunk = content_chunk.decode('utf-8', errors='ignore')
-                    
+
                     if raw:
                         yield content_chunk
                     else:
@@ -246,9 +253,10 @@ class X0GPT(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the X0GPT API.
@@ -321,5 +329,8 @@ if __name__ == "__main__":
     from rich import print
     ai = X0GPT(timeout=5000)
     response = ai.chat("write a poem about AI", stream=True, raw=False)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

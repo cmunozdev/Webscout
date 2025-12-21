@@ -1,11 +1,13 @@
 """Yep unified search interface."""
 
 from __future__ import annotations
+
 from typing import Dict, List, Optional
+
 from .base import BaseSearch
-from .engines.yep.text import YepSearch as YepTextSearch
 from .engines.yep.images import YepImages
 from .engines.yep.suggestions import YepSuggestions
+from .engines.yep.text import YepSearch as YepTextSearch
 
 
 class YepSearch(BaseSearch):

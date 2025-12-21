@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from time import sleep
 from typing import List
 from urllib.parse import urlencode
-from time import sleep
 
-from .base import BingBase
 from webscout.scout import Scout
 from webscout.search.results import ImagesResult
+
+from .base import BingBase
 
 
 class BingImagesSearch(BingBase):
@@ -16,7 +17,7 @@ class BingImagesSearch(BingBase):
     category = "images"
     def run(self, *args, **kwargs) -> List[ImagesResult]:
         keywords = args[0] if args else kwargs.get("keywords")
-        region = args[1] if len(args) > 1 else kwargs.get("region", "us")
+        args[1] if len(args) > 1 else kwargs.get("region", "us")
         safesearch = args[2] if len(args) > 2 else kwargs.get("safesearch", "moderate")
         max_results = args[3] if len(args) > 3 else kwargs.get("max_results", 10)
 
@@ -31,7 +32,7 @@ class BingImagesSearch(BingBase):
             "moderate": "Moderate",
             "off": "Off"
         }
-        safe = safe_map.get(safesearch.lower(), "Moderate")
+        safe_map.get(safesearch.lower(), "Moderate")
 
         # Bing images URL
         url = f"{self.base_url}/images/async"
@@ -85,7 +86,7 @@ class BingImagesSearch(BingBase):
                         m_data = json.loads(m_attr)
                         image_url = m_data.get('murl', src)
                         thumbnail = m_data.get('turl', src)
-                    except:
+                    except Exception:
                         pass
 
                 source = ''

@@ -1,9 +1,10 @@
 """Command decorators for SwiftCLI."""
 
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Union
+from typing import Any, Callable, Dict, List, Optional
 
 from ..core.context import Context
+
 
 def command(
     name: str = None,
@@ -13,21 +14,21 @@ def command(
 ) -> Callable:
     """
     Decorator to register a new command.
-    
+
     This decorator marks a function as a CLI command and provides metadata
     about how the command should be registered and displayed.
-    
+
     Args:
         name: Command name (defaults to function name)
         help: Help text (defaults to function docstring)
         aliases: Alternative names for the command
         hidden: Whether to hide from help output
-        
+
     Example:
         @command(name="greet", help="Say hello")
         def hello(name: str):
             print(f"Hello {name}!")
-            
+
         @command(aliases=["hi", "hey"])
         def hello(name: str):
             '''Say hello to someone'''
@@ -51,31 +52,31 @@ def group(
 ) -> Callable:
     """
     Decorator to create a command group.
-    
+
     Command groups can contain subcommands and optionally chain their results.
-    
+
     Args:
         name: Group name (defaults to function name)
         help: Help text (defaults to function docstring)
         chain: Whether to chain command results
         invoke_without_command: Allow group to be invoked without subcommand
-        
+
     Example:
         @group()
         def db():
             '''Database commands'''
             pass
-            
+
         @db.command()
         def migrate():
             '''Run database migrations'''
             print("Running migrations...")
-            
+
         @group(chain=True)
         def process():
             '''Process data'''
             pass
-            
+
         @process.command()
         def validate():
             '''Validate data'''
@@ -94,10 +95,10 @@ def group(
 def pass_context(f: Callable) -> Callable:
     """
     Decorator to pass CLI context to command.
-    
+
     This decorator injects the current Context object as the first argument
     to the decorated command function.
-    
+
     Example:
         @command()
         @pass_context
@@ -112,17 +113,17 @@ def pass_context(f: Callable) -> Callable:
 def completion(func: Optional[Callable] = None) -> Callable:
     """
     Decorator to provide shell completion for a command.
-    
+
     The decorated function should return a list of possible completions
     based on the current incomplete value.
-    
+
     Example:
         @command()
         @option("--service", type=str)
         def restart(service: str):
             '''Restart a service'''
             print(f"Restarting {service}...")
-            
+
         @restart.completion()
         def complete_service(ctx, incomplete):
             services = ["nginx", "apache", "mysql"]
@@ -136,7 +137,7 @@ def completion(func: Optional[Callable] = None) -> Callable:
             except Exception:
                 return []
         return wrapper
-    
+
     if func is None:
         return decorator
     return decorator(func)
@@ -152,9 +153,9 @@ def argument(
 ) -> Callable:
     """
     Decorator to add a command argument.
-    
+
     Arguments are positional parameters that must be provided in order.
-    
+
     Args:
         name: Argument name
         type: Expected type
@@ -163,7 +164,7 @@ def argument(
         default: Default value if not required
         validation: Dictionary of validation rules (min_length, max_length, pattern, choices, etc.)
         mutually_exclusive: List of argument names that are mutually exclusive with this argument
-        
+
     Example:
         @command()
         @argument("name", validation={{'min_length': 2, 'max_length': 50}})
@@ -176,7 +177,7 @@ def argument(
     def decorator(f: Callable) -> Callable:
         if not hasattr(f, '_arguments'):
             f._arguments = []
-        
+
         f._arguments.append({
             'name': name,
             'type': type,
@@ -196,15 +197,15 @@ def flag(
 ) -> Callable:
     """
     Decorator to add a boolean flag option.
-    
+
     Flags are special options that don't take a value - they're either
     present (True) or absent (False).
-    
+
     Args:
         name: Flag name
         help: Help text
         hidden: Whether to hide from help output
-        
+
     Example:
         @command()
         @flag("--verbose", help="Enable verbose output")
@@ -216,7 +217,7 @@ def flag(
     def decorator(f: Callable) -> Callable:
         if not hasattr(f, '_options'):
             f._options = []
-        
+
         f._options.append({
             'param_decls': [name],
             'is_flag': True,

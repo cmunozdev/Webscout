@@ -11,7 +11,7 @@ from time import sleep, time
 from typing import Any
 
 try:
-    import trio # type: ignore
+    import trio  # type: ignore
 except ImportError:
     pass
 
@@ -25,13 +25,13 @@ except ImportError:
     LXML_AVAILABLE = False
 
 from ....exceptions import RatelimitE, TimeoutE, WebscoutE
+from ....litagent import LitAgent
 from ....utils import (
     _extract_vqd,
     _normalize,
     _normalize_url,
     json_loads,
 )
-from ....litagent import LitAgent
 
 
 class DuckDuckGoBase:
@@ -66,7 +66,7 @@ class DuckDuckGoBase:
         """
         ddgs_proxy: str | None = os.environ.get("DDGS_PROXY")
         self.proxy: str | None = ddgs_proxy if ddgs_proxy else proxy
-        
+
         if not proxy and proxies:
             self.proxy = proxies.get("http") or proxies.get("https") if isinstance(proxies, dict) else proxies
 
@@ -89,7 +89,7 @@ class DuckDuckGoBase:
         )
         self.timeout = timeout
         self.sleep_timestamp = 0.0
-        
+
         # Utility methods
         self.cycle = cycle
         self.islice = islice
@@ -99,7 +99,7 @@ class DuckDuckGoBase:
         """Get HTML parser."""
         if not LXML_AVAILABLE:
             raise ImportError("lxml is required for HTML parsing")
-        
+
         class Parser:
             def __init__(self):
                 self.lhtml_parser = LHTMLParser(
@@ -109,10 +109,10 @@ class DuckDuckGoBase:
                     collect_ids=False
                 )
                 self.etree = __import__('lxml.etree', fromlist=['Element'])
-            
+
             def fromstring(self, html: bytes | str) -> Any:
                 return document_fromstring(html, parser=self.lhtml_parser)
-        
+
         return Parser()
 
     def _sleep(self, sleeptime: float = 0.75) -> None:
@@ -162,7 +162,7 @@ class DuckDuckGoBase:
             if "time" in str(ex).lower():
                 raise TimeoutE(f"{url} {type(ex).__name__}: {ex}") from ex
             raise WebscoutE(f"{url} {type(ex).__name__}: {ex}") from ex
-        
+
         if resp.status_code == 200:
             return resp
         elif resp.status_code in (202, 301, 403, 400, 429, 418):

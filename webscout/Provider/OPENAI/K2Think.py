@@ -1,21 +1,24 @@
+import json
+import re
 import time
 import uuid
-import requests
-import re
-import json
-from typing import List, Dict, Optional, Union, Generator, Any
-
-# Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
-from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage, count_tokens
-)
+from typing import Any, Dict, Generator, List, Optional, Union
 
 # Import LitAgent
 from webscout.litagent import LitAgent
 
-from litprinter import ic
+# Import base classes and utility structures
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
+from webscout.Provider.OPENAI.utils import (
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
+    count_tokens,
+)
+
 
 class Completions(BaseCompletions):
     def __init__(self, client: 'K2Think'):
@@ -38,7 +41,7 @@ class Completions(BaseCompletions):
         Mimics openai.chat.completions.create
         """
         # Prepare the payload for K2Think API
-        payload = {
+        payload: Dict[str, Any] = {
             "stream": stream,
             "model": model,
             "messages": messages,
@@ -98,22 +101,22 @@ class Completions(BaseCompletions):
                     extract_regexes = [
                         r'<answer>([\s\S]*?)<\/answer>',
                     ]
-                    
+
                     content = ""
                     for regex in extract_regexes:
                         match = re.search(regex, decoded_line)
                         if match:
                             content = match.group(1)
                             break
-                    
+
                     if content:
                         # Format the content
                         content = self._client.format_text(content)
-                        
+
                         # Skip if we've already seen this exact content
                         if content in seen_content:
                             continue
-                        
+
                         seen_content.add(content)
 
                         # Update token counts using count_tokens
@@ -212,14 +215,14 @@ class Completions(BaseCompletions):
             # Collect the full response
             full_text = ""
             seen_content_parts = set()  # Track seen content parts to avoid duplicates
-            
+
             for line in response.iter_lines(decode_unicode=True):
                 if line:
                     # Extract content using regex patterns
                     extract_regexes = [
                         r'<answer>([\s\S]*?)<\/answer>',
                     ]
-                    
+
                     for regex in extract_regexes:
                         match = re.search(regex, line)
                         if match:
@@ -283,7 +286,7 @@ class Models:
         self.available_models = [
             "MBZUAI-IFM/K2-Think",
         ]
-    
+
     def list(self):
         """Return list of available models"""
         return [
@@ -423,6 +426,9 @@ if __name__ == "__main__":
         stream=True
     )
 
-    for chunk in response:
-        if chunk.choices[0].delta.content:
-            print(chunk.choices[0].delta.content, end='', flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes, ChatCompletion)):
+        for chunk in response:
+            if chunk.choices[0].delta.content:
+                print(chunk.choices[0].delta.content, end='', flush=True)
+    else:
+        print(response)

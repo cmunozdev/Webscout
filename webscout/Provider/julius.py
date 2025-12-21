@@ -1,14 +1,13 @@
 
+import json
 import uuid
+from typing import Any, Generator, Optional, Union
 
 import requests
-import json
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+
 from webscout import exceptions
-from typing import Union, Any, Generator, Dict
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 class Julius(Provider):
@@ -37,12 +36,12 @@ class Julius(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "Gemini Flash",
     ):
         """Instantiates Julius
@@ -57,7 +56,7 @@ class Julius(Provider):
             proxies (dict, optional): Http request proxies. Defaults to {}.
             history_offset (int, optional): Limit conversation history to this number of last texts. Defaults to 10250.
             act (str|int, optional): Awesome prompt key or index. (Used as intro). Defaults to None.
-            model (str, optional): Model to use for generating text. Defaults to "Gemini Flash". 
+            model (str, optional): Model to use for generating text. Defaults to "Gemini Flash".
                                    Options: "Llama 3", "GPT-4o", "GPT-3.5", "Command R", "Gemini Flash", "Gemini 1.5".
         """
         if model not in self.AVAILABLE_MODELS:
@@ -108,9 +107,10 @@ class Julius(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> dict:
+        **kwargs: Any,
+    ) -> Response:
         """Chat with AI
 
         Args:
@@ -133,7 +133,7 @@ class Julius(Provider):
                 raise Exception(
                     f"Optimizer is not one of {self.__available_optimizers}"
                 )
-        
+
         payload = {
             "message": {"content": conversation_prompt, "role": "user"},
             "provider": "default",
@@ -190,7 +190,7 @@ class Julius(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         raw: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
@@ -235,5 +235,8 @@ if __name__ == '__main__':
     from rich import print
     ai = Julius(api_key="",timeout=5000)
     response = ai.chat("write a poem about AI", stream=True)
-    for chunk in response:
-        print(chunk, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for chunk in response:
+            print(chunk, end="", flush=True)
+    else:
+        print(response)

@@ -1,18 +1,21 @@
-from datetime import datetime
 import json
-from webscout.litagent import LitAgent
-from time import sleep
-import requests
-from tqdm import tqdm
-from colorama import Fore
-from os import makedirs, path, getcwd
-from threading import Thread
 import os
 import subprocess
 import sys
 import tempfile
-from webscout.version import __prog__, __version__
-from webscout.swiftcli import CLI, option, argument
+from datetime import datetime
+from os import getcwd, makedirs, path
+from threading import Thread
+from time import sleep
+from typing import Union
+
+import requests
+from colorama import Fore
+from tqdm import tqdm
+
+from webscout.litagent import LitAgent
+from webscout.swiftcli import CLI, argument, option
+from webscout.version import __prog__
 
 # Define cache directory using tempfile
 user_cache_dir = os.path.join(tempfile.gettempdir(), 'webscout')
@@ -32,7 +35,8 @@ headers = {
 
 session.headers.update(headers)
 
-get_excep = lambda e: e.args[1] if len(e.args) > 1 else e
+def get_excep(e):
+    return e.args[1] if len(e.args) > 1 else e
 
 appdir = user_cache_dir
 
@@ -58,12 +62,12 @@ class utils:
                 try:
                     try:
                         return func(*args, **kwargs)
-                    except KeyboardInterrupt as e:
+                    except KeyboardInterrupt:
                         print()
                         exit(1)
                 except Exception as e:
                     if log:
-                        raise(f"Error - {get_excep(e)}")
+                        raise Exception(f"Error - {get_excep(e)}")
                     if exit_on_error:
                         exit(1)
 
@@ -87,7 +91,7 @@ class utils:
 
     @staticmethod
     def add_history(data: dict) -> None:
-        f"""Adds entry to history
+        """Adds entry to history
         :param data: Response of `third query`
         :type data: dict
         :rtype: None
@@ -103,11 +107,11 @@ class utils:
             saved_data.append(data)
             with open(history_path, "w") as fh:
                 json.dump({__prog__: saved_data}, fh, indent=4)
-        except Exception as e:
+        except Exception:
             pass
 
     @staticmethod
-    def get_history(dump: bool = False) -> list:
+    def get_history(dump: bool = False) -> Union[list, str]:
         r"""Loads download history
         :param dump: (Optional) Return whole history as str
         :type dump: bool
@@ -126,7 +130,7 @@ class utils:
             for entry in entries:
                 resp.append(entry.get("vid"))
             return resp
-        except Exception as e:
+        except Exception:
             return []
 
 
@@ -152,7 +156,7 @@ class first_query:
 
     def __str__(self):
         return """
-{    
+{
     "page": "search",
     "status": "ok",
     "keyword": "happy birthday",
@@ -240,7 +244,7 @@ class second_query:
                 "q": ".m4a",
                 "q_text": ".m4a (128kbps)",
                 "k": "joVBVdm2xZWhaZWhu6vZ8cXxAl7j4qpyhNhuxgxyU/NQ9919mbX2dYcdevRBnt0="
-            }, 
+            },
          },
     "related": [
         {
@@ -253,13 +257,9 @@ class second_query:
    ]
         }
     ]
-}                 
-            		"""
-
-    def __call__(self, *args, **kwargs):
-        return self.main(*args, **kwargs)
-
-    def get_item(self, item_no=0):
+}
+            """
+    def get_item(self, item_no: int = None):
         r"""Return specific items on `self.query_one.vitems`"""
         if self.video_dict:
             return self.video_dict
@@ -490,7 +490,7 @@ class Handler:
         return self.run(*args, **kwargs)
 
     def __filter_videos(self, entries: list) -> list:
-        f"""Filter videos based on keyword
+        """Filter videos based on keyword
         :param entries: List containing dict of video id and their titles
         :type entries: list
         :rtype: list
@@ -510,7 +510,7 @@ class Handler:
         r"""Sets query_one attribute to `self`"""
         query_one = first_query(self.query)
         self.__setattr__("query_one", query_one.main(self.timeout))
-        if self.query_one.is_link == False:
+        if not self.query_one.is_link:
             self.vitems.extend(self.__filter_videos(self.query_one.vitems))
 
     @utils.error_handler(exit_on_error=True)
@@ -546,7 +546,7 @@ class Handler:
                 if query_2.processed:
                     if query_2.vid in self.dropped:
                         continue
-                    if self.author and not self.author.lower() in query_2.a.lower():
+                    if self.author and self.author.lower() not in query_2.a.lower():
                         continue
                     else:
                         yes_download, reason = self.__verify_item(query_2)
@@ -579,7 +579,7 @@ class Handler:
                         if query_2.processed:
                             if (
                                 self.author
-                                and not self.author.lower() in query_2.a.lower()
+                                and self.author.lower() not in query_2.a.lower()
                             ):
                                 continue
                             else:
@@ -824,9 +824,8 @@ class Handler:
                 if any([save_to.startswith("/"), ":" in save_to])
                 else path.join(getcwd(), dir, filename)
             )
-            try_play_media = (
-                lambda: launch_media(third_dict["saved_to"]) if play else None
-            )
+            def try_play_media():
+                return (launch_media(third_dict["saved_to"]) if play else None)
             saving_mode = "ab" if resume else "wb"
             if progress_bar:
                 if not quiet:
@@ -896,14 +895,14 @@ def confirm_from_user(message, default=False):
     """
     valid = {"yes": True, "y": True, "ye": True,
              "no": False, "n": False}
-    
+
     if default is None:
         prompt = " [y/n] "
     elif default:
         prompt = " [Y/n] "
     else:
         prompt = " [y/N] "
-    
+
     while True:
         choice = input(message + prompt).lower()
         if default is not None and choice == '':
@@ -933,19 +932,19 @@ def download(query, author, timeout, confirm, unique, thread, format, quality, l
 
     # Create handler with parsed arguments
     handler = Handler(
-        query=query, 
-        author=author, 
-        timeout=timeout, 
-        confirm=confirm, 
-        unique=unique, 
+        query=query,
+        author=author,
+        timeout=timeout,
+        confirm=confirm,
+        unique=unique,
         thread=thread
     )
 
     # Run download process
     handler.auto_save(
-        format=format, 
-        quality=quality, 
-        limit=limit, 
+        format=format,
+        quality=quality,
+        limit=limit,
         keyword=keyword
     )
 

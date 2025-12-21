@@ -1,12 +1,12 @@
-from typing import *
-from webscout.AIutel import Conversation
-from webscout.AIutel import Optimizers
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
-from webscout import exceptions
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi.requests import Session
+
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
+
 
 class samurai(Provider):
     """

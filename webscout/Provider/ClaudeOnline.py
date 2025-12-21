@@ -4,7 +4,7 @@ from curl_cffi import CurlError
 from curl_cffi.requests import Session
 
 from webscout import exceptions
-from webscout.AIbase import Provider
+from webscout.AIbase import Provider, Response
 from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
 
@@ -24,12 +24,12 @@ class ClaudeOnline(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful assistant.",
         model: str = "claude-online"
     ):
@@ -196,9 +196,10 @@ class ClaudeOnline(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         """
         Send a chat message and get response.
 
@@ -278,7 +279,7 @@ class ClaudeOnline(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         """
@@ -309,7 +310,7 @@ class ClaudeOnline(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
+    def get_message(self, response: Response) -> str:
         """
         Extract message from response.
 
@@ -319,8 +320,9 @@ class ClaudeOnline(Provider):
         Returns:
             Message content
         """
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
 
 if __name__ == "__main__":
@@ -335,13 +337,13 @@ if __name__ == "__main__":
 
         if limits['limit'] > 0:
             response = ai.chat("Say 'Hello World' in one word", stream=False)
-            if response and len(response.strip()) > 0:
+            if isinstance(response, str) and response.strip():
                 status = "✓"
                 clean_text = response.strip().encode('utf-8', errors='ignore').decode('utf-8')
                 display_text = clean_text[:50] + "..." if len(clean_text) > 50 else clean_text
             else:
                 status = "✗"
-                display_text = "Empty response"
+                display_text = "Empty response or invalid type"
             print(f"{'claude-online':<50} {status:<10} {display_text}")
         else:
             print(f"{'claude-online':<50} {'✗':<10} Rate limit exceeded")

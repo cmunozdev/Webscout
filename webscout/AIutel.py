@@ -1,18 +1,19 @@
-from .sanitize import * # noqa: E402,F401
-from .conversation import Conversation  # noqa: E402,F401
-
-from .optimizers import Optimizers  # noqa: E402,F401
-from .prompt_manager import AwesomePrompts  # noqa: E402,F401
+import functools
+import time
 
 # --- Utility Decorators ---
 from typing import Callable
-import time
-import functools
+
+from .conversation import Conversation  # noqa: E402,F401
+from .optimizers import Optimizers  # noqa: E402,F401
+from .prompt_manager import AwesomePrompts  # noqa: E402,F401
+from .sanitize import *  # noqa: E402, F401, F403
+
 
 def timeIt(func: Callable):
     """
     Decorator to measure execution time of a function (sync or async).
-    Prints: - Execution time for '{func.__name__}' : {elapsed:.6f} Seconds.  
+    Prints: - Execution time for '{func.__name__}' : {elapsed:.6f} Seconds.
     """
     import asyncio
     GREEN_BOLD = "\033[1;92m"
@@ -23,7 +24,8 @@ def timeIt(func: Callable):
         result = func(*args, **kwargs)
         end_time = time.time()
         print()
-        print(f"{GREEN_BOLD}- Execution time for '{func.__name__}' : {end_time - start_time:.6f} Seconds.  {RESET}\n")
+        func_name = getattr(func, "__name__", str(func))
+        print(f"{GREEN_BOLD}- Execution time for '{func_name}' : {end_time - start_time:.6f} Seconds.  {RESET}\n")
         return result
 
     @functools.wraps(func)
@@ -32,7 +34,8 @@ def timeIt(func: Callable):
         result = await func(*args, **kwargs)
         end_time = time.time()
         print()
-        print(f"{GREEN_BOLD}- Execution time for '{func.__name__}' : {end_time - start_time:.6f} Seconds.  {RESET}\n")
+        func_name = getattr(func, "__name__", str(func))
+        print(f"{GREEN_BOLD}- Execution time for '{func_name}' : {end_time - start_time:.6f} Seconds.  {RESET}\n")
         return result
 
     if asyncio.iscoroutinefunction(func):
@@ -59,6 +62,7 @@ def retry(retries: int = 3, delay: float = 1) -> Callable:
             if last_exc is not None:
                 raise last_exc
             else:
-                raise RuntimeError(f"Function {func.__name__} failed after {retries} retries with no exception recorded")
+                func_name = getattr(func, "__name__", str(func))
+                raise RuntimeError(f"Function {func_name} failed after {retries} retries with no exception recorded")
         return wrapper
     return decorator

@@ -1,15 +1,21 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union
-from datetime import datetime
 import uuid
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from datetime import datetime
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent
+
 
 class IBM(Provider):
     """
@@ -54,12 +60,12 @@ class IBM(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "granite-chat",
         system_prompt: str = "You are a helpful assistant.",
         browser: str = "chrome" # Note: browser fingerprinting might be less effective with impersonate
@@ -150,11 +156,12 @@ class IBM(Provider):
     def ask(
         self,
         prompt: str,
-        stream: bool = False, # API supports streaming
+        stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -197,7 +204,7 @@ class IBM(Provider):
                     timeout=self.timeout,
                     impersonate="chrome110" # Use a common impersonation profile
                 )
-                
+
                 if response.status_code in [401, 403]:
                     # Token expired, refresh and retry once
                     self.get_token()
@@ -208,7 +215,7 @@ class IBM(Provider):
                         timeout=self.timeout,
                         impersonate="chrome110"
                     )
-                
+
                 response.raise_for_status() # Check for HTTP errors
 
                 # Use sanitize_stream
@@ -255,10 +262,10 @@ class IBM(Provider):
                                 final_content += chunk_data["text"]
                         elif isinstance(chunk_data, str):
                             final_content += chunk_data
-                
+
                 if not final_content:
                     raise exceptions.FailedToGenerateResponseError("Empty response from provider")
-                    
+
                 self.last_response = {"text": final_content}
                 return self.last_response if not raw else final_content
 
@@ -272,7 +279,7 @@ class IBM(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
@@ -294,8 +301,9 @@ class IBM(Provider):
 
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
         return response["text"]
 
 if __name__ == "__main__":
@@ -309,8 +317,11 @@ if __name__ == "__main__":
             test_ai = IBM(model=model, timeout=60,)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

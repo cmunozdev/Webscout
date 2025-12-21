@@ -1,11 +1,11 @@
-from curl_cffi.requests import Session, RequestsError
 import urllib.parse
-from typing import Union, Any, Dict
+from typing import Any, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from curl_cffi.requests import RequestsError, Session
+
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
+
 
 class AI4Chat(Provider):
     """
@@ -17,12 +17,12 @@ class AI4Chat(Provider):
         is_conversation: bool = True,
         max_tokens: int = 600,
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful and informative AI assistant.",
         country: str = "Asia",
         user_id: str = "usersmjb2oaz7y"
@@ -65,18 +65,19 @@ class AI4Chat(Provider):
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
-        self.system_prompt = system_prompt 
+        self.system_prompt = system_prompt
 
     def ask(
         self,
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-        country: str = None,
-        user_id: str = None,
-    ):
+        country: Optional[str] = None,
+        user_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Response:
         """
         Sends a prompt to the AI4Chat API and returns the response.
         If stream=True, yields small chunks of the response (simulated streaming).
@@ -127,11 +128,12 @@ class AI4Chat(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-        country: str = None,
-        user_id: str = None,
-    ):
+        country: Optional[str] = None,
+        user_id: Optional[str] = None,
+        **kwargs: Any,
+    ) -> Union[str, Generator[str, None, None]]:
         """
         Generates a response from the AI4Chat API.
         If stream=True, yields each chunk as a string.
@@ -168,7 +170,10 @@ class AI4Chat(Provider):
 
 if __name__ == "__main__":
     from rich import print
-    ai = AI4Chat() 
+    ai = AI4Chat()
     response = ai.chat("Tell me about humans in points", stream=True)
-    for c in response:
-        print(c, end="")
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+        for c in response:
+            print(c, end="")
+    else:
+        print(response)

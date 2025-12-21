@@ -1,9 +1,9 @@
-import requests
-import json
-from typing import Any, Dict, Generator, Optional, Union
+from typing import Dict, Generator, Optional, Union
 
-from webscout.AIbase import AISearch, SearchResponse
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import AISearch, SearchResponse
 from webscout.litagent import LitAgent
 from webscout.sanitize import sanitize_stream
 
@@ -208,5 +208,8 @@ class Monica(AISearch):
 if __name__ == "__main__":
     ai = Monica()
     response = ai.search("What is Python?", stream=True, raw=False)
-    for chunks in response:
-        print(chunks, end="", flush=True)
+    if hasattr(response, "__iter__") and not isinstance(response, (str, bytes, SearchResponse)):
+        for chunks in response:
+            print(chunks, end="", flush=True)
+    else:
+        print(response)

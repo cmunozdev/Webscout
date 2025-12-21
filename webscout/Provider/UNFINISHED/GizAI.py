@@ -1,28 +1,27 @@
-import os
 import base64
-import random
 import json
-from typing import Union, Dict, Any, Optional, Generator
+import os
+import random
+from typing import Any, Dict, Generator, Union
 from urllib import response
 
 from curl_cffi import CurlError
-from curl_cffi.requests import Session
 from curl_cffi.const import CurlHttpVersion
+from curl_cffi.requests import Session
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers
 from webscout.litagent import LitAgent
+
 
 class GizAI(Provider):
     """
     A class to interact with the GizAI API.
-    
+
     Attributes:
         system_prompt (str): The system prompt to define the assistant's role.
-        
+
     Examples:
         >>> from webscout.Provider.GizAI import GizAI
         >>> ai = GizAI()
@@ -55,7 +54,7 @@ class GizAI(Provider):
         "phi-4",
         "qwq-32b"
     ]
-    
+
     def __init__(
         self,
         is_conversation: bool = True,
@@ -73,15 +72,15 @@ class GizAI(Provider):
         """Initializes the GizAI API client."""
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         self.api_url = "https://app.giz.ai/api/data/users/inferenceServer.infer"
-        
+
         # Initialize LitAgent for user-agent generation
         self.agent = LitAgent()
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
-        
+
         # Set up the headers
         self.headers = {
             "accept": "application/json, text/plain, */*",
@@ -93,11 +92,11 @@ class GizAI(Provider):
             "sec-fetch-mode": "cors",
             "sec-fetch-site": "same-origin"
         }
-        
+
         # Update session headers and proxies
         self.session.headers.update(self.headers)
         self.session.proxies = proxies
-        
+
         # Store configuration
         self.system_prompt = system_prompt
         self.is_conversation = is_conversation
@@ -105,13 +104,13 @@ class GizAI(Provider):
         self.timeout = timeout
         self.last_response = {}
         self.model = model
-        
+
         self.__available_optimizers = (
             method
             for method in dir(Optimizers)
             if callable(getattr(Optimizers, method)) and not method.startswith("__")
         )
-        
+
         Conversation.intro = (
             AwesomePrompts().get_act(
                 act, raise_not_found=True, default=None, case_insensitive=True
@@ -119,22 +118,22 @@ class GizAI(Provider):
             if act
             else intro or Conversation.intro
         )
-        
+
         self.conversation = Conversation(
             is_conversation, self.max_tokens_to_sample, filepath, update_file
         )
         self.conversation.history_offset = history_offset
-    
+
     def _generate_id(self, length: int = 21) -> str:
         """Generates a random URL-safe base64 string."""
         random_bytes = os.urandom(length * 2)  # Generate more bytes initially
         b64_encoded = base64.urlsafe_b64encode(random_bytes).decode('utf-8')
         return b64_encoded[:length]
-    
+
     def _get_random_ip(self) -> str:
         """Generates a random IPv4 address string."""
         return f"{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}.{random.randint(0, 255)}"
-    
+
     def ask(
         self,
         prompt: str,
@@ -145,17 +144,17 @@ class GizAI(Provider):
     ) -> Dict[str, Any]:
         """
         Sends a prompt to the GizAI API and returns the response.
-        
+
         Args:
             prompt (str): The prompt to send to the API.
             stream (bool): Not supported by GizAI, kept for compatibility.
             raw (bool): Whether to return the raw response.
             optimizer (str): Optimizer to use for the prompt.
             conversationally (bool): Whether to generate the prompt conversationally.
-            
+
         Returns:
             Dict[str, Any]: The API response.
-            
+
         Examples:
             >>> ai = GizAI()
             >>> response = ai.ask("Tell me a joke!")
@@ -168,12 +167,12 @@ class GizAI(Provider):
                 )
             else:
                 raise Exception(f"Optimizer is not one of {self.__available_optimizers}")
-        
+
         # Generate random IDs for request
         instance_id = self._generate_id()
         subscribe_id = self._generate_id()
         x_forwarded_for = self._get_random_ip()
-        
+
         # Set up request body - GizAI doesn't support streaming
         request_body = {
             "model": "chat",
@@ -189,10 +188,10 @@ class GizAI(Provider):
             "instanceId": instance_id,
             "subscribeId": subscribe_id
         }
-        
+
         # Combine default headers with the dynamic x-forwarded-for header
         request_headers = {**self.headers, "x-forwarded-for": x_forwarded_for}
-        
+
         try:
             # Use curl_cffi session post with impersonate
             response = self.session.post(
@@ -204,7 +203,7 @@ class GizAI(Provider):
                 http_version=CurlHttpVersion.V2_0    # Use HTTP/2
             )
             response.raise_for_status()  # Check for HTTP errors
-            
+
             # Process the response
             try:
                 response_json = response.json()
@@ -221,19 +220,19 @@ class GizAI(Provider):
             except json.JSONDecodeError:
                 # Handle case where response is not valid JSON
                 content = response.text
-            
+
             # Update conversation history
             self.last_response = {"text": content}
             self.conversation.update_chat_history(prompt, content)
-            
+
             return self.last_response if not raw else content
-        
+
         except CurlError as e:
             raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}")
         except Exception as e:
             error_text = getattr(e, 'response', None) and getattr(e.response, 'text', '')
             raise exceptions.FailedToGenerateResponseError(f"Request failed ({type(e).__name__}): {str(e)} - {error_text}")
-    
+
     def chat(
         self,
         prompt: str,
@@ -243,16 +242,16 @@ class GizAI(Provider):
     ) -> 'Generator[str, None, None]':
         """
         Generates a response from the GizAI API.
-        
+
         Args:
             prompt (str): The prompt to send to the API.
             stream (bool): Not supported by GizAI, kept for compatibility.
             optimizer (str): Optimizer to use for the prompt.
             conversationally (bool): Whether to generate the prompt conversationally.
-            
+
         Returns:
             Generator[str, None, None]: The API response text as a generator.
-            
+
         Examples:
             >>> ai = GizAI()
             >>> response = ai.chat("What's the weather today?")
@@ -267,17 +266,17 @@ class GizAI(Provider):
             yield result
         else:
             return result
-    
+
     def get_message(self, response: Union[dict, str]) -> str:
         """
         Extracts the message from the API response.
-        
+
         Args:
             response (Union[dict, str]): The API response.
-            
+
         Returns:
             str: The message content.
-            
+
         Examples:
             >>> ai = GizAI()
             >>> response = ai.ask("Tell me a joke!")

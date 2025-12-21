@@ -9,11 +9,11 @@ from typing import Any
 @dataclass
 class TextResult:
     """Text search result."""
-    
+
     title: str = ""
     href: str = ""
     body: str = ""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -26,7 +26,7 @@ class TextResult:
 @dataclass
 class ImagesResult:
     """Images search result."""
-    
+
     title: str = ""
     image: str = ""
     thumbnail: str = ""
@@ -34,7 +34,7 @@ class ImagesResult:
     height: int = 0
     width: int = 0
     source: str = ""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -51,7 +51,7 @@ class ImagesResult:
 @dataclass
 class VideosResult:
     """Videos search result."""
-    
+
     content: str = ""
     description: str = ""
     duration: str = ""
@@ -65,7 +65,7 @@ class VideosResult:
     statistics: dict[str, int] = field(default_factory=dict)
     title: str = ""
     uploader: str = ""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -88,14 +88,14 @@ class VideosResult:
 @dataclass
 class NewsResult:
     """News search result."""
-    
+
     date: str = ""
     title: str = ""
     body: str = ""
     url: str = ""
     image: str = ""
     source: str = ""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {
@@ -111,7 +111,7 @@ class NewsResult:
 @dataclass
 class BooksResult:
     """Books search result."""
-    
+
     title: str = ""
     author: str = ""
     href: str = ""
@@ -121,7 +121,7 @@ class BooksResult:
     language: str = ""
     filesize: str = ""
     extension: str = ""
-    
+
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary."""
         return {

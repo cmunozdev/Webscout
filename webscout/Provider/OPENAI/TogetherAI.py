@@ -42,7 +42,7 @@ class Completions(BaseCompletions):
         """
         # Get API key if not already set
         if not self._client.headers.get("Authorization"):
-             # If no API key is set, we can't proceed. 
+             # If no API key is set, we can't proceed.
              # The user should have provided it in __init__.
              pass
 
@@ -224,23 +224,23 @@ class TogetherAI(OpenAICompatibleProvider):
                 "Authorization": f"Bearer {api_key}",
                 "Content-Type": "application/json"
             }
-            
+
             response = requests.get(
                 "https://api.together.xyz/v1/models",
                 headers=headers,
                 timeout=30
             )
-            
+
             if response.status_code != 200:
                 return cls.AVAILABLE_MODELS
-                
+
             data = response.json()
             # Together API returns a list of model objects
             if isinstance(data, list):
                 return [model["id"] for model in data if isinstance(model, dict) and "id" in model]
-            
+
             return cls.AVAILABLE_MODELS
-            
+
         except Exception:
             return cls.AVAILABLE_MODELS
 
@@ -261,13 +261,13 @@ class TogetherAI(OpenAICompatibleProvider):
         # Initialize LitAgent for consistent fingerprints across requests
         self._agent = LitAgent()
         self.headers = self._generate_consistent_fingerprint(browser=browser)
-        
+
         if api_key:
             self.headers["Authorization"] = f"Bearer {api_key}"
-            
+
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
-        
+
         # Try to update models if API key is provided
         if api_key:
             try:

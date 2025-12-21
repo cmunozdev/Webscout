@@ -3,28 +3,29 @@ Gradient Network Chat API Provider
 Reverse engineered from https://chat.gradient.network/
 """
 
-import requests
-from typing import Optional, Generator, Dict, Any, Union
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers, Conversation, AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+import requests
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 
 
 class Gradient(Provider):
     """
     Provider for Gradient Network chat API
     Supports real-time streaming responses from distributed GPU clusters
-    
+
     Note: GPT OSS 120B works on "nvidia" cluster, Qwen3 235B works on "hybrid" cluster
     """
-    
+
     required_auth = False
     AVAILABLE_MODELS = [
         "GPT OSS 120B",
         "Qwen3 235B",
     ]
-    
+
     # Model to cluster mapping
     MODEL_CLUSTERS = {
         "GPT OSS 120B": "nvidia",
@@ -37,14 +38,14 @@ class Gradient(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049,
         timeout: int = 60,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         system_prompt: str = "You are a helpful assistant.",
-        cluster_mode: str = None,  # Auto-detected based on model if None
+        cluster_mode: Optional[str] = None,  # Auto-detected based on model if None
         enable_thinking: bool = True,
     ):
         # Normalize model name (convert dashes to spaces)
@@ -62,11 +63,11 @@ class Gradient(Provider):
         self.cluster_mode = cluster_mode or self.MODEL_CLUSTERS.get(model, "nvidia")
         self.enable_thinking = enable_thinking
         self.last_response = {}
-        
+
         self.session = requests.Session()
         if proxies:
             self.session.proxies = proxies
-        
+
         # Headers matching the working curl request
         self.headers = {
             "accept": "*/*",
@@ -109,14 +110,14 @@ class Gradient(Provider):
     def _gradient_extractor(chunk: Union[str, Dict[str, Any]]) -> Optional[str]:
         """
         Extracts content from Gradient API stream response.
-        
+
         The API returns JSON objects like:
         {"type": "reply", "data": {"role": "assistant", "content": "text"}}
         {"type": "reply", "data": {"role": "assistant", "reasoningContent": "text"}}
-        
+
         Args:
             chunk: Parsed JSON dict from the stream
-            
+
         Returns:
             Extracted content string or None
         """
@@ -135,9 +136,10 @@ class Gradient(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -203,7 +205,7 @@ class Gradient(Provider):
                 full_response = ""
                 for chunk in for_stream():
                     full_response += self.get_message(chunk) if not raw else chunk
-                
+
                 self.last_response = {"text": full_response}
                 self.conversation.update_chat_history(prompt, full_response)
                 return self.last_response if not raw else full_response
@@ -217,7 +219,7 @@ class Gradient(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
@@ -252,8 +254,11 @@ if __name__ == "__main__":
             test_ai = Gradient(model=model, timeout=120)
             response = test_ai.chat("Say 'Hello' in one word", stream=True)
             response_text = ""
-            for chunk in response:
-                response_text += chunk
+            if hasattr(response, "__iter__") and not isinstance(response, (str, bytes)):
+                for chunk in response:
+                    response_text += chunk
+            else:
+                response_text = str(response)
 
             if response_text and len(response_text.strip()) > 0:
                 status = "✓"

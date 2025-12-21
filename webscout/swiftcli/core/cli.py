@@ -1,28 +1,26 @@
 """Main CLI application class."""
 
 import sys
-from typing import Any, Dict, List, Optional, Union
-
+from typing import Any, Dict, List, Optional
 
 from rich.console import Console
 
-from .group import Group  # Fix: Import Group for type checking and usage
-
 from ..exceptions import UsageError
 from ..plugins.manager import PluginManager
-from ..utils.formatting import format_error, format_success
+from ..utils.formatting import format_error
 from .context import Context
+from .group import Group  # Fix: Import Group for type checking and usage
 
 console = Console()
 
 class CLI:
     """
     Main CLI application class.
-    
+
     The CLI class is the core of SwiftCLI. It handles command registration,
     argument parsing, and command execution. It also manages plugins and
     provides the main entry point for CLI applications.
-    
+
     Attributes:
         name: Application name
         help: Application description
@@ -31,7 +29,7 @@ class CLI:
         commands: Registered commands
         groups: Command groups
         plugin_manager: Plugin manager instance
-        
+
     Example:
         >>> app = CLI(name="myapp", version="1.0.0")
         >>> @app.command()
@@ -40,7 +38,7 @@ class CLI:
         ...     print(f"Hello {name}!")
         >>> app.run()
     """
-    
+
     def __init__(
         self,
         name: str,
@@ -50,7 +48,7 @@ class CLI:
     ):
         """
         Initialize CLI application.
-        
+
         Args:
             name: Application name
             help: Application description
@@ -61,16 +59,16 @@ class CLI:
         self.help = help
         self.version = version
         self.debug = debug
-        
+
         self.commands: Dict[str, Dict[str, Any]] = {}
         self.groups: Dict[str, 'Group'] = {}  # type: ignore
         self.command_aliases: Dict[str, str] = {}
         self.command_chain: bool = False
         self.plugin_manager = PluginManager()
-        
+
         # Initialize plugin manager with this CLI instance
         self.plugin_manager.init_plugins(self)
-    
+
     def command(
         self,
         name: Optional[str] = None,
@@ -80,13 +78,13 @@ class CLI:
     ):
         """
         Decorator to register a command.
-        
+
         Args:
             name: Command name (defaults to function name)
             help: Command help text
             aliases: Alternative command names
             hidden: Hide from help output
-            
+
         Example:
             @app.command()
             def hello(name: str):
@@ -102,14 +100,14 @@ class CLI:
                 'aliases': aliases or [],
                 'hidden': hidden
             }
-            
+
             # Register aliases
             for alias in (aliases or []):
                 self.commands[alias] = self.commands[cmd_name]
-            
+
             return f
         return decorator
-    
+
     def group(
         self,
         name: Optional[str] = None,
@@ -118,25 +116,25 @@ class CLI:
     ):
         """
         Create a command group.
-        
+
         Args:
             name: Group name
             help: Group help text
             **kwargs: Additional group options
-            
+
         Example:
             @app.group()
             def db():
                 '''Database commands'''
                 pass
-                
+
             @db.command()
             def migrate():
                 '''Run migrations'''
                 pass
         """
         # Group is now imported at the top
-        
+
         def decorator(f):
             group_name = name or f.__name__
             group = Group(
@@ -148,15 +146,15 @@ class CLI:
             self.groups[group_name] = group
             return group
         return decorator
-    
+
     def alias(self, command_name: str, alias_name: str) -> None:
         """
         Add a command alias.
-        
+
         Args:
             command_name: Original command name
             alias_name: Alias name
-            
+
         Example:
             app.alias("list", "ls")
         """
@@ -164,69 +162,69 @@ class CLI:
             self.command_aliases[alias_name] = command_name
         else:
             raise UsageError(f"Command {command_name} not found")
-    
+
     def enable_chaining(self, enabled: bool = True) -> None:
         """
         Enable or disable command chaining.
-        
+
         Args:
             enabled: Whether to enable chaining
-            
+
         Example:
             app.enable_chaining(True)
         """
         self.command_chain = enabled
-    
+
     def run(self, args: Optional[List[str]] = None) -> int:
         """
         Run the CLI application.
-        
+
         Args:
             args: Command line arguments (defaults to sys.argv[1:])
-            
+
         Returns:
             Exit code (0 for success, non-zero for error)
         """
         try:
             args = args or sys.argv[1:]
-            
+
             # Show help if no arguments
             if not args or args[0] in ['-h', '--help']:
                 self._print_help()
                 return 0
-            
+
             # Show version if requested
             if args[0] in ['-v', '--version'] and self.version:
                 console.print(self.version)
                 return 0
-            
+
             command_name = args[0]
             command_args = args[1:]
-            
+
             # Check if it's a command alias
             if command_name in self.command_aliases:
                 command_name = self.command_aliases[command_name]
-            
+
             # Check if it's a group command
             if command_name in self.groups:
                 return self.groups[command_name].run(command_args)
-            
+
             # Check if it's a regular command
             if command_name not in self.commands:
                 format_error(f"Unknown command: {command_name}")
                 self._print_help()
                 return 1
-            
+
             # Create command context
             ctx = Context(self, command=command_name, debug=self.debug)
-            
+
             # Run command through plugin system
             if not self.plugin_manager.before_command(command_name, command_args):
                 return 1
-            
+
             try:
-                import inspect
                 import asyncio
+                import inspect
 
                 command = self.commands[command_name]
                 func = command['func']
@@ -258,7 +256,7 @@ class CLI:
                     raise
                 format_error(str(e))
                 return 1
-            
+
         except KeyboardInterrupt:
             console.print("\nOperation cancelled by user")
             return 130
@@ -267,17 +265,17 @@ class CLI:
                 raise
             format_error(str(e))
             return 1
-    
+
     def generate_completion_script(self, shell: str = 'bash') -> str:
         """
         Generate shell completion script.
-        
+
         Args:
             shell: Shell type (bash, zsh, fish)
-            
+
         Returns:
             Completion script as string
-            
+
         Example:
             script = app.generate_completion_script('bash')
             print(script)
@@ -290,7 +288,7 @@ class CLI:
             return self._generate_fish_completion()
         else:
             raise UsageError(f"Unsupported shell: {shell}")
-    
+
     def _generate_bash_completion(self) -> str:
         """Generate bash completion script."""
         commands = []
@@ -299,10 +297,10 @@ class CLI:
                 commands.append(cmd_name)
                 if 'aliases' in cmd:
                     commands.extend(cmd['aliases'])
-        
+
         for group_name in self.groups:
             commands.append(group_name)
-        
+
         script = f"""#!/bin/bash
 # Bash completion for {self.name}
 
@@ -317,7 +315,7 @@ _{self.name}_completion() {{
 complete -F _{self.name}_completion {self.name}
 """
         return script
-    
+
     def _generate_zsh_completion(self) -> str:
         """Generate zsh completion script."""
         commands = []
@@ -326,10 +324,10 @@ complete -F _{self.name}_completion {self.name}
                 commands.append(cmd_name)
                 if 'aliases' in cmd:
                     commands.extend(cmd['aliases'])
-        
+
         for group_name in self.groups:
             commands.append(group_name)
-        
+
         script = f"""#compdef {self.name}
 
 local -a commands
@@ -349,7 +347,7 @@ case $state in
 esac
 """
         return script
-    
+
     def _generate_fish_completion(self) -> str:
         """Generate fish completion script."""
         commands = []
@@ -358,33 +356,36 @@ esac
                 commands.append(cmd_name)
                 if 'aliases' in cmd:
                     commands.extend(cmd['aliases'])
-        
+
         for group_name in self.groups:
             commands.append(group_name)
-        
+
         script = f"""# Fish completion for {self.name}
 
 complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
 """
         return script
-    
+
     def _parse_args(self, command: Dict[str, Any], args: List[str]) -> Dict[str, Any]:
         """Parse command arguments."""
         from ..utils.parsing import (
-            parse_args, validate_required, convert_type,
-            validate_choice, get_env_var, validate_argument,
-            check_mutually_exclusive
+            check_mutually_exclusive,
+            convert_type,
+            get_env_var,
+            parse_args,
+            validate_argument,
+            validate_choice,
         )
-        
+
         params = {}
         func = command['func']
-        
+
         # Collect mutually exclusive groups
         exclusive_groups = []
-        
+
         # Parse command-line arguments
         parsed_args = parse_args(args)
-        
+
         # Handle options
         if hasattr(func, '_options'):
             for opt in func._options:
@@ -434,7 +435,7 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                             # Flags are boolean; if a string value is provided, attempt to convert
                             if isinstance(value_to_convert, str):
                                 # If 'type' is provided and is bool, convert accordingly
-                                if 'type' in opt and opt['type'] == bool:
+                                if 'type' in opt and opt['type'] is bool:
                                     value_to_convert = convert_type(value_to_convert, bool, name)
                                 else:
                                     value_to_convert = True
@@ -454,20 +455,20 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                                 name,
                                 opt.get('case_sensitive', True)
                             )
-                        
+
                         # Apply validation rules
                         if opt.get('validation'):
                             value_to_convert = validate_argument(
-                                str(value_to_convert), 
-                                opt['validation'], 
+                                str(value_to_convert),
+                                opt['validation'],
                                 name
                             )
-                        
+
                         params[name] = value_to_convert
                     # Apply callback if provided
                     if opt.get('callback') and callable(opt.get('callback')):
                         params[name] = opt.get('callback')(params[name])
-                    
+
                     # Collect mutually exclusive groups
                     if opt.get('mutually_exclusive'):
                         exclusive_groups.append(opt['mutually_exclusive'])
@@ -475,7 +476,7 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                     raise UsageError(f"Missing required option: {name}")
                 elif 'default' in opt:
                     params[name] = opt['default']
-        
+
         # Handle arguments
         if hasattr(func, '_arguments'):
             for i, arg in enumerate(func._arguments):
@@ -484,13 +485,13 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                     value = parsed_args[f'arg{i}']
                     if 'type' in arg:
                         value = convert_type(value, arg['type'], name)
-                    
+
                     # Apply validation rules
                     if arg.get('validation'):
                         value = validate_argument(value, arg['validation'], name)
-                    
+
                     params[name] = value
-                    
+
                     # Collect mutually exclusive groups
                     if arg.get('mutually_exclusive'):
                         exclusive_groups.append(arg['mutually_exclusive'])
@@ -498,11 +499,11 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                     raise UsageError(f"Missing required argument: {name}")
                 elif 'default' in arg:
                     params[name] = arg['default']
-        
+
         # Check mutually exclusive options
         if exclusive_groups:
             check_mutually_exclusive(params, exclusive_groups)
-        
+
         # Handle environment variables
         if hasattr(func, '_envvars'):
             for env in func._envvars:
@@ -515,15 +516,15 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                 )
                 if value is not None:
                     params[name] = value
-        
+
         return params
-    
+
     def _print_help(self) -> None:
         """Print application help message."""
         console.print(f"\n[bold]{self.name}[/]")
         if self.help:
             console.print(f"\n{self.help}")
-        
+
         # Show commands
         console.print("\n[bold]Commands:[/]")
         printed = set()
@@ -536,7 +537,7 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                 aliases = cmd.get('aliases', [])
                 alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
                 console.print(f"  {primary:20} {cmd['help'] or ''}{alias_text}")
-        
+
         # Show command groups
         for name, group in self.groups.items():
             console.print(f"\n[bold]{name} commands:[/]")
@@ -565,10 +566,10 @@ complete -c {self.name} -n "__fish_use_subcommand" -a "{' '.join(commands)}"
                 if not hidden:
                     alias_text = f" (aliases: {', '.join(aliases)})" if aliases else ""
                     console.print(f"  {primary:20} {help_text}{alias_text}")
-        
+
         console.print("\nUse -h or --help with any command for more info")
         if self.version:
             console.print("Use -v or --version to show version")
-    
+
     def __repr__(self) -> str:
         return f"<CLI name={self.name}>"

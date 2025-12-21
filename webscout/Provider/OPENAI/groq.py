@@ -1,18 +1,22 @@
-import requests
 import json
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
+
+from curl_cffi import CurlError
 
 # Import curl_cffi for improved request handling
 from curl_cffi.requests import Session
-from curl_cffi import CurlError
 
 # Import base classes and utility structures
-from .base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from .base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from .utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 # Attempt to import LitAgent, fallback if not available
@@ -58,7 +62,7 @@ class Completions(BaseCompletions):
             payload["frequency_penalty"] = kwargs.pop("frequency_penalty")
         if "presence_penalty" in kwargs:
             payload["presence_penalty"] = kwargs.pop("presence_penalty")
-        
+
         # Add any tools if provided
         if "tools" in kwargs and kwargs["tools"]:
             payload["tools"] = kwargs.pop("tools")
@@ -84,7 +88,7 @@ class Completions(BaseCompletions):
                 timeout=self._client.timeout,
                 impersonate="chrome110"  # Use impersonate for better compatibility
             )
-            
+
             if response.status_code != 200:
                 raise IOError(f"Groq request failed with status code {response.status_code}: {response.text}")
 
@@ -184,10 +188,10 @@ class Completions(BaseCompletions):
                 timeout=self._client.timeout,
                 impersonate="chrome110"  # Use impersonate for better compatibility
             )
-            
+
             if response.status_code != 200:
                 raise IOError(f"Groq request failed with status code {response.status_code}: {response.text}")
-                
+
             data = response.json()
 
             choices_data = data.get('choices', [])
@@ -196,10 +200,10 @@ class Completions(BaseCompletions):
             choices = []
             for choice_d in choices_data:
                 message_d = choice_d.get('message', {})
-                
+
                 # Handle tool calls if present
                 tool_calls = message_d.get('tool_calls')
-                
+
                 message = ChatCompletionMessage(
                     role=message_d.get('role', 'assistant'),
                     content=message_d.get('content', ''),
@@ -272,26 +276,26 @@ class Groq(OpenAICompatibleProvider):
         self.timeout = timeout
         self.base_url = "https://api.groq.com/openai/v1/chat/completions"
         self.api_key = api_key
-        
+
         # Update available models from API
         self.update_available_models(api_key)
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
-        
+
         # Set up headers with API key if provided
         self.headers = {
             "Content-Type": "application/json",
         }
-        
+
         if api_key:
             self.headers["Authorization"] = f"Bearer {api_key}"
-        
+
         # Try to use LitAgent for browser fingerprinting
         try:
             agent = LitAgent()
             fingerprint = agent.generate_fingerprint(browser)
-            
+
             self.headers.update({
                 "Accept": fingerprint["accept"],
                 "Accept-Encoding": "gzip, deflate, br, zstd",
@@ -317,26 +321,26 @@ class Groq(OpenAICompatibleProvider):
                 "Accept-Language": "en-US,en;q=0.9",
                 "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
             })
-        
+
         # Update session headers
         self.session.headers.update(self.headers)
-        
+
         # Initialize chat interface
         self.chat = Chat(self)
-    
+
     @classmethod
     def get_models(cls, api_key: str = None):
         """Fetch available models from Groq API.
-        
+
         Args:
             api_key (str, optional): Groq API key. If not provided, returns default models.
-            
+
         Returns:
             list: List of available model IDs
         """
         if not api_key:
             return cls.AVAILABLE_MODELS
-            
+
         try:
             # Use a temporary curl_cffi session for this class method
             temp_session = Session()
@@ -344,21 +348,21 @@ class Groq(OpenAICompatibleProvider):
                 "Content-Type": "application/json",
                 "Authorization": f"Bearer {api_key}",
             }
-            
+
             response = temp_session.get(
                 "https://api.groq.com/openai/v1/models",
                 headers=headers,
                 impersonate="chrome110"  # Use impersonate for fetching
             )
-            
+
             if response.status_code != 200:
                 return cls.AVAILABLE_MODELS
-                
+
             data = response.json()
             if "data" in data and isinstance(data["data"], list):
                 return [model["id"] for model in data["data"]]
             return cls.AVAILABLE_MODELS
-            
+
         except (CurlError, Exception):
             # Fallback to default models list if fetching fails
             return cls.AVAILABLE_MODELS

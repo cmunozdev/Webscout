@@ -3,10 +3,10 @@ Temporary Email Generation Base Module
 Abstract base classes for tempmail providers
 """
 
-from abc import ABC, abstractmethod
-import string
 import random
-from typing import Dict, List, Any, Optional, Union, Tuple, AsyncGenerator, Generator
+import string
+from abc import ABC, abstractmethod
+from typing import Dict, List, Optional, Tuple, Union
 
 # Constants for email generation
 EMAIL_LENGTH = 16

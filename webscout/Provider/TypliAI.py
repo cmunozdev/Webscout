@@ -1,14 +1,15 @@
 import random
 import string
-from typing import Union, Any, Dict, Generator
+from typing import Any, Dict, Generator, Union
+
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
-# from curl_cffi.const import CurlHttpVersion # Not strictly needed if using default
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream
-from webscout.AIbase import Provider
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+
+# from curl_cffi.const import CurlHttpVersion # Not strictly needed if using default
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, sanitize_stream
 from webscout.litagent import LitAgent
 
 
@@ -33,10 +34,10 @@ class TypliAI(Provider):
     """
     required_auth = False
     AVAILABLE_MODELS = [
-        "openai/gpt-4.1-mini", 
+        "openai/gpt-4.1-mini",
         "openai/gpt-4.1",
-        "openai/gpt-5-mini", 
-        "openai/gpt-5.2", 
+        "openai/gpt-5-mini",
+        "openai/gpt-5.2",
         "openai/gpt-5.2-pro",
         "google/gemini-2.5-flash",
         "anthropic/claude-haiku-4-5",

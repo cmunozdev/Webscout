@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import List
 from urllib.parse import urlencode
 
-from .base import YepBase
 from webscout.search.results import TextResult
+
+from .base import YepBase
 
 
 class YepSearch(YepBase):

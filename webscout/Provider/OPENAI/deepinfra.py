@@ -1,14 +1,18 @@
-import requests
 import json
 import time
 import uuid
-import collections
-from typing import List, Dict, Optional, Union, Generator, Any
+from typing import Any, Dict, Generator, List, Optional, Union
 
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+import requests
+
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
 
 try:
@@ -16,8 +20,9 @@ try:
 except ImportError:
     pass
 
+
 class Completions(BaseCompletions):
-    def __init__(self, client: 'DeepInfra'):
+    def __init__(self, client: "DeepInfra"):
         self._client = client
 
     def create(
@@ -31,7 +36,7 @@ class Completions(BaseCompletions):
         top_p: Optional[float] = None,
         timeout: Optional[int] = None,
         proxies: Optional[Dict[str, str]] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Union[ChatCompletion, Generator[ChatCompletionChunk, None, None]]:
         payload = {
             "model": model,
@@ -49,11 +54,18 @@ class Completions(BaseCompletions):
         if stream:
             return self._create_stream(request_id, created_time, model, payload, timeout, proxies)
         else:
-            return self._create_non_stream(request_id, created_time, model, payload, timeout, proxies)
+            return self._create_non_stream(
+                request_id, created_time, model, payload, timeout, proxies
+            )
 
     def _create_stream(
-        self, request_id: str, created_time: int, model: str, payload: Dict[str, Any],
-        timeout: Optional[int] = None, proxies: Optional[Dict[str, str]] = None
+        self,
+        request_id: str,
+        created_time: int,
+        model: str,
+        payload: Dict[str, Any],
+        timeout: Optional[int] = None,
+        proxies: Optional[Dict[str, str]] = None,
     ) -> Generator[ChatCompletionChunk, None, None]:
         try:
             response = self._client.session.post(
@@ -62,7 +74,7 @@ class Completions(BaseCompletions):
                 json=payload,
                 stream=True,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies
+                proxies=proxies,
             )
             response.raise_for_status()
             prompt_tokens = 0
@@ -76,43 +88,45 @@ class Completions(BaseCompletions):
                             break
                         try:
                             data = json.loads(json_str)
-                            choices = data.get('choices')
+                            choices = data.get("choices")
                             if not choices and choices is not None:
                                 continue
                             choice_data = choices[0] if choices else {}
-                            delta_data = choice_data.get('delta', {})
-                            finish_reason = choice_data.get('finish_reason')
-                            usage_data = data.get('usage', {})
+                            delta_data = choice_data.get("delta", {})
+                            finish_reason = choice_data.get("finish_reason")
+                            usage_data = data.get("usage", {})
                             if usage_data:
-                                prompt_tokens = usage_data.get('prompt_tokens', prompt_tokens)
-                                completion_tokens = usage_data.get('completion_tokens', completion_tokens)
-                                total_tokens = usage_data.get('total_tokens', total_tokens)
-                            if delta_data.get('content'):
+                                prompt_tokens = usage_data.get("prompt_tokens", prompt_tokens)
+                                completion_tokens = usage_data.get(
+                                    "completion_tokens", completion_tokens
+                                )
+                                total_tokens = usage_data.get("total_tokens", total_tokens)
+                            if delta_data.get("content"):
                                 completion_tokens += 1
                                 total_tokens = prompt_tokens + completion_tokens
                             delta = ChoiceDelta(
-                                content=delta_data.get('content'),
-                                role=delta_data.get('role'),
-                                tool_calls=delta_data.get('tool_calls')
+                                content=delta_data.get("content"),
+                                role=delta_data.get("role"),
+                                tool_calls=delta_data.get("tool_calls"),
                             )
                             choice = Choice(
-                                index=choice_data.get('index', 0),
+                                index=choice_data.get("index", 0),
                                 delta=delta,
                                 finish_reason=finish_reason,
-                                logprobs=choice_data.get('logprobs')
+                                logprobs=choice_data.get("logprobs"),
                             )
                             chunk = ChatCompletionChunk(
                                 id=request_id,
                                 choices=[choice],
                                 created=created_time,
                                 model=model,
-                                system_fingerprint=data.get('system_fingerprint')
+                                system_fingerprint=data.get("system_fingerprint"),
                             )
                             chunk.usage = {
                                 "prompt_tokens": prompt_tokens,
                                 "completion_tokens": completion_tokens,
                                 "total_tokens": total_tokens,
-                                "estimated_cost": None
+                                "estimated_cost": None,
                             }
                             yield chunk
                         except json.JSONDecodeError:
@@ -125,13 +139,13 @@ class Completions(BaseCompletions):
                 choices=[choice],
                 created=created_time,
                 model=model,
-                system_fingerprint=None
+                system_fingerprint=None,
             )
             chunk.usage = {
                 "prompt_tokens": prompt_tokens,
                 "completion_tokens": completion_tokens,
                 "total_tokens": total_tokens,
-                "estimated_cost": None
+                "estimated_cost": None,
             }
             yield chunk
         except Exception as e:
@@ -139,8 +153,13 @@ class Completions(BaseCompletions):
             raise IOError(f"DeepInfra request failed: {e}") from e
 
     def _create_non_stream(
-        self, request_id: str, created_time: int, model: str, payload: Dict[str, Any],
-        timeout: Optional[int] = None, proxies: Optional[Dict[str, str]] = None
+        self,
+        request_id: str,
+        created_time: int,
+        model: str,
+        payload: Dict[str, Any],
+        timeout: Optional[int] = None,
+        proxies: Optional[Dict[str, str]] = None,
     ) -> ChatCompletion:
         try:
             response = self._client.session.post(
@@ -148,43 +167,42 @@ class Completions(BaseCompletions):
                 headers=self._client.headers,
                 json=payload,
                 timeout=timeout or self._client.timeout,
-                proxies=proxies
+                proxies=proxies,
             )
             response.raise_for_status()
             data = response.json()
-            choices_data = data.get('choices', [])
-            usage_data = data.get('usage', {})
+            choices_data = data.get("choices", [])
+            usage_data = data.get("usage", {})
             choices = []
             for choice_d in choices_data:
-                message_d = choice_d.get('message')
-                if not message_d and 'delta' in choice_d:
-                    delta = choice_d['delta']
+                message_d = choice_d.get("message")
+                if not message_d and "delta" in choice_d:
+                    delta = choice_d["delta"]
                     message_d = {
-                        'role': delta.get('role', 'assistant'),
-                        'content': delta.get('content', '')
+                        "role": delta.get("role", "assistant"),
+                        "content": delta.get("content", ""),
                     }
                 if not message_d:
-                    message_d = {'role': 'assistant', 'content': ''}
+                    message_d = {"role": "assistant", "content": ""}
                 message = ChatCompletionMessage(
-                    role=message_d.get('role', 'assistant'),
-                    content=message_d.get('content', '')
+                    role=message_d.get("role", "assistant"), content=message_d.get("content", "")
                 )
                 choice = Choice(
-                    index=choice_d.get('index', 0),
+                    index=choice_d.get("index", 0),
                     message=message,
-                    finish_reason=choice_d.get('finish_reason', 'stop')
+                    finish_reason=choice_d.get("finish_reason", "stop"),
                 )
                 choices.append(choice)
             usage = CompletionUsage(
-                prompt_tokens=usage_data.get('prompt_tokens', 0),
-                completion_tokens=usage_data.get('completion_tokens', 0),
-                total_tokens=usage_data.get('total_tokens', 0)
+                prompt_tokens=usage_data.get("prompt_tokens", 0),
+                completion_tokens=usage_data.get("completion_tokens", 0),
+                total_tokens=usage_data.get("total_tokens", 0),
             )
             completion = ChatCompletion(
                 id=request_id,
                 choices=choices,
                 created=created_time,
-                model=data.get('model', model),
+                model=data.get("model", model),
                 usage=usage,
             )
             return completion
@@ -192,9 +210,11 @@ class Completions(BaseCompletions):
             print(f"Error during DeepInfra non-stream request: {e}")
             raise IOError(f"DeepInfra request failed: {e}") from e
 
+
 class Chat(BaseChat):
-    def __init__(self, client: 'DeepInfra'):
+    def __init__(self, client: "DeepInfra"):
         self.completions = Completions(client)
+
 
 class DeepInfra(OpenAICompatibleProvider):
     required_auth = False
@@ -279,7 +299,60 @@ class DeepInfra(OpenAICompatibleProvider):
         "allenai/olmOCR-7B-0725-FP8",
     ]
 
+    @classmethod
+    def get_models(cls, api_key: Optional[str] = None):
+        """Fetch available models from DeepInfra API.
+
+        Args:
+            api_key (str, optional): DeepInfra API key. If not provided, returns default models.
+
+        Returns:
+            list: List of available model IDs
+        """
+        if not api_key:
+            return cls.AVAILABLE_MODELS
+
+        try:
+            # Use a temporary requests session for this class method
+            temp_session = requests.Session()
+            headers = {
+                "Content-Type": "application/json",
+            }
+            if api_key:
+                headers["Authorization"] = f"Bearer {api_key}"
+
+            response = temp_session.get(
+                "https://api.deepinfra.com/v1/models",
+                headers=headers,
+            )
+
+            if response.status_code != 200:
+                return cls.AVAILABLE_MODELS
+
+            data = response.json()
+            if "data" in data and isinstance(data["data"], list):
+                return [model["id"] for model in data["data"]]
+            return cls.AVAILABLE_MODELS
+
+        except Exception:
+            # Fallback to default models list if fetching fails
+            return cls.AVAILABLE_MODELS
+
+    @classmethod
+    def update_available_models(cls, api_key=None):
+        """Update the available models list from DeepInfra API"""
+        try:
+            models = cls.get_models(api_key)
+            if models and len(models) > 0:
+                cls.AVAILABLE_MODELS = models
+        except Exception:
+            # Fallback to default models list if fetching fails
+            pass
+
     def __init__(self, browser: str = "chrome", api_key: str = None):
+        # Update available models from API
+        self.update_available_models(api_key)
+
         self.timeout = None
         self.base_url = "https://api.deepinfra.com/v1/openai/chat/completions"
         self.session = requests.Session()
@@ -299,7 +372,8 @@ class DeepInfra(OpenAICompatibleProvider):
             "Sec-Fetch-Mode": "cors",
             "Sec-Fetch-Site": "same-site",
             "X-Deepinfra-Source": "web-embed",
-            "Sec-CH-UA": fingerprint["sec_ch_ua"] or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
+            "Sec-CH-UA": fingerprint["sec_ch_ua"]
+            or '"Not)A;Brand";v="99", "Microsoft Edge";v="127", "Chromium";v="127"',
             "Sec-CH-UA-Mobile": "?0",
             "Sec-CH-UA-Platform": f'"{fingerprint["platform"]}"',
             "User-Agent": fingerprint["user_agent"],
@@ -308,12 +382,15 @@ class DeepInfra(OpenAICompatibleProvider):
             self.headers["Authorization"] = f"Bearer {api_key}"
         self.session.headers.update(self.headers)
         self.chat = Chat(self)
+
     @property
     def models(self):
         class _ModelList:
             def list(inner_self):
-                return type(self).AVAILABLE_MODELS
+                return DeepInfra.AVAILABLE_MODELS
+
         return _ModelList()
+
 
 if __name__ == "__main__":
     client = DeepInfra()
@@ -321,6 +398,6 @@ if __name__ == "__main__":
         model="deepseek-ai/DeepSeek-R1-0528",
         messages=[{"role": "user", "content": "Hello, how are you?"}],
         max_tokens=10000,
-        stream=False
+        stream=False,
     )
     print(response.choices[0].message.content)

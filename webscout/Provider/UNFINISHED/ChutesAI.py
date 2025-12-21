@@ -1,20 +1,28 @@
-import requests
 import json
+import random
+import re
+import string
 import time
 import uuid
-from typing import List, Dict, Optional, Union, Generator, Any
-import re
-import random
-import string
-from rich import print
-from webscout.litagent.agent import LitAgent
+from typing import Any, Dict, Generator, List, Optional, Union
+
 import cloudscraper
+import requests
+from rich import print
+
+from webscout.litagent.agent import LitAgent
+
 # Import base classes and utility structures
-from webscout.Provider.OPENAI.base import OpenAICompatibleProvider, BaseChat, BaseCompletions
+from webscout.Provider.OPENAI.base import BaseChat, BaseCompletions, OpenAICompatibleProvider
 from webscout.Provider.OPENAI.utils import (
-    ChatCompletionChunk, ChatCompletion, Choice, ChoiceDelta,
-    ChatCompletionMessage, CompletionUsage
+    ChatCompletion,
+    ChatCompletionChunk,
+    ChatCompletionMessage,
+    Choice,
+    ChoiceDelta,
+    CompletionUsage,
 )
+
 
 # --- ChutesAI API Key Auto-Generator ---
 def generate_chutesai_api_key():
@@ -46,10 +54,10 @@ def generate_chutesai_api_key():
     scraper = cloudscraper.create_scraper()
     response = scraper.post(url, headers=headers, data=data)
     print(f"[bold green]Status:[/] {response.status_code}")
-    
+
     # Ensure response is decoded as UTF-8
     response.encoding = 'utf-8'
-    
+
     try:
         resp_json = response.json()
     except Exception:
@@ -258,21 +266,21 @@ class ChutesAI(OpenAICompatibleProvider):
     def __init__(self, api_key: str = None,):
         self.timeout = None  # Infinite timeout
         self.base_url = "https://llm.chutes.ai/v1/chat/completions"
-        
+
         # Always generate a new API key, ignore any provided key
         print("[yellow]Generating new ChutesAI API key...[/]")
         self.api_key = generate_chutesai_api_key()
-        
+
         if not self.api_key:
             print("[red]Failed to generate API key. Retrying...[/]")
             # Retry once more
             self.api_key = generate_chutesai_api_key()
-            
+
         if not self.api_key:
             raise ValueError("Failed to generate ChutesAI API key after multiple attempts.")
-            
+
         print(f"[green]Successfully generated API key: {self.api_key[:20]}...[/]")
-        
+
         self.scraper = cloudscraper.create_scraper()
         self.headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -292,12 +300,12 @@ if __name__ == "__main__":
     try:
         # Example usage - always use generated API key
         client = ChutesAI()
-        
+
         messages = [
             {"role": "system", "content": "You are a helpful assistant."},
             {"role": "user", "content": "What is the capital of France?"}
         ]
-        
+
         print("[cyan]Making API request...[/]")
         response = client.chat.completions.create(
             model="deepseek-ai/DeepSeek-V3-0324",
@@ -311,7 +319,7 @@ if __name__ == "__main__":
             else:
                 chunk_dict = chunk.dict(exclude_none=True)
             print(f"[green]Response Chunk:[/] {chunk_dict}")
-        
+
     except Exception as e:
         print(f"[red]Error: {e}[/]")
         print("[yellow]If the issue persists, the ChutesAI service might be down or the API key generation method needs updating.[/]")

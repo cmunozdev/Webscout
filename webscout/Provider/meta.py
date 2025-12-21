@@ -1,22 +1,20 @@
 import json
+import random
 import time
 import urllib
 import uuid
 from typing import Dict, Generator, List, Union
 
-import random
 from curl_cffi import CurlError
 from curl_cffi.requests import Session
+from litprinter import ic
+
+from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import AwesomePrompts, Conversation, Optimizers, retry
+from webscout.litagent import LitAgent as Lit
 from webscout.scout import Scout
 
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIutel import retry
-from webscout.AIbase import Provider
-from webscout import exceptions
-from webscout.litagent import LitAgent as Lit
-from litprinter import ic
 MAX_RETRIES = 3
 HTTP2_STREAM_ERRORS = [92, 18, 7, 35, 36]  # Common curl HTTP/2 stream errors
 
@@ -266,7 +264,8 @@ def get_fb_session(email, password, proxies=None):
             "Was not able to login to Facebook. Please check your credentials. "
             "You may also have been rate limited. Try to connect to Facebook manually."
         )
-    ic.configureOutput(prefix='INFO| '); ic("Successfully logged in to Facebook.")
+    ic.configureOutput(prefix='INFO| ')
+    ic("Successfully logged in to Facebook.")
     return cookies
 
 
@@ -348,7 +347,7 @@ class Meta(Provider):
                 "user-agent": Lit().random(),
             }
         )
-        
+
         # Configure session for better HTTP/2 handling
         self.session.timeout = timeout
         self.session.curl_options.update({
@@ -364,18 +363,18 @@ class Meta(Provider):
             64: 0,   # CURLOPT_SSL_VERIFYPEER
             81: 0,   # CURLOPT_SSL_VERIFYHOST
         })
-        
+
         # Create a backup session for fallback
         self.backup_session = Session()
         self.backup_session.headers.update({"user-agent": Lit().random()})
         self.backup_session.curl_options.update(self.session.curl_options)
-        
+
         # Add HTTP/2 error tracking
         self.http2_error_count = 0
         self.max_http2_errors = 3
         self.last_successful_request = time.time()
         self.retry_count = 0
-        
+
         self.access_token = None
         self.fb_email = fb_email
         self.fb_password = fb_password
@@ -414,7 +413,7 @@ class Meta(Provider):
         self.session.proxies = proxies
         # If skip_init was True we won't have cookies yet — some methods will fetch them lazily
         if self.skip_init:
-            ic.configureOutput(prefix='WARNING| ');
+            ic.configureOutput(prefix='WARNING| ')
             ic('Meta initialized in skip_init mode: cookies not fetched. Some operations will fail until cookies are obtained.')
 
 
@@ -486,7 +485,7 @@ class Meta(Provider):
             # Some Curl errors are wrapped in requests.HTTPError from curl_cffi; inspect message
             err_str = str(e)
             if 'HTTP/2 stream' in err_str or 'stream' in err_str:
-                ic.configureOutput(prefix='WARNING| ');
+                ic.configureOutput(prefix='WARNING| ')
                 ic(f"Detected HTTP/2 stream issue when getting access token: {err_str}. Attempting HTTP/1.1 fallback via requests")
                 try:
                     import requests
@@ -615,7 +614,7 @@ class Meta(Provider):
                     except CurlError as e:
                         # Try HTTP/1.1 fallback once
                         if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
-                            ic.configureOutput(prefix='WARNING| ');
+                            ic.configureOutput(prefix='WARNING| ')
                             ic("HTTP/2 stream error on streaming request, attempting HTTP/1.1 fallback")
                             try:
                                 self.session.curl_options.update({84: 1})  # force HTTP/1.1
@@ -654,7 +653,7 @@ class Meta(Provider):
                                 except CurlError as e:
                                     # Handle HTTP/2 stream closure during iteration
                                     if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
-                                        ic.configureOutput(prefix='WARNING| '); 
+                                        ic.configureOutput(prefix='WARNING| ')
                                         ic(f"HTTP/2 stream closed during iteration (errno: {e.errno})")
                                         if final_message:
                                             # Yield the last complete message before the stream closed
@@ -663,7 +662,7 @@ class Meta(Provider):
                                     else:
                                         raise
                     except (ConnectionError, TimeoutError) as e:
-                        ic.configureOutput(prefix='WARNING| '); 
+                        ic.configureOutput(prefix='WARNING| ')
                         ic(f"Connection error during streaming: {e}")
                         if final_message:
                             # Yield the last complete message before the connection was lost
@@ -672,12 +671,12 @@ class Meta(Provider):
                                 prompt, self.get_message(self.last_response)
                             )
                         return
-                    
+
                     if final_message:
                         self.conversation.update_chat_history(
                             prompt, self.get_message(self.last_response)
                         )
-                        
+
                 except CurlError as e:
                     if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
                         raise exceptions.FailedToGenerateResponseError(
@@ -697,7 +696,7 @@ class Meta(Provider):
             except CurlError as e:
                 # Try HTTP/1.1 fallback for non-stream requests
                 if hasattr(e, 'errno') and e.errno in HTTP2_STREAM_ERRORS:
-                    ic.configureOutput(prefix='WARNING| ');
+                    ic.configureOutput(prefix='WARNING| ')
                     ic("HTTP/2 error on non-stream request, attempting HTTP/1.1 fallback")
                     try:
                         self.session.curl_options.update({84: 1})  # force HTTP/1.1
@@ -873,7 +872,7 @@ class Meta(Provider):
                 last_response = response
                 break
             except Exception as e:
-                ic.configureOutput(prefix='WARNING| ');
+                ic.configureOutput(prefix='WARNING| ')
                 ic(f"Attempt {attempt+1} to fetch meta.ai failed: {e}. Retrying...")
                 time.sleep(1 * (2 ** attempt))
         if last_response is None:
@@ -983,10 +982,10 @@ if __name__ == "__main__":
         for chunk in ai:
             print(chunk, end="", flush=True)
     except exceptions.FailedToGenerateResponseError as e:
-        ic.configureOutput(prefix='ERROR| ');
+        ic.configureOutput(prefix='ERROR| ')
         ic(f"Meta provider failed to initialize or run: {e}")
         ic("Possible causes: network connectivity issues, region blocking, or site returning error pages.")
         ic("For offline testing, re-run with: Meta(skip_init=True)")
     except Exception as e:
-        ic.configureOutput(prefix='ERROR| ');
+        ic.configureOutput(prefix='ERROR| ')
         ic(f"Unexpected error running meta provider: {e}")

@@ -1,15 +1,16 @@
+from typing import List, Optional
+
 from .https import (
-    trending_videos,
-    trending_songs,
-    trending_games,
-    trending_feeds,
-    trending_streams,
     _get_trending_learning_videos,
-    trending_sports
+    trending_feeds,
+    trending_games,
+    trending_songs,
+    trending_sports,
+    trending_streams,
+    trending_videos,
 )
-from .utils import dup_filter, request
 from .patterns import _ExtraPatterns as Patterns
-from typing import Optional, List
+from .utils import dup_filter, request
 
 
 class Extras:
@@ -18,12 +19,12 @@ class Extras:
     def trending_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending videos from YouTube.
-        
+
         Args:
-            limit (int, optional): Maximum number of videos to return. 
-                                  Alternatively, manual slicing can be used: 
+            limit (int, optional): Maximum number of videos to return.
+                                  Alternatively, manual slicing can be used:
                                   Extras.trending_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
@@ -34,12 +35,12 @@ class Extras:
     def music_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending music videos from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of videos to return.
-                                  Alternatively, manual slicing can be used: 
+                                  Alternatively, manual slicing can be used:
                                   Extras.music_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
@@ -50,27 +51,27 @@ class Extras:
     def gaming_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending gaming videos from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of videos to return.
-                                  Alternatively, manual slicing can be used: 
+                                  Alternatively, manual slicing can be used:
                                   Extras.gaming_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
         return dup_filter(Patterns.video_id.findall(trending_games()), limit)
-        
+
     @staticmethod
     def news_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending news videos from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of videos to return.
-                                  Alternatively, manual slicing can be used: 
+                                  Alternatively, manual slicing can be used:
                                   Extras.news_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
@@ -80,12 +81,12 @@ class Extras:
     def live_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending live videos from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of videos to return.
-                                  Alternatively, manual slicing can be used: 
+                                  Alternatively, manual slicing can be used:
                                   Extras.live_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
@@ -95,12 +96,12 @@ class Extras:
     def educational_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending educational videos from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of videos to return.
-                                  Alternatively, manual slicing can be used: 
+                                  Alternatively, manual slicing can be used:
                                   Extras.educational_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
@@ -110,12 +111,12 @@ class Extras:
     def sport_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending sports videos from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of videos to return.
-                                  Alternatively, manual slicing can be used: 
+                                  Alternatively, manual slicing can be used:
                                   Extras.sport_videos()[:5]
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no videos found
         """
@@ -125,10 +126,10 @@ class Extras:
     def shorts_videos(limit: int = None) -> Optional[List[str]]:
         """
         Get trending YouTube Shorts.
-        
+
         Args:
             limit (int, optional): Maximum number of Shorts to return.
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no Shorts found
         """
@@ -143,10 +144,10 @@ class Extras:
     def movies(limit: int = None) -> Optional[List[str]]:
         """
         Get featured movies from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of movies to return.
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no movies found
         """
@@ -161,10 +162,10 @@ class Extras:
     def podcasts(limit: int = None) -> Optional[List[str]]:
         """
         Get trending podcasts from YouTube.
-        
+
         Args:
             limit (int, optional): Maximum number of podcasts to return.
-        
+
         Returns:
             Optional[List[str]]: List of video IDs or None if no podcasts found
         """

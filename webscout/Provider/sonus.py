@@ -1,13 +1,19 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
 import json
-from typing import Any, Dict, Optional, Generator, Union
-from webscout.AIutel import Optimizers
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts, sanitize_stream # Import sanitize_stream
-from webscout.AIbase import Provider
+from typing import Any, Dict, Generator, Optional, Union
+
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider, Response
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+)
 from webscout.litagent import LitAgent
+
+
 class SonusAI(Provider):
     """
     A class to interact with the Sonus AI chat API.
@@ -24,20 +30,20 @@ class SonusAI(Provider):
         is_conversation: bool = True,
         max_tokens: int = 2049, # Note: max_tokens is not directly used by this API
         timeout: int = 30,
-        intro: str = None,
-        filepath: str = None,
+        intro: Optional[str] = None,
+        filepath: Optional[str] = None,
         update_file: bool = True,
         proxies: dict = {},
         history_offset: int = 10250,
-        act: str = None,
+        act: Optional[str] = None,
         model: str = "pro"
     ):
         """Initializes the Sonus AI API client."""
         if model not in self.AVAILABLE_MODELS:
             raise ValueError(f"Invalid model: {model}. Choose from: {self.AVAILABLE_MODELS}")
-            
+
         self.url = "https://chat.sonus.ai/chat.php"
-        
+
         # Headers for the request
         self.headers = {
             'Accept': '*/*',
@@ -47,7 +53,7 @@ class SonusAI(Provider):
             'User-Agent': LitAgent().random()
             # Add sec-ch-ua headers if needed for impersonation consistency
         }
-        
+
         # Initialize curl_cffi Session
         self.session = Session()
         # Update curl_cffi session headers and proxies
@@ -90,10 +96,11 @@ class SonusAI(Provider):
         prompt: str,
         stream: bool = False,
         raw: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         reasoning: bool = False,
-    ) -> Union[Dict[str, Any], Generator]:
+        **kwargs: Any,
+    ) -> Response:
         conversation_prompt = self.conversation.gen_complete_prompt(prompt)
         if optimizer:
             if optimizer in self.__available_optimizers:
@@ -119,9 +126,9 @@ class SonusAI(Provider):
             try:
                 # Use curl_cffi session post with impersonate
                 response = self.session.post(
-                    self.url, 
+                    self.url,
                     data=form_data,
-                    stream=True, 
+                    stream=True,
                     timeout=self.timeout,
                     impersonate="chrome110"
                 )
@@ -151,11 +158,11 @@ class SonusAI(Provider):
                                         yield dict(text=content)
                         except json.JSONDecodeError:
                             continue
-                
+
                 # Update history and last response after stream finishes
                 self.last_response = {"text": streaming_text}
                 self.conversation.update_chat_history(prompt, streaming_text)
-                    
+
             except CurlError as e:
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
             except Exception as e:
@@ -165,7 +172,7 @@ class SonusAI(Provider):
             try:
                  # Use curl_cffi session post with impersonate
                 response = self.session.post(
-                    self.url, 
+                    self.url,
                     # headers are set on the session
                     data=form_data, # Use data for multipart form fields
                     timeout=self.timeout,
@@ -196,7 +203,7 @@ class SonusAI(Provider):
                 self.conversation.update_chat_history(prompt, full_response)
                 # Return dict or raw string
                 return full_response if raw else {"text": full_response}
-                
+
             except CurlError as e: # Catch CurlError
                 raise exceptions.FailedToGenerateResponseError(f"Request failed (CurlError): {str(e)}") from e
             except Exception as e: # Catch other potential exceptions
@@ -208,10 +215,11 @@ class SonusAI(Provider):
         self,
         prompt: str,
         stream: bool = False,
-        optimizer: str = None,
+        optimizer: Optional[str] = None,
         conversationally: bool = False,
         reasoning: bool = False,
         raw: bool = False,  # Added raw parameter
+        **kwargs: Any,
     ) -> Union[str, Generator[str, None, None]]:
         def for_stream_chat():
             for response in self.ask(
@@ -231,12 +239,16 @@ class SonusAI(Provider):
                 return self.get_message(response_data)
         return for_stream_chat() if stream else for_non_stream_chat()
 
-    def get_message(self, response: dict) -> str:
-        assert isinstance(response, dict), "Response should be of dict data-type only"
-        return response["text"]
+    def get_message(self, response: Response) -> str:
+        if not isinstance(response, dict):
+            return str(response)
+        return response.get("text", "")
 
 if __name__ == "__main__":
     sonus = SonusAI()
     resp = sonus.chat("Hello", stream=True, raw=True)
-    for chunk in resp:
-        print(chunk, end="")
+    if hasattr(resp, "__iter__") and not isinstance(resp, (str, bytes)):
+        for chunk in resp:
+            print(chunk, end="")
+    else:
+        print(resp)

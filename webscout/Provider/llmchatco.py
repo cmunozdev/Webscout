@@ -1,16 +1,19 @@
-from curl_cffi.requests import Session
-from curl_cffi import CurlError
-import json
 import uuid
-import re
-from typing import Union, Any, Dict, Optional, Generator, List
+from typing import Any, Dict, Generator, Optional, Union
 
-from webscout.AIutel import Optimizers, sanitize_stream # Import sanitize_stream
-from webscout.AIutel import Conversation
-from webscout.AIutel import AwesomePrompts
-from webscout.AIbase import Provider
+from curl_cffi import CurlError
+from curl_cffi.requests import Session
+
 from webscout import exceptions
+from webscout.AIbase import Provider
+from webscout.AIutel import (  # Import sanitize_stream
+    AwesomePrompts,
+    Conversation,
+    Optimizers,
+    sanitize_stream,
+)
 from webscout.litagent import LitAgent as Lit
+
 
 class LLMChatCo(Provider):
     """

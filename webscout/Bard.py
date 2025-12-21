@@ -7,22 +7,30 @@ import string
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, TypedDict, Union
 
 try:
-    import trio # type: ignore
+    import trio  # type: ignore  # noqa: F401
 except ImportError:
     pass
 from curl_cffi import CurlError
 from curl_cffi.requests import AsyncSession
-
 from pydantic import BaseModel, field_validator
-
 from requests.exceptions import HTTPError, RequestException, Timeout
-
 from rich.console import Console
 
 console = Console()
+
+
+class AskResponse(TypedDict):
+    content: str
+    conversation_id: str
+    response_id: str
+    factualityQueries: Optional[List]
+    textQuery: str
+    choices: List[Dict[str, Union[str, List]]]
+    images: List[Dict[str, str]]
+    error: bool
 
 
 
@@ -88,7 +96,7 @@ class Model(Enum):
         False,
     )
 
-    def __init__(self, name, header, advanced_only):
+    def __init__(self, name: str, header: Dict[str, str], advanced_only: bool):
         """
         Initialize a Model enum member.
 
@@ -199,7 +207,7 @@ def load_cookies(cookie_path: str) -> Tuple[str, str]:
         session_auth2 = next((item['value'] for item in cookies if item['name'].upper() == '__SECURE-1PSIDTS'), None)
 
         if not session_auth1 or not session_auth2:
-             raise StopIteration("Required cookies (__Secure-1PSID or __Secure-1PSIDTS) not found.")
+             raise ValueError("Required cookies (__Secure-1PSID or __Secure-1PSIDTS) not found.")
 
         return session_auth1, session_auth2
     except FileNotFoundError:
@@ -208,7 +216,7 @@ def load_cookies(cookie_path: str) -> Tuple[str, str]:
         raise Exception("Invalid JSON format in the cookie file.")
     except StopIteration as e:
         raise Exception(f"{e} Check the cookie file format and content.")
-    except Exception as e: 
+    except Exception as e:
         raise Exception(f"An unexpected error occurred while loading cookies: {e}")
 
 
@@ -228,13 +236,13 @@ class Chatbot:
     def __init__(
         self,
         cookie_path: str,
-        proxy: Optional[Union[str, Dict[str, str]]] = None, 
+        proxy: Optional[Union[str, Dict[str, str]]] = None,
         timeout: int = 20,
         model: Model = Model.UNSPECIFIED,
         impersonate: str = "chrome110"
     ):
         try:
-            self.loop = asyncio.get_running_loop()
+            self.loop: asyncio.AbstractEventLoop = asyncio.get_running_loop()
         except RuntimeError:
             self.loop = asyncio.new_event_loop()
             asyncio.set_event_loop(self.loop)
@@ -259,7 +267,7 @@ class Chatbot:
             self.async_chatbot.load_conversation(file_path, conversation_name)
         )
 
-    def ask(self, message: str, image: Optional[Union[bytes, str, Path]] = None) -> dict:
+    def ask(self, message: str, image: Optional[Union[bytes, str, Path]] = None) -> AskResponse:
         return self.loop.run_until_complete(self.async_chatbot.ask(message, image=image))
 
 class AsyncChatbot:
@@ -292,37 +300,37 @@ class AsyncChatbot:
         "conversation_id",
         "response_id",
         "choice_id",
-        "proxy", 
-        "proxies_dict", 
+        "proxy",
+        "proxies_dict",
         "secure_1psidts",
         "secure_1psid",
         "session",
         "timeout",
         "model",
-        "impersonate", 
+        "impersonate",
     ]
 
     def __init__(
         self,
         secure_1psid: str,
         secure_1psidts: str,
-        proxy: Optional[Union[str, Dict[str, str]]] = None, 
+        proxy: Optional[Union[str, Dict[str, str]]] = None,
         timeout: int = 20,
         model: Model = Model.UNSPECIFIED,
-        impersonate: str = "chrome110", 
+        impersonate: str = "chrome110",
     ):
         headers = Headers.GEMINI.value.copy()
         if model != Model.UNSPECIFIED:
             headers.update(model.model_header)
-        self._reqid = int("".join(random.choices(string.digits, k=7))) 
-        self.proxy = proxy 
-        self.impersonate = impersonate 
+        self._reqid = int("".join(random.choices(string.digits, k=7)))
+        self.proxy = proxy
+        self.impersonate = impersonate
 
         self.proxies_dict = None
         if isinstance(proxy, str):
-            self.proxies_dict = {"http": proxy, "https": proxy} 
+            self.proxies_dict = {"http": proxy, "https": proxy}
         elif isinstance(proxy, dict):
-            self.proxies_dict = proxy 
+            self.proxies_dict = proxy
 
         self.conversation_id = ""
         self.response_id = ""
@@ -330,40 +338,53 @@ class AsyncChatbot:
         self.secure_1psid = secure_1psid
         self.secure_1psidts = secure_1psidts
 
-        self.session = AsyncSession(
+        self.session: AsyncSession = AsyncSession(
             headers=headers,
             cookies={"__Secure-1PSID": secure_1psid, "__Secure-1PSIDTS": secure_1psidts},
-            proxies=self.proxies_dict,
+            proxies=self.proxies_dict if self.proxies_dict else None,
             timeout=timeout,
-            impersonate=self.impersonate
+            impersonate=self.impersonate if self.impersonate else None
         )
 
-        self.timeout = timeout 
+        self.timeout = timeout
         self.model = model
-        self.SNlM0e = None 
+        self.SNlM0e = None
 
     @classmethod
     async def create(
         cls,
         secure_1psid: str,
         secure_1psidts: str,
-        proxy: Optional[Union[str, Dict[str, str]]] = None, 
+        proxy: Optional[Union[str, Dict[str, str]]] = None,
         timeout: int = 20,
         model: Model = Model.UNSPECIFIED,
-        impersonate: str = "chrome110", 
+        impersonate: str = "chrome110",
     ) -> "AsyncChatbot":
         """
         Factory method to create and initialize an AsyncChatbot instance.
         Fetches the necessary SNlM0e value asynchronously.
         """
-        instance = cls(secure_1psid, secure_1psidts, proxy, timeout, model, impersonate) 
+        instance = cls(secure_1psid, secure_1psidts, proxy, timeout, model, impersonate)
         try:
             instance.SNlM0e = await instance.__get_snlm0e()
         except Exception as e:
              console.log(f"[red]Error during AsyncChatbot initialization (__get_snlm0e): {e}[/red]", style="bold red")
-             await instance.session.close() 
-             raise 
+             await instance.session.close()
+             raise
         return instance
+
+    def _error_response(self, message: str) -> AskResponse:
+        """Helper to create a consistent error response."""
+        return {
+            "content": message,
+            "conversation_id": getattr(self, "conversation_id", ""),
+            "response_id": getattr(self, "response_id", ""),
+            "factualityQueries": [],
+            "textQuery": "",
+            "choices": [],
+            "images": [],
+            "error": True
+        }
 
     async def save_conversation(self, file_path: str, conversation_name: str) -> None:
         conversations = await self.load_conversations(file_path)
@@ -374,18 +395,18 @@ class AsyncChatbot:
             "response_id": self.response_id,
             "choice_id": self.choice_id,
             "SNlM0e": self.SNlM0e,
-            "model_name": self.model.model_name, 
-            "timestamp": datetime.now().isoformat(), 
+            "model_name": self.model.model_name,
+            "timestamp": datetime.now().isoformat(),
         }
 
         found = False
         for i, conv in enumerate(conversations):
             if conv.get("conversation_name") == conversation_name:
-                conversations[i] = conversation_data 
+                conversations[i] = conversation_data
                 found = True
                 break
         if not found:
-            conversations.append(conversation_data) 
+            conversations.append(conversation_data)
 
         try:
             Path(file_path).parent.mkdir(parents=True, exist_ok=True)
@@ -430,7 +451,7 @@ class AsyncChatbot:
         console.log(f"[yellow]Conversation '{conversation_name}' not found in {file_path}[/yellow]")
         return False
 
-    async def __get_snlm0e(self):
+    async def __get_snlm0e(self) -> str:
         """Fetches the SNlM0e value required for API requests using curl_cffi."""
         if not self.secure_1psid:
             raise ValueError("__Secure-1PSID cookie is required.")
@@ -438,9 +459,9 @@ class AsyncChatbot:
         try:
             resp = await self.session.get(
                 Endpoint.INIT.value,
-                timeout=self.timeout 
+                timeout=self.timeout
             )
-            resp.raise_for_status() 
+            resp.raise_for_status()
 
             if "Sign in to continue" in resp.text or "accounts.google.com" in str(resp.url):
                 raise PermissionError("Authentication failed. Cookies might be invalid or expired. Please update them.")
@@ -462,17 +483,17 @@ class AsyncChatbot:
 
             return snlm0e_match.group(1)
 
-        except Timeout as e: 
+        except Timeout as e:
             raise TimeoutError(f"Request timed out while fetching SNlM0e: {e}") from e
-        except (RequestException, CurlError) as e: 
+        except (RequestException, CurlError) as e:
             raise ConnectionError(f"Network error while fetching SNlM0e: {e}") from e
-        except HTTPError as e: 
+        except HTTPError as e:
             if e.response.status_code == 401 or e.response.status_code == 403:
                 raise PermissionError(f"Authentication failed (status {e.response.status_code}). Check cookies. {e}") from e
             else:
                 raise Exception(f"HTTP error {e.response.status_code} while fetching SNlM0e: {e}") from e
 
-    async def __rotate_cookies(self):
+    async def __rotate_cookies(self) -> None:
         """Rotates the __Secure-1PSIDTS cookie."""
         try:
             response = await self.session.post(
@@ -492,7 +513,7 @@ class AsyncChatbot:
             raise
 
 
-    async def ask(self, message: str, image: Optional[Union[bytes, str, Path]] = None) -> dict:
+    async def ask(self, message: str, image: Optional[Union[bytes, str, Path]] = None) -> AskResponse:
         """
         Sends a message to Google Gemini and returns the response using curl_cffi.
 
@@ -521,7 +542,7 @@ class AsyncChatbot:
                 console.log(f"Image uploaded successfully. ID: {image_upload_id}")
             except Exception as e:
                 console.log(f"[red]Error uploading image: {e}[/red]")
-                return {"content": f"Error uploading image: {e}", "error": True}
+                return self._error_response(f"Error uploading image: {e}")
 
         if image_upload_id:
             message_struct = [
@@ -585,7 +606,7 @@ class AsyncChatbot:
                     continue
 
             if not body:
-                return {"content": "Failed to parse response body. No valid data found.", "error": True}
+                return self._error_response("Failed to parse response body. No valid data found.")
 
             try:
                 content = ""
@@ -705,7 +726,7 @@ class AsyncChatbot:
 
                 all_images = images + generated_images
 
-                results = {
+                results: AskResponse = {
                     "content": content,
                     "conversation_id": conversation_id,
                     "response_id": response_id,
@@ -725,23 +746,23 @@ class AsyncChatbot:
 
             except (IndexError, TypeError) as e:
                 console.log(f"[red]Error extracting data from response: {e}[/red]")
-                return {"content": f"Error extracting data from response: {e}", "error": True}
+                return self._error_response(f"Error extracting data from response: {e}")
 
         except json.JSONDecodeError as e:
             console.log(f"[red]Error parsing JSON response: {e}[/red]")
-            return {"content": f"Error parsing JSON response: {e}. Response: {resp.text[:200]}...", "error": True}
+            return self._error_response(f"Error parsing JSON response: {e}. Response: {resp.text[:200]}...")
         except Timeout as e:
             console.log(f"[red]Request timed out: {e}[/red]")
-            return {"content": f"Request timed out: {e}", "error": True}
+            return self._error_response(f"Request timed out: {e}")
         except (RequestException, CurlError) as e:
             console.log(f"[red]Network error: {e}[/red]")
-            return {"content": f"Network error: {e}", "error": True}
+            return self._error_response(f"Network error: {e}")
         except HTTPError as e:
             console.log(f"[red]HTTP error {e.response.status_code}: {e}[/red]")
-            return {"content": f"HTTP error {e.response.status_code}: {e}", "error": True}
+            return self._error_response(f"HTTP error {e.response.status_code}: {e}")
         except Exception as e:
             console.log(f"[red]An unexpected error occurred during ask: {e}[/red]", style="bold red")
-            return {"content": f"An unexpected error occurred: {e}", "error": True}
+            return self._error_response(f"An unexpected error occurred: {e}")
 
 
 
@@ -763,10 +784,10 @@ class Image(BaseModel):
     proxy: Optional[Union[str, Dict[str, str]]] = None
     impersonate: str = "chrome110"
 
-    def __str__(self):
+    def __str__(self) -> str:
         return f"{self.title}({self.url}) - {self.alt}"
 
-    def __repr__(self):
+    def __repr__(self) -> Any:
         short_url = self.url if len(self.url) <= 50 else self.url[:20] + "..." + self.url[-20:]
         short_alt = self.alt[:30] + "..." if len(self.alt) > 30 else self.alt
         return f"Image(title='{self.title}', url='{short_url}', alt='{short_alt}')"
@@ -775,7 +796,7 @@ class Image(BaseModel):
         self,
         path: str = "downloaded_images",
         filename: Optional[str] = None,
-        cookies: Optional[dict] = None,
+        cookies: Optional[Dict[str, str]] = None,
         verbose: bool = False,
         skip_invalid_filename: bool = True,
     ) -> Optional[str]:
@@ -840,7 +861,7 @@ class Image(BaseModel):
                 cookies=cookies,
                 proxies=proxies_dict,
                 impersonate=self.impersonate
-                
+
             ) as client:
                 if verbose:
                     console.log(f"Attempting to download image from: {self.url}")
@@ -883,7 +904,35 @@ class WebImage(Image):
 
     Returned when asking Gemini to "SEND an image of [something]".
     """
-    pass
+    async def save(
+        self,
+        path: str = "downloaded_images",
+        filename: Optional[str] = None,
+        cookies: Optional[Dict[str, str]] = None,
+        verbose: bool = False,
+        skip_invalid_filename: bool = True,
+    ) -> Optional[str]:
+        """
+        Save the image to disk using curl_cffi.
+        Parameters:
+            path: str, optional
+                Directory to save the image (default "downloaded_images").
+            filename: str, optional
+                Filename to use; if not provided, inferred from URL.
+            cookies: dict, optional
+                Cookies used for the image request.
+            verbose: bool, optional
+                If True, outputs status messages (default False).
+            skip_invalid_filename: bool, optional
+                If True, skips saving if the filename is invalid.
+        Returns:
+            Absolute path of the saved image if successful; None if skipped.
+        Raises:
+            HTTPError if the network request fails.
+            RequestException/CurlError for other network errors.
+            IOError if file writing fails.
+        """
+        return await super().save(path, filename, cookies, verbose, skip_invalid_filename)
 
 class GeneratedImage(Image):
     """
