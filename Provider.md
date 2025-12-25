@@ -2,6 +2,7 @@
 
 This document provides a comprehensive overview of all AI providers available in the Webscout library, categorized by their implementation types.
 
+
 ## Table of Contents
 - [Overview](#overview)
 - [Providers with Both Normal and OpenAI-Compatible Versions](#providers-with-both-normal-and-openai-compatible-versions)
@@ -207,6 +208,21 @@ Located in `webscout/Provider/UNFINISHED/`:
 - You want to easily switch between providers without code changes
 - You're migrating from OpenAI and want minimal code changes
 - You need standardized API interface across multiple providers
+
+### Normal Provider Implementation
+Concrete guidance when creating a "normal" (non-OpenAI-compatible) provider under `webscout/Provider/`:
+- Subclass `Provider` from `webscout.AIbase` and implement these methods: `ask(prompt, ...)`, `chat(prompt, ...)`, and `get_message(response)`.
+- Keep provider class names and filenames consistent (CamelCase class name matching the filename) and add a static import in `webscout/Provider/__init__.py` to expose the provider at the package root.
+- Prefer `requests.Session` for HTTP clients and avoid global mutable state so provider instances are safe to reuse.
+- Add unit tests under `tests/providers/` that mock HTTP and validate normal and error behavior (including streaming if supported).
+- Document the provider in `Provider.md` and a short usage snippet in `docs/` when appropriate.
+
+### Use uv for All Commands
+We use `uv` to manage the Python environment and run tools. Never run bare `python` or `pip` directly — always run commands with `uv` to avoid environment drift and to use the project's lockfile. Examples:
+- `uv add <package>` / `uv remove <package>` — manage dependencies
+- `uv sync` — install dependencies declared in `pyproject.toml` and `uv.lock`
+- `uv run <command>` — run a script or tool inside the uv environment (e.g., `uv run pytest`, `uv run webscout`)
+- `uv run --extra api webscout-server` — run the API server with extra dependencies
 
 ### Example Usage
 

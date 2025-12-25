@@ -2,6 +2,13 @@
 
 All notable changes to this project will be documented in this file.
 
+## [2025.12.23] - 2025-12-23
+
+### ✨ Added
+- **feat**: Added new models to HadadXYZ providers: `"anthropic/claude-opus-4-5-20251101"`, `"anthropic/claude-sonnet-4-5-20250929"`, `"anthropic/claude-haiku-4-5-20251001/legacy"`, and `"google/gemini-3-pro-preview"` to both `webscout/Provider/HadadXYZ.py` and `webscout/Provider/OPENAI/hadadxyz.py`.
+
+- **feat**: webscout/Provider/QwenLM.py - Added new models to this provider
+
 ## [2025.12.21] - 2025-12-21
 
 ### 🐛 Fixed

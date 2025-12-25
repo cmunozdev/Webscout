@@ -15,11 +15,14 @@ class QwenLM(Provider):
     """
     required_auth = True
     AVAILABLE_MODELS = [
-        "qwen-plus-2025-09-11",
         "qwen3-max-2025-10-30",
-        "qwen3-max-preview",
-        "qwen3-235b-a22b",
+        "qwen3-vl-plus",
         "qwen3-coder-plus",
+        "qwen3-vl-32b",
+        "qwen3-vl-30b-a3b",
+        "qwen3-omni-flash-2025-12-01",
+        "qwen-plus-2025-09-11",
+        "qwen-plus-2025-07-28",
         "qwen3-30b-a3b",
         "qwen3-coder-30b-a3b-instruct",
         "qwen-max-latest",

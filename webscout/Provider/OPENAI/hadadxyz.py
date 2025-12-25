@@ -229,6 +229,7 @@ class HadadXYZ(OpenAICompatibleProvider):
         "deepseek-ai/deepseek-v3.2-thinking",
         "google/gemini-2.5-flash-lite-search",
         "google/gemini-2.5-flash-lite",
+        "google/gemini-3-pro-preview",
         "minimaxai/minimax-m2",
         "mistralai/devstral-2-123b-instruct-2512",
         "mistralai/devstral-small-2-24b-instruct-2512",
@@ -247,6 +248,9 @@ class HadadXYZ(OpenAICompatibleProvider):
         "qwen/qwen3-vl-235b-a22b-thinking",
         "grok",
         "zai-org/glm-4.6",
+        "anthropic/claude-opus-4-5-20251101",
+        "anthropic/claude-sonnet-4-5-20250929",
+        "anthropic/claude-haiku-4-5-20251001/legacy",
     ]
 
     def __init__(self, timeout: int = 60):
