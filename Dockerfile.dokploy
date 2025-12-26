@@ -1,6 +1,7 @@
 # =============================================================================
-# Dockerfile.dokploy - Optimized for Dokploy Deployment
-# Based on original Dockerfile with fixes for production deployment
+# Dockerfile.dokploy.lite - Versión LIGERA sin PyTorch
+# Recomendado para servidor API puro (sin procesamiento ML local)
+# Tamaño final: ~1GB vs ~4GB con torch
 # =============================================================================
 
 # -----------------------------------------------------------------------------
@@ -40,14 +41,19 @@ RUN if [ "$WEBSCOUT_VERSION" = "latest" ]; then \
         pip install git+https://github.com/cmunozdev/Webscout.git@${WEBSCOUT_VERSION}#egg=webscout[api]; \
     fi
 
-# Install missing dependencies that cause import errors
-RUN pip install \
+# FIX: Install ONLY essential missing dependencies (sin torch)
+# Esto reduce el tamaño de la imagen dramáticamente
+RUN pip install --no-cache-dir \
     huggingface-hub \
-    transformers \
-    torch --index-url https://download.pytorch.org/whl/cpu
+    tokenizers \
+    filelock \
+    pyyaml \
+    tqdm \
+    requests \
+    packaging
 
 # Install production server dependencies
-RUN pip install \
+RUN pip install --no-cache-dir \
     gunicorn[gthread] \
     uvicorn[standard] \
     prometheus-client \
@@ -64,8 +70,8 @@ ARG VERSION=0.2.0
 
 LABEL maintainer="cmunozdev" \
       org.label-schema.build-date=$BUILD_DATE \
-      org.label-schema.name="webscout-api-dokploy" \
-      org.label-schema.description="Webscout API Server for Dokploy - OpenAI-compatible LLM proxy" \
+      org.label-schema.name="webscout-api-dokploy-lite" \
+      org.label-schema.description="Webscout API Server for Dokploy - Lightweight version" \
       org.label-schema.url="https://github.com/cmunozdev/Webscout" \
       org.label-schema.vcs-ref=$VCS_REF \
       org.label-schema.vcs-url="https://github.com/cmunozdev/Webscout" \
