@@ -1,0 +1,107 @@
+# =============================================================================
+# Docker Compose - Webscout API Production
+# Versión final simplificada para producción en Dokploy
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Webscout API Server - Producción
+  # =============================================================================
+  webscout-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.prod
+      args:
+        - WEBSCOUT_VERSION=${WEBSCOUT_VERSION:-latest}
+        - BUILD_DATE=${BUILD_DATE:-}
+        - VCS_REF=${VCS_REF:-}
+        - VERSION=${VERSION:-1.0.0}
+    
+    image: webscout-api:prod
+    restart: unless-stopped
+
+    environment:
+      # Server Configuration
+      - WEBSCOUT_HOST=0.0.0.0
+      - WEBSCOUT_PORT=${WEBSCOUT_INTERNAL_PORT:-8000}
+      - WEBSCOUT_WORKERS=${WEBSCOUT_WORKERS:-4}
+      - WEBSCOUT_LOG_LEVEL=${WEBSCOUT_LOG_LEVEL:-info}
+      - WEBSCOUT_DEBUG=false
+      
+      # Directories
+      - WEBSCOUT_DATA_DIR=/app/data
+      - WEBSCOUT_LOG_DIR=/app/logs
+      
+      # API Settings
+      - WEBSCOUT_API_TITLE=Webscout OpenAI API
+      - WEBSCOUT_API_VERSION=1.0.0
+      - WEBSCOUT_API_DESCRIPTION=OpenAI-compatible API for multiple LLM providers
+      - WEBSCOUT_CORS_ORIGINS=${WEBSCOUT_CORS_ORIGINS:-*}
+      - WEBSCOUT_REQUEST_LOGGING=true
+      
+      # Python Settings
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+
+    ports:
+      - "${WEBSCOUT_EXTERNAL_PORT:-8000}:${WEBSCOUT_INTERNAL_PORT:-8000}"
+
+    volumes:
+      - webscout-logs:/app/logs
+      - webscout-data:/app/data
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEBSCOUT_INTERNAL_PORT:-8000}/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 15s
+
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT:-2G}
+          cpus: ${CPU_LIMIT:-2.0}
+        reservations:
+          memory: ${MEMORY_RESERVATION:-1G}
+          cpus: ${CPU_RESERVATION:-1.0}
+
+    security_opt:
+      - no-new-privileges:true
+
+    cap_drop:
+      - ALL
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+        compress: "true"
+
+    labels:
+      - "com.webscout.service=api"
+      - "com.webscout.version=${VERSION:-1.0.0}"
+      - "com.webscout.environment=production"
+
+# =============================================================================
+# Volumes
+# =============================================================================
+volumes:
+  webscout-logs:
+    driver: local
+    name: webscout-prod-logs
+  
+  webscout-data:
+    driver: local
+    name: webscout-prod-data
+
+# =============================================================================
+# Network
+# =============================================================================
+networks:
+  default:
+    name: webscout-prod-network
+    driver: bridge
