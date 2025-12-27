@@ -42,32 +42,27 @@ RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
 # Actualizar pip, setuptools y wheel
-RUN pip install --no-cache-dir --upgrade \
-    pip==24.0 \
-    setuptools==69.0.3 \
-    wheel==0.42.0
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Instalar Webscout con todas las dependencias del API server
 # El extra [api] incluye: fastapi, uvicorn, pydantic, huggingface_hub, etc.
 RUN pip install --no-cache-dir \
     "webscout[api]" \
-    gunicorn==21.2.0 \
-    uvicorn[standard]==0.27.0
+    gunicorn \
+    uvicorn[standard]
 
-# Verificar que todas las dependencias críticas estén instaladas
+# Verificar instalaciones de manera individual (más fácil de debuggear)
 RUN echo "=== Verificando instalación ===" && \
-    python -c "import webscout; print(f'✅ Webscout version: {webscout.__version__}')" && \
-    python -c "import huggingface_hub; print('✅ huggingface_hub instalado')" && \
-    python -c "import fastapi; print('✅ FastAPI instalado')" && \
-    python -c "import uvicorn; print('✅ Uvicorn instalado')" && \
-    python -c "import gunicorn; print('✅ Gunicorn instalado')" && \
-    python -c "import pydantic; print('✅ Pydantic instalado')" && \
-    echo "=== Instalación verificada correctamente ==="
+    python -c "import webscout; print('✅ Webscout instalado')" || echo "❌ Webscout FAILED" && \
+    python -c "import huggingface_hub; print('✅ huggingface_hub instalado')" || echo "❌ huggingface_hub FAILED" && \
+    python -c "import fastapi; print('✅ FastAPI instalado')" || echo "❌ FastAPI FAILED" && \
+    python -c "import uvicorn; print('✅ Uvicorn instalado')" || echo "❌ Uvicorn FAILED" && \
+    python -c "import gunicorn; print('✅ Gunicorn instalado')" || echo "❌ Gunicorn FAILED" && \
+    python -c "import pydantic; print('✅ Pydantic instalado')" || echo "❌ Pydantic FAILED" && \
+    echo "=== Verificación completada ==="
 
 # Listar paquetes instalados para debugging
-RUN pip list > /tmp/installed_packages.txt && \
-    echo "=== Paquetes instalados ===" && \
-    cat /tmp/installed_packages.txt
+RUN pip list
 
 # =============================================================================
 # Stage 2: Runtime - Imagen final ligera para producción
@@ -119,9 +114,6 @@ HEALTHCHECK --interval=30s \
             --start-period=15s \
             --retries=3 \
     CMD curl -f http://localhost:${WEBSCOUT_PORT:-8000}/monitor/health || exit 1
-
-# Verificar que webscout-server esté disponible
-RUN which webscout-server || echo "Warning: webscout-server not found in PATH"
 
 # Comando por defecto - iniciar el servidor API de Webscout
 # El servidor lee automáticamente las variables de entorno WEBSCOUT_*
