@@ -1,64 +1,206 @@
-# =============================================================================
-# docker-compose.dokploy.yml
-# Configuración optimizada para deployment en Dokploy
-# No modifica los archivos originales del repositorio
-# =============================================================================
-
 version: '3.8'
 
 services:
- webscout-api-production:
+  # -----------------------------------------------------------------------------
+  # Servicio Base (Desarrollo/Testing)
+  # -----------------------------------------------------------------------------
+  webscout-api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - WEBSCOUT_VERSION=latest
+        - BUILD_DATE=${BUILD_DATE:-}
+        - VCS_REF=${VCS_REF:-}
+        - VERSION=${VERSION:-latest}
+    image: webscout-api:latest
+    restart: unless-stopped
+    profiles:
+      - development
+
+    environment:
+      - WEBSCOUT_HOST=0.0.0.0
+      - WEBSCOUT_PORT=${WEBSCOUT_INTERNAL_PORT:-8000}
+      - WEBSCOUT_WORKERS=1
+      - WEBSCOUT_LOG_LEVEL=info
+      - WEBSCOUT_DEBUG=false
+      - WEBSCOUT_DATA_DIR=/app/data
+      - WEBSCOUT_CORS_ORIGINS=${WEBSCOUT_CORS_ORIGINS:-*}
+      - WEBSCOUT_REQUEST_LOGGING=true
+
+    ports:
+      - "${WEBSCOUT_EXTERNAL_PORT:-8000}:${WEBSCOUT_INTERNAL_PORT:-8000}"
+
+    volumes:
+      - webscout-logs:/app/logs
+      - webscout-data:/app/data
+
+    command: ["python", "-m", "webscout.server.server"]
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEBSCOUT_INTERNAL_PORT:-8000}/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT:-1G}
+          cpus: ${CPU_LIMIT:-1.0}
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -----------------------------------------------------------------------------
+  # Producción con Gunicorn
+  # -----------------------------------------------------------------------------
+  webscout-api-production:
     build:
       context: .
       dockerfile: Dockerfile
       args:
         - WEBSCOUT_VERSION=latest
     image: webscout-api:latest
-    container_name: webscout-api-prod
     restart: unless-stopped
     profiles:
       - production
 
     environment:
       - WEBSCOUT_HOST=0.0.0.0
-      - WEBSCOUT_PORT=8000
-      - WEBSCOUT_WORKERS=4  # More workers for production
-      - WEBSCOUT_LOG_LEVEL=warning
+      - WEBSCOUT_PORT=${WEBSCOUT_INTERNAL_PORT:-8000}
+      - WEBSCOUT_WORKERS=${WEBSCOUT_WORKERS:-4}
+      - WEBSCOUT_LOG_LEVEL=${WEBSCOUT_LOG_LEVEL:-warning}
       - WEBSCOUT_DEBUG=false
       - WEBSCOUT_DATA_DIR=/app/data
-
-      # Authentication settings (production defaults)
-      # Note: These may not be fully supported by the server yet
-      # Server currently defaults to no authentication
-
-      # Security and performance
-      - WEBSCOUT_CORS_ORIGINS=*
+      - WEBSCOUT_CORS_ORIGINS=${WEBSCOUT_CORS_ORIGINS:-*}
       - WEBSCOUT_REQUEST_LOGGING=true
 
     ports:
-      - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"
+      - "${WEBSCOUT_EXTERNAL_PORT:-8000}:${WEBSCOUT_INTERNAL_PORT:-8000}"
 
     volumes:
       - webscout-logs:/app/logs
       - webscout-data:/app/data
 
-    command: [
-      "gunicorn",
-      "--bind", "0.0.0.0:${WEBSCOUT_PORT:-8000}",
-      "--workers", "4",
-      "--worker-class", "uvicorn.workers.UvicornWorker",
-      "--log-level", "warning",
-      "--access-logfile", "/app/logs/access.log",
-      "--error-logfile", "/app/logs/error.log",
-      "--preload",
-      "webscout.server.server:create_app"
-    ]
+    command: >
+      sh -c "gunicorn
+      --bind 0.0.0.0:$${WEBSCOUT_INTERNAL_PORT:-8000}
+      --workers $${WEBSCOUT_WORKERS:-4}
+      --worker-class uvicorn.workers.UvicornWorker
+      --log-level $${WEBSCOUT_LOG_LEVEL:-warning}
+      --access-logfile /app/logs/access.log
+      --error-logfile /app/logs/error.log
+      --preload
+      webscout.server.server:create_app"
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEBSCOUT_INTERNAL_PORT:-8000}/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
     deploy:
       resources:
         limits:
-          memory: 2G
-          cpus: '2.0'
+          memory: ${MEMORY_LIMIT:-2G}
+          cpus: ${CPU_LIMIT:-2.0}
         reservations:
-          memory: 1G
-          cpus: '1.0'
+          memory: ${MEMORY_RESERVATION:-1G}
+          cpus: ${CPU_RESERVATION:-1.0}
+
+    security_opt:
+      - no-new-privileges:true
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -----------------------------------------------------------------------------
+  # Nginx (opcional)
+  # -----------------------------------------------------------------------------
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    profiles:
+      - nginx-standalone
+
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - webscout-logs:/var/log/nginx
+
+    depends_on:
+      - webscout-api-production
+
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/monitor/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # -----------------------------------------------------------------------------
+  # Prometheus (opcional)
+  # -----------------------------------------------------------------------------
+  prometheus:
+    image: prom/prometheus:latest
+    restart: unless-stopped
+    profiles:
+      - monitoring
+
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+# =============================================================================
+# Volúmenes
+# =============================================================================
+volumes:
+  webscout-logs:
+    driver: local
+  webscout-data:
+    driver: local
+  prometheus-data:
+    driver: local
+
+# =============================================================================
+# Redes
+# =============================================================================
+networks:
+  default:
+    name: ${NETWORK_NAME:-webscout-network}
+    driver: bridge
