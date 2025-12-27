@@ -1,6 +1,6 @@
 # =============================================================================
 # Docker Compose - Webscout API Production
-# Versión final simplificada para producción en Dokploy
+# Versión final para producción en Dokploy
 # =============================================================================
 
 version: '3.8'
@@ -84,6 +84,66 @@ services:
     labels:
       - "com.webscout.service=api"
       - "com.webscout.version=${VERSION:-1.0.0}"
+      - "com.webscout.environment=production"
+
+  # =============================================================================
+  # Nginx Reverse Proxy (Incluido pero puede estar inactivo)
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    
+    # Usar puerto diferente para evitar conflictos con Dokploy
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    
+    volumes:
+      - webscout-logs:/var/log/nginx
+      # Descomentar si tienes nginx.conf personalizado
+      # - ./nginx.conf:/etc/nginx/nginx.conf:ro
+    
+    depends_on:
+      - webscout-api
+    
+    # Configuración básica de nginx via command
+    command: >
+      sh -c "
+      echo 'events { worker_connections 1024; }
+      http {
+        upstream api {
+          server webscout-api:${WEBSCOUT_INTERNAL_PORT:-8000};
+        }
+        server {
+          listen 80;
+          location / {
+            proxy_pass http://api;
+            proxy_set_header Host \$$host;
+            proxy_set_header X-Real-IP \$$remote_addr;
+          }
+          location /health {
+            access_log off;
+            return 200 \"healthy\n\";
+          }
+        }
+      }' > /etc/nginx/nginx.conf &&
+      nginx -g 'daemon off;'
+      "
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    labels:
+      - "com.webscout.service=nginx"
       - "com.webscout.environment=production"
 
 # =============================================================================
