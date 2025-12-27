@@ -225,12 +225,6 @@ services:
     depends_on:
       - webscout-api
 
-    healthcheck:
-      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/monitor/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-
   # -----------------------------------------------------------------------------
   # Monitoring with Prometheus (optional)
   # Note: You'll need to provide your own prometheus.yml configuration file
