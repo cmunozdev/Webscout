@@ -7,129 +7,58 @@
 version: '3.8'
 
 services:
-  # -----------------------------------------------------------------------------
-  # Webscout API Server - Configuración para Dokploy
-  # -----------------------------------------------------------------------------
-  webscout-api:
+ webscout-api-production:
     build:
       context: .
-      dockerfile: Dockerfile.dokploy
+      dockerfile: Dockerfile
       args:
-        WEBSCOUT_VERSION: ${WEBSCOUT_VERSION:-latest}
-        BUILD_DATE: ${BUILD_DATE:-2024-12-26}
-        VCS_REF: ${VCS_REF:-main}
-        VERSION: ${VERSION:-0.2.0}
-    
-    image: webscout-api-dokploy:latest
-    container_name: webscout-api-dokploy
+        - WEBSCOUT_VERSION=latest
+    image: webscout-api:latest
+    container_name: webscout-api-prod
     restart: unless-stopped
-    
-    # ==========================================================================
-    # VARIABLES DE ENTORNO - Configura según tus necesidades
-    # ==========================================================================
+    profiles:
+      - production
+
     environment:
-      # Configuración del servidor
       - WEBSCOUT_HOST=0.0.0.0
-      - WEBSCOUT_PORT=${WEBSCOUT_PORT:-8000}
-      - WEBSCOUT_WORKERS=${WEBSCOUT_WORKERS:-4}
-      - WEBSCOUT_LOG_LEVEL=${WEBSCOUT_LOG_LEVEL:-info}
-      - WEBSCOUT_DEBUG=${WEBSCOUT_DEBUG:-false}
-      
-      # Directorios
+      - WEBSCOUT_PORT=8000
+      - WEBSCOUT_WORKERS=4  # More workers for production
+      - WEBSCOUT_LOG_LEVEL=warning
+      - WEBSCOUT_DEBUG=false
       - WEBSCOUT_DATA_DIR=/app/data
-      
-      # ==========================================================================
-      # AUTENTICACIÓN - Descomenta la opción que necesites
-      # ==========================================================================
-      
-      # OPCIÓN A: Sin autenticación (desarrollo/testing)
-      # Usar solo en entornos seguros o detrás de firewall
-      - WEBSCOUT_NO_AUTH=${WEBSCOUT_NO_AUTH:-true}
-      - WEBSCOUT_NO_RATE_LIMIT=${WEBSCOUT_NO_RATE_LIMIT:-true}
-      
-      # OPCIÓN B: Con autenticación (producción)
-      # Descomenta estas líneas y comenta las de arriba
-      # - WEBSCOUT_NO_AUTH=false
-      # - WEBSCOUT_API_KEY=${WEBSCOUT_API_KEY}
-      # - WEBSCOUT_NO_RATE_LIMIT=false
-      
-      # ==========================================================================
-      # CORS Y SEGURIDAD
-      # ==========================================================================
-      - WEBSCOUT_CORS_ORIGINS=${WEBSCOUT_CORS_ORIGINS:-*}
-      
-      # ==========================================================================
-      # LOGGING Y MONITOREO
-      # ==========================================================================
-      - WEBSCOUT_REQUEST_LOGGING=${WEBSCOUT_REQUEST_LOGGING:-true}
-      
-      # ==========================================================================
-      # METADATOS DE LA API
-      # ==========================================================================
-      - WEBSCOUT_API_TITLE=Webscout OpenAI API
-      - WEBSCOUT_API_DESCRIPTION=OpenAI API compatible interface for various LLM providers
-      - WEBSCOUT_API_VERSION=0.2.0
-      - WEBSCOUT_API_DOCS_URL=/docs
-      - WEBSCOUT_API_REDOC_URL=/redoc
-      - WEBSCOUT_API_OPENAPI_URL=/openapi.json
-    
-    # Mapeo de puertos
+
+      # Authentication settings (production defaults)
+      # Note: These may not be fully supported by the server yet
+      # Server currently defaults to no authentication
+
+      # Security and performance
+      - WEBSCOUT_CORS_ORIGINS=*
+      - WEBSCOUT_REQUEST_LOGGING=true
+
     ports:
-      - "${WEBSCOUT_PORT:-8000}:8000"
-    
-    # Volúmenes para persistencia de datos
+      - "${WEBSCOUT_PORT:-8000}:${WEBSCOUT_PORT:-8000}"
+
     volumes:
-      - webscout-data:/app/data
       - webscout-logs:/app/logs
-    
-    # Red
-    networks:
-      - webscout-network
-    
-    # Health check
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/monitor/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 15s
-    
-    # Límites de recursos (ajusta según tu servidor)
+      - webscout-data:/app/data
+
+    command: [
+      "gunicorn",
+      "--bind", "0.0.0.0:${WEBSCOUT_PORT:-8000}",
+      "--workers", "4",
+      "--worker-class", "uvicorn.workers.UvicornWorker",
+      "--log-level", "warning",
+      "--access-logfile", "/app/logs/access.log",
+      "--error-logfile", "/app/logs/error.log",
+      "--preload",
+      "webscout.server.server:create_app"
+    ]
+
     deploy:
       resources:
         limits:
-          cpus: '2.0'
-          memory: 4G
-        reservations:
-          cpus: '1.0'
           memory: 2G
-    
-    # Configuración de seguridad
-    security_opt:
-      - no-new-privileges:true
-    
-    # Logging
-    logging:
-      driver: "json-file"
-      options:
-        max-size: "10m"
-        max-file: "3"
-
-# =============================================================================
-# VOLÚMENES
-# =============================================================================
-volumes:
-  webscout-data:
-    driver: local
-    name: webscout-dokploy-data
-  webscout-logs:
-    driver: local
-    name: webscout-dokploy-logs
-
-# =============================================================================
-# REDES
-# =============================================================================
-networks:
-  webscout-network:
-    driver: bridge
-    name: webscout-dokploy-network
+          cpus: '2.0'
+        reservations:
+          memory: 1G
+          cpus: '1.0'
