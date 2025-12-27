@@ -1,0 +1,154 @@
+# =============================================================================
+# Docker Compose - Webscout API Production
+# Configuración optimizada para Dokploy
+# =============================================================================
+
+version: '3.8'
+
+services:
+  # =============================================================================
+  # Webscout API Server - Producción
+  # =============================================================================
+  webscout-api:
+    build:
+      context: .
+      dockerfile: Dockerfile.production
+      args:
+        - WEBSCOUT_VERSION=${WEBSCOUT_VERSION:-latest}
+        - BUILD_DATE=${BUILD_DATE:-}
+        - VCS_REF=${VCS_REF:-}
+        - VERSION=${VERSION:-1.0.0}
+      cache_from:
+        - webscout-api:latest
+    
+    image: webscout-api:production
+    
+    # NO usar container_name para permitir múltiples instancias
+    # container_name: webscout-api
+    
+    restart: unless-stopped
+
+    # Variables de entorno del servidor
+    environment:
+      # Configuración del servidor
+      - WEBSCOUT_HOST=0.0.0.0
+      - WEBSCOUT_PORT=${WEBSCOUT_INTERNAL_PORT:-8000}
+      - WEBSCOUT_WORKERS=${WEBSCOUT_WORKERS:-4}
+      - WEBSCOUT_LOG_LEVEL=${WEBSCOUT_LOG_LEVEL:-info}
+      - WEBSCOUT_DEBUG=${WEBSCOUT_DEBUG:-false}
+      
+      # Directorios
+      - WEBSCOUT_DATA_DIR=/app/data
+      - WEBSCOUT_LOG_DIR=/app/logs
+      
+      # API Configuration
+      - WEBSCOUT_API_TITLE=${WEBSCOUT_API_TITLE:-Webscout OpenAI API}
+      - WEBSCOUT_API_VERSION=${WEBSCOUT_API_VERSION:-1.0.0}
+      - WEBSCOUT_API_DESCRIPTION=${WEBSCOUT_API_DESCRIPTION:-OpenAI-compatible API for multiple LLM providers}
+      
+      # CORS
+      - WEBSCOUT_CORS_ORIGINS=${WEBSCOUT_CORS_ORIGINS:-*}
+      
+      # Proveedor por defecto (opcional)
+      - WEBSCOUT_DEFAULT_PROVIDER=${WEBSCOUT_DEFAULT_PROVIDER:-}
+      
+      # Logging
+      - WEBSCOUT_REQUEST_LOGGING=${WEBSCOUT_REQUEST_LOGGING:-true}
+      
+      # Python
+      - PYTHONUNBUFFERED=1
+      - PYTHONDONTWRITEBYTECODE=1
+
+    # Mapeo de puertos (configurable via .env)
+    ports:
+      - "${WEBSCOUT_EXTERNAL_PORT:-8000}:${WEBSCOUT_INTERNAL_PORT:-8000}"
+
+    # Volúmenes para persistencia
+    volumes:
+      - webscout-logs:/app/logs
+      - webscout-data:/app/data
+      # Descomentar si necesitas montar configuración personalizada
+      # - ./config:/app/config:ro
+
+    # Health check (redundante con el del Dockerfile pero más configurable)
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:${WEBSCOUT_INTERNAL_PORT:-8000}/monitor/health"]
+      interval: ${HEALTHCHECK_INTERVAL:-30s}
+      timeout: ${HEALTHCHECK_TIMEOUT:-10s}
+      retries: ${HEALTHCHECK_RETRIES:-3}
+      start_period: ${HEALTHCHECK_START_PERIOD:-15s}
+
+    # Límites de recursos
+    deploy:
+      resources:
+        limits:
+          memory: ${MEMORY_LIMIT:-2G}
+          cpus: ${CPU_LIMIT:-2.0}
+        reservations:
+          memory: ${MEMORY_RESERVATION:-1G}
+          cpus: ${CPU_RESERVATION:-1.0}
+      
+      # Estrategia de reinicio
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+    # Seguridad
+    security_opt:
+      - no-new-privileges:true
+    
+    # Capacidades (drop all, add only needed)
+    cap_drop:
+      - ALL
+    # Descomentar si necesitas capacidades específicas
+    # cap_add:
+    #   - NET_BIND_SERVICE
+
+    # Logging
+    logging:
+      driver: "json-file"
+      options:
+        max-size: ${LOG_MAX_SIZE:-10m}
+        max-file: ${LOG_MAX_FILES:-3}
+        compress: "true"
+
+    # Labels para metadata
+    labels:
+      - "com.webscout.service=api"
+      - "com.webscout.version=${VERSION:-1.0.0}"
+      - "com.webscout.environment=production"
+      # Descomentar si usas Traefik
+      # - "traefik.enable=true"
+      # - "traefik.http.routers.webscout.rule=Host(`api.yourdomain.com`)"
+      # - "traefik.http.services.webscout.loadbalancer.server.port=8000"
+
+# =============================================================================
+# Volúmenes nombrados para persistencia
+# =============================================================================
+volumes:
+  webscout-logs:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_LOGS_PATH:-./logs}
+  
+  webscout-data:
+    driver: local
+    driver_opts:
+      type: none
+      o: bind
+      device: ${HOST_DATA_PATH:-./data}
+
+# =============================================================================
+# Red personalizada
+# =============================================================================
+networks:
+  default:
+    name: ${NETWORK_NAME:-webscout-production}
+    driver: bridge
+    ipam:
+      config:
+        - subnet: ${NETWORK_SUBNET:-172.25.0.0/16}
