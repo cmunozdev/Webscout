@@ -1,0 +1,128 @@
+# =============================================================================
+# Webscout API - Production Dockerfile
+# Multi-stage build optimizado para producción en Dokploy
+# =============================================================================
+
+# =============================================================================
+# Stage 1: Builder - Construcción e instalación de dependencias
+# =============================================================================
+FROM python:3.11-slim as builder
+
+WORKDIR /app
+
+# Build arguments para metadata
+ARG WEBSCOUT_VERSION=latest
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
+
+# Metadata labels
+LABEL maintainer="webscout-api@example.com" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.title="Webscout API Server - Production" \
+      org.opencontainers.image.description="OpenAI-compatible API for multiple LLM providers" \
+      org.opencontainers.image.url="https://github.com/OEvortex/Webscout" \
+      org.opencontainers.image.vendor="Webscout"
+
+# Instalar dependencias del sistema necesarias para compilación
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl \
+    gcc \
+    g++ \
+    git \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+# Crear entorno virtual Python
+RUN python -m venv /opt/venv
+
+# Activar entorno virtual
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Actualizar pip, setuptools y wheel
+RUN pip install --no-cache-dir --upgrade \
+    pip==24.0 \
+    setuptools==69.0.3 \
+    wheel==0.42.0
+
+# Instalar Webscout con todas las dependencias del API server
+# El extra [api] incluye: fastapi, uvicorn, pydantic, huggingface_hub, etc.
+RUN pip install --no-cache-dir \
+    "webscout[api]" \
+    gunicorn==21.2.0 \
+    uvicorn[standard]==0.27.0
+
+# Verificar que todas las dependencias críticas estén instaladas
+RUN echo "=== Verificando instalación ===" && \
+    python -c "import webscout; print(f'✅ Webscout version: {webscout.__version__}')" && \
+    python -c "import huggingface_hub; print('✅ huggingface_hub instalado')" && \
+    python -c "import fastapi; print('✅ FastAPI instalado')" && \
+    python -c "import uvicorn; print('✅ Uvicorn instalado')" && \
+    python -c "import gunicorn; print('✅ Gunicorn instalado')" && \
+    python -c "import pydantic; print('✅ Pydantic instalado')" && \
+    echo "=== Instalación verificada correctamente ==="
+
+# Listar paquetes instalados para debugging
+RUN pip list > /tmp/installed_packages.txt && \
+    echo "=== Paquetes instalados ===" && \
+    cat /tmp/installed_packages.txt
+
+# =============================================================================
+# Stage 2: Runtime - Imagen final ligera para producción
+# =============================================================================
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Copiar entorno virtual completo desde el builder
+COPY --from=builder /opt/venv /opt/venv
+
+# Configurar PATH para usar el entorno virtual
+ENV PATH="/opt/venv/bin:$PATH"
+
+# Instalar solo dependencias runtime esenciales (mínimas)
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get clean
+
+# Crear estructura de directorios
+RUN mkdir -p /app/logs /app/data
+
+# Crear usuario no-root para seguridad
+RUN useradd -m -u 1000 -s /bin/bash appuser && \
+    chown -R appuser:appuser /app
+
+# Cambiar a usuario no-root
+USER appuser
+
+# Exponer puerto por defecto (configurable via ENV)
+EXPOSE 8000
+
+# Variables de entorno por defecto
+ENV WEBSCOUT_HOST=0.0.0.0 \
+    WEBSCOUT_PORT=8000 \
+    WEBSCOUT_WORKERS=4 \
+    WEBSCOUT_LOG_LEVEL=info \
+    WEBSCOUT_DEBUG=false \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONPATH=/app
+
+# Health check para monitoreo
+HEALTHCHECK --interval=30s \
+            --timeout=10s \
+            --start-period=15s \
+            --retries=3 \
+    CMD curl -f http://localhost:${WEBSCOUT_PORT:-8000}/monitor/health || exit 1
+
+# Verificar que webscout-server esté disponible
+RUN which webscout-server || echo "Warning: webscout-server not found in PATH"
+
+# Comando por defecto - iniciar el servidor API de Webscout
+# El servidor lee automáticamente las variables de entorno WEBSCOUT_*
+CMD ["webscout-server"]
