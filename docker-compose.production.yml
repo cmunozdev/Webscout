@@ -145,6 +145,47 @@ volumes:
 # =============================================================================
 # Red personalizada
 # =============================================================================
+  # =============================================================================
+  # Nginx Reverse Proxy (Opcional)
+  # Descomenta si necesitas nginx como reverse proxy
+  # =============================================================================
+  nginx:
+    image: nginx:alpine
+    restart: unless-stopped
+    
+    ports:
+      - "${NGINX_HTTP_PORT:-8080}:80"
+      - "${NGINX_HTTPS_PORT:-8443}:443"
+    
+    volumes:
+      # Descomentar y configurar nginx.conf si lo necesitas
+      # - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      # - ./ssl:/etc/nginx/ssl:ro
+      - webscout-logs:/var/log/nginx
+    
+    depends_on:
+      - webscout-api
+    
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    
+    labels:
+      - "com.webscout.service=nginx"
+      - "com.webscout.environment=production"
+    
+    # Descomentar para activar este servicio
+    profiles:
+      - with-nginx
+
 networks:
   default:
     name: ${NETWORK_NAME:-webscout-production}
