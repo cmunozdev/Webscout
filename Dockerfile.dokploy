@@ -1,138 +1,99 @@
 # =============================================================================
-# Dockerfile.dokploy.lite - Versión LIGERA sin PyTorch
-# Recomendado para servidor API puro (sin procesamiento ML local)
-# Tamaño final: ~1GB vs ~4GB con torch
+# Multi-stage Dockerfile for Webscout API
+# Based on official Webscout documentation
 # =============================================================================
 
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Stage 1: Builder
-# -----------------------------------------------------------------------------
+# =============================================================================
 FROM python:3.11-slim as builder
 
+WORKDIR /app
+
+# Build arguments
 ARG WEBSCOUT_VERSION=latest
-ARG TARGETPLATFORM
-ARG BUILDPLATFORM
+ARG BUILD_DATE
+ARG VCS_REF
+ARG VERSION
 
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    PIP_DEFAULT_TIMEOUT=100
+# Labels (metadata)
+LABEL maintainer="your-email@example.com" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.title="Webscout API Server" \
+      org.opencontainers.image.description="OpenAI API compatible interface for various LLM providers"
 
-# Install build dependencies
+# Instalar dependencias del sistema para compilación
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    gcc \
-    git \
     curl \
+    gcc \
+    g++ \
+    git \
     && rm -rf /var/lib/apt/lists/*
 
-# Create virtual environment
+# Crear entorno virtual
 RUN python -m venv /opt/venv
 ENV PATH="/opt/venv/bin:$PATH"
 
-# Upgrade pip
-RUN pip install --upgrade pip setuptools wheel
+# Actualizar pip
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Install webscout with API dependencies
-RUN if [ "$WEBSCOUT_VERSION" = "latest" ]; then \
-        pip install git+https://github.com/cmunozdev/Webscout.git#egg=webscout[api]; \
-    else \
-        pip install git+https://github.com/cmunozdev/Webscout.git@${WEBSCOUT_VERSION}#egg=webscout[api]; \
+# ⭐ INSTALACIÓN CORRECTA DE WEBSCOUT CON EXTRAS
+# Según la documentación oficial: pip install "webscout[api]"
+RUN pip install --no-cache-dir "webscout[api]"
+
+# Si tienes requirements.txt adicionales, instalar también
+COPY requirements.txt* ./
+RUN if [ -f requirements.txt ]; then \
+        pip install --no-cache-dir -r requirements.txt; \
     fi
 
-# FIX: Install ONLY essential missing dependencies (sin torch)
-# Esto reduce el tamaño de la imagen dramáticamente
-RUN pip install --no-cache-dir \
-    huggingface-hub \
-    tokenizers \
-    filelock \
-    pyyaml \
-    tqdm \
-    requests \
-    packaging
-
-# Install production server dependencies
-RUN pip install --no-cache-dir \
-    gunicorn[gthread] \
-    uvicorn[standard] \
-    prometheus-client \
-    structlog
-
-# -----------------------------------------------------------------------------
+# =============================================================================
 # Stage 2: Runtime
-# -----------------------------------------------------------------------------
-FROM python:3.11-slim as runtime
+# =============================================================================
+FROM python:3.11-slim
 
-ARG BUILD_DATE
-ARG VCS_REF
-ARG VERSION=0.2.0
-
-LABEL maintainer="cmunozdev" \
-      org.label-schema.build-date=$BUILD_DATE \
-      org.label-schema.name="webscout-api-dokploy-lite" \
-      org.label-schema.description="Webscout API Server for Dokploy - Lightweight version" \
-      org.label-schema.url="https://github.com/cmunozdev/Webscout" \
-      org.label-schema.vcs-ref=$VCS_REF \
-      org.label-schema.vcs-url="https://github.com/cmunozdev/Webscout" \
-      org.label-schema.vendor="cmunozdev" \
-      org.label-schema.version=$VERSION
-
-# Create non-root user
-RUN groupadd --gid 1000 webscout && \
-    useradd --uid 1000 --gid webscout --shell /bin/bash --create-home webscout
-
-# Environment variables
-ENV PYTHONUNBUFFERED=1 \
-    PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONPATH=/app \
-    PATH="/opt/venv/bin:$PATH" \
-    PYTHONHASHSEED=random \
-    MALLOC_ARENA_MAX=2 \
-    WEBSCOUT_HOST=0.0.0.0 \
-    WEBSCOUT_PORT=8000 \
-    WEBSCOUT_WORKERS=4 \
-    WEBSCOUT_LOG_LEVEL=info \
-    WEBSCOUT_DEBUG=false \
-    WEBSCOUT_DATA_DIR=/app/data \
-    WEBSCOUT_REQUEST_LOGGING=true \
-    WEBSCOUT_API_TITLE="Webscout OpenAI API" \
-    WEBSCOUT_API_DESCRIPTION="OpenAI API compatible interface for various LLM providers" \
-    WEBSCOUT_API_VERSION="0.2.0" \
-    WEBSCOUT_API_DOCS_URL="/docs" \
-    WEBSCOUT_API_REDOC_URL="/redoc" \
-    WEBSCOUT_API_OPENAPI_URL="/openapi.json" \
-    WEBSCOUT_CORS_ORIGINS="*"
-
-# Install runtime dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libffi8 \
-    libssl3 \
-    curl \
-    ca-certificates \
-    && rm -rf /var/lib/apt/lists/* \
-    && apt-get clean
-
-# Copy virtual environment from builder
-COPY --from=builder /opt/venv /opt/venv
-
-# Setup application directory
 WORKDIR /app
-RUN chown -R webscout:webscout /app
 
-# Create directories
-RUN mkdir -p /app/logs /app/data && \
-    chown -R webscout:webscout /app/logs /app/data
+# Copiar entorno virtual desde builder
+COPY --from=builder /opt/venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Switch to non-root user
-USER webscout
+# Instalar solo dependencias runtime necesarias
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+        curl \
+        ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-# Expose port
+# Copiar código de la aplicación (si existe en el repo)
+COPY . .
+
+# Crear directorios necesarios
+RUN mkdir -p /app/logs /app/data
+
+# Crear usuario no-root
+RUN useradd -m -u 1000 appuser && \
+    chown -R appuser:appuser /app
+
+# Cambiar a usuario no-root
+USER appuser
+
+# Exponer puerto
 EXPOSE 8000
 
+# Variables de entorno por defecto
+ENV WEBSCOUT_HOST=0.0.0.0 \
+    WEBSCOUT_PORT=8000 \
+    WEBSCOUT_WORKERS=1 \
+    WEBSCOUT_LOG_LEVEL=info \
+    PYTHONUNBUFFERED=1
+
 # Health check
-HEALTHCHECK --interval=30s --timeout=10s --start-period=15s --retries=3 \
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:${WEBSCOUT_PORT:-8000}/monitor/health || exit 1
 
-# Start server
-CMD ["python", "-m", "webscout.server.server"]
+# Comando por defecto usando webscout-server
+# Según la documentación: webscout-server es el comando del servidor API
+CMD ["webscout-server"]
