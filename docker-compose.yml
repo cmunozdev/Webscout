@@ -214,7 +214,7 @@ services:
 
     ports:
       - "82:80"
-      - "443:443"
+      - "444:443"
 
     volumes:
       # Mount your own nginx configuration file
